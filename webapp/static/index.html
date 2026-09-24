@@ -3,104 +3,415 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>ArchAI — Proje ve Teklif</title>
-<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+<meta name="color-scheme" content="dark">
+<title>ArchAI — Parametrik Proje ve Teklif</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
 <style>
-:root{--bg:#f5f6f8;--panel:#fff;--ink:#1c2230;--mute:#667085;--line:#e3e6eb;--acc:#1f5eff;--acc2:#e9efff;--ok:#12805c;--bad:#c4321c;--warn:#b25e09}
-@media (prefers-color-scheme:dark){:root{--bg:#0f1218;--panel:#171b23;--ink:#e7eaf0;--mute:#98a2b3;--line:#2a303b;--acc:#6f95ff;--acc2:#1e2740;--ok:#3ccf98;--bad:#ff7a66;--warn:#f0a44a}}
-*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-header{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
-header b{font-size:17px}header span{color:var(--mute)}
-main{display:grid;grid-template-columns:340px 1fr;gap:16px;padding:16px;max-width:1500px;margin:auto}
-@media (max-width:900px){main{grid-template-columns:1fr}}
-.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
-h3{margin:0 0 10px;font-size:14px}label{display:block;font-size:12px;color:var(--mute);margin:8px 0 3px}
-input,select{width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
-.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
-button{padding:9px 12px;border:0;border-radius:7px;background:var(--acc);color:#fff;font:inherit;font-weight:600;cursor:pointer}
-button.sec{background:var(--acc2);color:var(--acc)}button:disabled{opacity:.5;cursor:wait}
-.seg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:3px;gap:3px;margin-bottom:6px}
-.seg button{flex:1;background:none;color:var(--mute);padding:6px}.seg button.on{background:var(--panel);color:var(--ink);box-shadow:0 1px 2px #0002}
-.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:-14px -14px 14px;padding:0 10px;overflow-x:auto}
-.tabs button{background:none;color:var(--mute);border-radius:0;padding:11px 12px;border-bottom:2px solid transparent;white-space:nowrap}
-.tabs button.on{color:var(--acc);border-color:var(--acc)}
-.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px}
-.kpi{border:1px solid var(--line);border-radius:8px;padding:10px}.kpi small{color:var(--mute);display:block}.kpi b{font-size:18px}
-table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:6px 7px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
-th{color:var(--mute);font-weight:600;font-size:12px;position:sticky;top:0;background:var(--panel)}td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
-td input,td select{padding:4px 6px}td input.num{text-align:right;width:110px}
+:root{
+  --void:#04070c;--glass:rgba(9,17,27,.66);
+  --line:rgba(120,210,255,.13);--line-hi:rgba(120,210,255,.32);
+  --ink:#e6f1f8;--mute:#7f98ab;--dim:#4d6475;
+  --cy:#3ee8ff;--cy-soft:rgba(62,232,255,.14);--blue:#3d7bff;--ok:#3cffa6;--bad:#ff5d6c;--warn:#ffb547;
+  --mono:"JetBrains Mono",ui-monospace,monospace;--sans:"Space Grotesk",system-ui,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;min-height:100%}
+body{background:var(--void);color:var(--ink);font:14px/1.5 var(--sans);-webkit-font-smoothing:antialiased;
+  background-image:
+    radial-gradient(1200px 700px at 70% -10%,rgba(61,123,255,.16),transparent 60%),
+    radial-gradient(900px 600px at -10% 110%,rgba(62,232,255,.08),transparent 60%),
+    linear-gradient(rgba(62,232,255,.055) 1px,transparent 1px),linear-gradient(90deg,rgba(62,232,255,.055) 1px,transparent 1px),
+    linear-gradient(rgba(62,232,255,.022) 1px,transparent 1px),linear-gradient(90deg,rgba(62,232,255,.022) 1px,transparent 1px);
+  background-size:auto,auto,120px 120px,120px 120px,24px 24px,24px 24px;background-attachment:fixed}
+::selection{background:var(--cy);color:#001018}
+.mono{font-family:var(--mono)}
+
+/* ---------- üst bar */
+.bar{display:flex;align-items:center;gap:16px;padding:14px 22px;border-bottom:1px solid var(--line);
+  background:linear-gradient(180deg,rgba(4,7,12,.9),rgba(4,7,12,.55));backdrop-filter:blur(10px);position:sticky;top:0;z-index:5}
+.logo{display:flex;align-items:center;gap:11px}
+.logo b{font-weight:700;letter-spacing:.2em;font-size:15px}
+.logo small{display:block;font:500 10px var(--mono);color:var(--mute);letter-spacing:.16em}
+.bar .sp{flex:1}
+.chip{font:500 10.5px var(--mono);letter-spacing:.12em;color:var(--mute);border:1px solid var(--line);padding:5px 10px;border-radius:99px;display:flex;gap:7px;align-items:center}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--ok);box-shadow:0 0 10px var(--ok)}
+.chip.busy .dot{background:var(--warn);box-shadow:0 0 10px var(--warn);animation:pulse .8s infinite alternate}
+@keyframes pulse{to{opacity:.3}}
+
+/* ---------- yerleşim */
+.grid{display:grid;grid-template-columns:350px minmax(0,1fr);gap:18px;padding:18px 22px 40px;max-width:1680px;margin:auto}
+.grid>*,.stage>*{min-width:0}
+.vp canvas{max-width:100%}
+@media (max-width:980px){.grid{grid-template-columns:minmax(0,1fr);padding:12px 16px 30px}.bar{padding:12px 16px}.bar .chip.opt{display:none}.stage{order:-1}.vp{height:58vh;min-height:340px}}
+.glass{position:relative;background:var(--glass);border:1px solid var(--line);border-radius:14px;backdrop-filter:blur(16px) saturate(130%);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.04),0 24px 70px rgba(0,0,0,.5)}
+/* mimari kesim işaretleri */
+.glass::before,.glass::after{content:"";position:absolute;width:14px;height:14px;pointer-events:none;border-color:var(--cy);opacity:.55}
+.glass::before{top:-1px;left:-1px;border-top:1px solid;border-left:1px solid;border-top-left-radius:14px}
+.glass::after{bottom:-1px;right:-1px;border-bottom:1px solid;border-right:1px solid;border-bottom-right-radius:14px}
+.pad{padding:18px}
+.sec-t{font:600 10.5px var(--mono);letter-spacing:.18em;color:var(--cy);margin:0 0 12px;display:flex;align-items:center;gap:8px}
+.sec-t::after{content:"";flex:1;height:1px;background:linear-gradient(90deg,var(--line-hi),transparent)}
+
+/* ---------- form */
+label{display:block;font:500 10px var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--mute);margin:12px 0 5px}
+input,select{width:100%;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:rgba(2,6,11,.6);color:var(--ink);
+  font:500 13.5px var(--mono);transition:border-color .15s,box-shadow .15s}
+input:focus,select:focus{outline:0;border-color:var(--cy);box-shadow:0 0 0 3px var(--cy-soft),0 0 18px rgba(62,232,255,.18)}
+input[type=file]{font-size:12px;padding:8px}
+select option{background:#0b1522}
+.r2{display:grid;grid-template-columns:1fr 1fr;gap:10px}.r3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.check{display:flex;gap:9px;align-items:center;margin:14px 0 2px;font:500 12px var(--mono);color:var(--ink);text-transform:none;letter-spacing:.02em;cursor:pointer}
+.check input{width:16px;height:16px;accent-color:var(--cy)}
+button{font:600 13px var(--sans);cursor:pointer;border:0;border-radius:9px;color:var(--ink);background:transparent;transition:transform .12s,box-shadow .2s,background .2s,color .2s}
+button:active{transform:translateY(1px)}
+.primary{width:100%;margin-top:16px;padding:13px;letter-spacing:.14em;font:600 12.5px var(--mono);color:#00131a;
+  background:linear-gradient(100deg,var(--cy),#7ab6ff 60%,var(--blue));box-shadow:0 0 0 1px rgba(62,232,255,.5),0 10px 30px rgba(62,232,255,.22)}
+.primary:hover{box-shadow:0 0 0 1px var(--cy),0 12px 40px rgba(62,232,255,.4)}
+.primary:disabled{filter:grayscale(.7) brightness(.7);cursor:wait}
+.ghost{display:inline-block;border:1px solid var(--line-hi);padding:8px 12px;color:var(--cy);font:500 11.5px var(--mono);letter-spacing:.08em;border-radius:9px;text-decoration:none}
+.ghost:hover{background:var(--cy-soft)}
+.seg{display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:4px;border:1px solid var(--line);border-radius:10px;background:rgba(2,6,11,.55)}
+.seg button{padding:8px 4px;font:500 11px var(--mono);letter-spacing:.1em;color:var(--mute);border-radius:7px}
+.seg button.on{color:#00131a;background:var(--cy);box-shadow:0 0 16px rgba(62,232,255,.35)}
+.err{display:none;margin-top:10px;padding:9px 10px;border:1px solid rgba(255,93,108,.4);background:rgba(255,93,108,.08);color:var(--bad);border-radius:8px;font:500 12px var(--mono)}
+.recent a{display:flex;justify-content:space-between;gap:10px;padding:9px 2px;border-bottom:1px dashed var(--line);text-decoration:none;color:var(--ink);font-size:13px}
+.recent a:hover{color:var(--cy)}.recent small{font:500 11px var(--mono);color:var(--mute);white-space:nowrap}
+
+/* ---------- 3D sahne */
+.stage{display:grid;gap:18px;min-width:0;align-content:start}
+.vp{height:min(62vh,640px);min-height:380px;overflow:hidden;padding:0}
+.vp canvas{display:block;width:100%;height:100%;border-radius:14px}
+.hud{position:absolute;pointer-events:none;font-family:var(--mono)}
+.hud *{pointer-events:auto}
+.hud.tl{top:16px;left:18px}.hud.tr{top:14px;right:14px;display:flex;gap:6px}.hud.bl{left:18px;bottom:16px}.hud.br{right:16px;bottom:14px}
+.hud .pname{font:600 20px var(--sans);letter-spacing:.01em;text-shadow:0 0 24px rgba(62,232,255,.35)}
+.hud .meta{font-size:10.5px;letter-spacing:.14em;color:var(--mute);margin-top:3px}
+.vbtn{font:500 10.5px var(--mono);letter-spacing:.12em;padding:7px 10px;border:1px solid var(--line-hi);background:rgba(4,8,14,.6);color:var(--mute);border-radius:7px;backdrop-filter:blur(6px)}
+.vbtn.on{color:var(--cy);border-color:var(--cy);box-shadow:inset 0 0 12px rgba(62,232,255,.18)}
+.stats{display:flex;gap:18px}
+.stats div{min-width:110px}.stats small{display:block;font-size:9.5px;letter-spacing:.16em;color:var(--mute)}
+.stats b{font:600 17px var(--mono);color:var(--ink)}.stats b.hl{color:var(--cy);text-shadow:0 0 16px rgba(62,232,255,.4)}
+.slider{display:flex;align-items:center;gap:10px;padding:8px 12px;border:1px solid var(--line-hi);border-radius:9px;background:rgba(4,8,14,.6);backdrop-filter:blur(6px);font-size:10.5px;letter-spacing:.12em;color:var(--mute)}
+.slider input{width:160px;padding:0;accent-color:var(--cy);background:none;border:0;box-shadow:none}
+.slider b{color:var(--cy);min-width:62px;font-weight:600}
+@media (max-width:700px){.stats div:nth-child(n+2){display:none}.hud.bl{bottom:68px}.slider input{width:120px}
+  .hud.tr{flex-wrap:wrap;justify-content:flex-end;max-width:48%}.hud.tl{max-width:50%}.hud .pname{font-size:16px}.hud .meta{font-size:9.5px}
+}
+.scan{position:absolute;inset:0;border-radius:14px;display:none;overflow:hidden;background:rgba(4,7,12,.35)}
+.scan::before{content:"";position:absolute;left:0;right:0;height:120px;background:linear-gradient(180deg,transparent,rgba(62,232,255,.22),transparent);animation:scan 1.6s linear infinite}
+@keyframes scan{from{top:-120px}to{top:100%}}
+.scan div{position:absolute;inset:auto 0 50% 0;text-align:center;font:600 12px var(--mono);letter-spacing:.3em;color:var(--cy);text-shadow:0 0 18px var(--cy)}
+
+/* ---------- modül paneli */
+.tabs{display:flex;gap:2px;padding:6px 8px 0;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.tabs button{padding:12px 13px 11px;font:500 11px var(--mono);letter-spacing:.12em;color:var(--mute);border-radius:0;border-bottom:2px solid transparent;white-space:nowrap}
+.tabs button i{font-style:normal;color:var(--dim);margin-right:6px}
+.tabs button.on{color:var(--cy);border-color:var(--cy)}.tabs button.on i{color:var(--cy)}
+.tabs button:hover{color:var(--ink)}
+#view{padding:18px;min-height:220px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:12px;margin-bottom:18px}
+.kpi{border:1px solid var(--line);border-radius:11px;padding:13px 14px;background:linear-gradient(160deg,rgba(62,232,255,.06),transparent 55%)}
+.kpi small{display:block;font:500 9.5px var(--mono);letter-spacing:.16em;color:var(--mute);text-transform:uppercase}
+.kpi b{display:block;font:600 19px var(--mono);margin-top:5px}.kpi.hl b{color:var(--cy);text-shadow:0 0 18px rgba(62,232,255,.35)}
+table{width:100%;border-collapse:collapse;font-size:13px}
+th{font:500 9.5px var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--mute);text-align:left;padding:9px 8px;border-bottom:1px solid var(--line-hi);position:sticky;top:0;background:#08111b;z-index:1}
+td{padding:8px;border-bottom:1px solid var(--line);vertical-align:middle}
+tr:hover td{background:rgba(62,232,255,.035)}
+td.n,th.n{text-align:right;font-family:var(--mono);font-variant-numeric:tabular-nums}
+td.code{font:500 11.5px var(--mono);color:var(--cy)}
+td input,td select{padding:6px 8px;font-size:12.5px}td input.num{width:112px;text-align:right}
+.scroll{max-height:560px;overflow:auto;border:1px solid var(--line);border-radius:10px}
 .ok{color:var(--ok)}.bad{color:var(--bad)}.warn{color:var(--warn)}
-.note{color:var(--mute);font-size:12px;margin-top:8px}
-.sheets{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
-.sheet{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}.sheet img{width:100%;display:block;cursor:zoom-in}
-.sheet div{padding:6px 8px;display:flex;justify-content:space-between;background:var(--panel);font-size:12px}
-a{color:var(--acc)}.dl{display:flex;flex-wrap:wrap;gap:8px}.dl a{padding:10px 14px;border:1px solid var(--line);border-radius:8px;text-decoration:none;background:var(--bg)}
-.empty{color:var(--mute);text-align:center;padding:60px 10px}
-.list a{display:block;padding:6px 0;border-bottom:1px solid var(--line);text-decoration:none;font-size:13px}.list small{color:var(--mute)}
-.totals td{border:0;padding:3px 7px}.totals tr.big td{font-weight:700;font-size:15px;border-top:1px solid var(--line)}
-model-viewer{width:100%;height:520px;background:var(--bg);border-radius:8px}
-#zoom{position:fixed;inset:0;background:#000c;display:none;align-items:center;justify-content:center;z-index:9}#zoom img{max-width:96vw;max-height:96vh;background:#fff}
-.err{background:#c4321c22;color:var(--bad);padding:8px;border-radius:6px;margin-top:8px;display:none}
-.spin{display:none;color:var(--mute);margin-top:8px}
+.flag{display:inline-block;font:600 10px var(--mono);letter-spacing:.12em;padding:3px 8px;border-radius:99px;border:1px solid currentColor}
+.warnbox{border:1px solid rgba(255,181,71,.35);background:rgba(255,181,71,.07);color:var(--warn);padding:9px 12px;border-radius:9px;font:500 12px var(--mono);margin-bottom:12px}
+.note{color:var(--mute);font-size:12px;margin-top:10px}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:18px;margin-top:16px;align-items:start}
+@media (max-width:900px){.cols{grid-template-columns:1fr}}
+.totals{border:1px solid var(--line-hi);border-radius:11px;padding:14px;background:linear-gradient(160deg,rgba(62,232,255,.07),transparent 60%)}
+.totals div{display:flex;justify-content:space-between;padding:5px 0;font:500 12.5px var(--mono);color:var(--mute)}
+.totals div b{color:var(--ink);font-weight:500}
+.totals .big{border-top:1px solid var(--line-hi);margin-top:6px;padding-top:10px;color:var(--ink)}
+.totals .big b{font:600 20px var(--mono);color:var(--cy);text-shadow:0 0 18px rgba(62,232,255,.35)}
+.sheets{display:grid;grid-template-columns:repeat(auto-fill,minmax(310px,1fr));gap:14px}
+.sheet{border:1px solid var(--line);border-radius:11px;overflow:hidden;background:#02070d;transition:border-color .2s,box-shadow .2s}
+.sheet:hover{border-color:var(--cy);box-shadow:0 0 30px rgba(62,232,255,.15)}
+.sheet img,.bp{filter:invert(1) sepia(1) saturate(4) hue-rotate(150deg) brightness(1.05) contrast(1.05)}
+.sheet img{width:100%;display:block;cursor:zoom-in;aspect-ratio:1.414;object-fit:cover}
+.sheet div{display:flex;justify-content:space-between;align-items:center;padding:9px 12px;border-top:1px solid var(--line);font:500 11px var(--mono);letter-spacing:.1em;text-transform:uppercase}
+a{color:var(--cy)}
+.docs{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:12px}
+.doc{display:block;padding:16px;border:1px solid var(--line);border-radius:11px;text-decoration:none;color:var(--ink);background:linear-gradient(160deg,rgba(62,232,255,.05),transparent 60%);transition:border-color .2s,transform .2s}
+.doc:hover{border-color:var(--cy);transform:translateY(-2px)}
+.doc small{display:block;font:500 10px var(--mono);letter-spacing:.14em;color:var(--cy);margin-bottom:6px}
+.doc b{font-weight:600}.doc span{display:block;color:var(--mute);font-size:12px;margin-top:4px}
+details{border:1px solid var(--line);border-radius:9px;margin-top:8px;padding:2px 10px}
+summary{cursor:pointer;padding:9px 0;font:500 12px var(--mono);letter-spacing:.06em}
+.renders{display:grid;grid-template-columns:1fr 1fr;gap:12px}.renders img{width:100%;border-radius:10px;border:1px solid var(--line)}
+@media (max-width:700px){.renders{grid-template-columns:1fr}}
+.empty{text-align:center;color:var(--mute);padding:50px 10px;font:500 12px var(--mono);letter-spacing:.1em}
+#zoom{position:fixed;inset:0;background:rgba(2,5,9,.92);display:none;align-items:center;justify-content:center;z-index:20;backdrop-filter:blur(6px)}
+#zoom img{max-width:96vw;max-height:94vh;border:1px solid var(--line-hi);border-radius:8px}
+@media (max-width:700px){.kpis{grid-template-columns:1fr 1fr}.kpi b{font-size:15px}}
+@media (prefers-reduced-motion:reduce){.scan::before,.chip.busy .dot{animation:none}}
 </style>
 </head>
 <body>
-<header><b>ArchAI</b><span>Arazi / m² / plan → çizim, metraj, maliyet, şartname, teklif</span></header>
-<main>
-<aside>
-  <div class="card">
-    <div class="seg" id="mode"><button data-m="land" class="on">Arazi</button><button data-m="quick">Hızlı teklif</button><button data-m="dxf">DXF plan</button></div>
-    <label>Proje adı</label><input id="name" value="Yeni Konut Projesi">
+<header class="bar">
+  <div class="logo">
+    <svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="#3ee8ff" stroke-width="1.4" aria-hidden="true">
+      <path d="M17 3 30 10.5v13L17 31 4 23.5v-13Z" opacity=".9"/><path d="M17 3v28M4 10.5l13 7.5 13-7.5" opacity=".5"/><path d="M10.5 14.2v9.3M23.5 14.2v9.3" opacity=".35"/>
+    </svg>
+    <div><b>ARCHAI</b><small>PARAMETRİK PROJE · TEKLİF MOTORU</small></div>
+  </div>
+  <div class="sp"></div>
+  <div class="chip opt">ARAZİ → PLAN → ÇİZİM → METRAJ → TEKLİF</div>
+  <div class="chip" id="status"><span class="dot"></span><span id="stxt">SİSTEM HAZIR</span></div>
+</header>
+
+<main class="grid">
+<aside style="display:grid;gap:18px;align-content:start">
+  <div class="glass pad">
+    <p class="sec-t">GİRDİ</p>
+    <div class="seg" id="mode"><button data-m="land" class="on">ARAZİ</button><button data-m="quick">HIZLI m²</button><button data-m="dxf">DXF PLAN</button></div>
+    <label for="name">Proje adı</label><input id="name" value="Yeni Konut Projesi">
     <div data-show="land">
-      <div class="row"><div><label>Parsel cephe (m)</label><input id="pw" type="number" value="30"></div><div><label>Parsel derinlik (m)</label><input id="pd" type="number" value="28"></div></div>
-      <div class="row"><div><label>TAKS</label><input id="taks" type="number" step="0.01" value="0.40"></div><div><label>KAKS / Emsal</label><input id="kaks" type="number" step="0.05" value="2.00"></div></div>
-      <div class="row3"><div><label>Ön çekme</label><input id="fr" type="number" value="5"></div><div><label>Yan çekme</label><input id="sd" type="number" value="3"></div><div><label>Arka çekme</label><input id="rr" type="number" value="3"></div></div>
-      <div class="row"><div><label>Maks. kat</label><input id="mf" type="number" value="6"></div><div><label>Kat yüksekliği (m)</label><input id="fh" type="number" step="0.1" value="3.0"></div></div>
+      <div class="r2"><div><label for="pw">Parsel cephe · m</label><input id="pw" type="number" value="30"></div><div><label for="pd">Parsel derinlik · m</label><input id="pd" type="number" value="28"></div></div>
+      <div class="r2"><div><label for="taks">TAKS</label><input id="taks" type="number" step="0.01" value="0.40"></div><div><label for="kaks">KAKS / Emsal</label><input id="kaks" type="number" step="0.05" value="2.00"></div></div>
+      <div class="r3"><div><label for="fr">Ön çekme</label><input id="fr" type="number" value="5"></div><div><label for="sd">Yan çekme</label><input id="sd" type="number" value="3"></div><div><label for="rr">Arka çekme</label><input id="rr" type="number" value="3"></div></div>
+      <div class="r2"><div><label for="mf">Maks. kat</label><input id="mf" type="number" value="6"></div><div><label for="fh">Kat yüksekliği · m</label><input id="fh" type="number" step="0.1" value="3.0"></div></div>
     </div>
     <div data-show="quick" hidden>
-      <div class="row"><div><label>Toplam brüt alan (m²)</label><input id="qa" type="number" value="600"></div><div><label>Kat sayısı</label><input id="qf" type="number" value="3"></div></div>
+      <div class="r2"><div><label for="qa">Toplam brüt · m²</label><input id="qa" type="number" value="600"></div><div><label for="qf">Kat sayısı</label><input id="qf" type="number" value="3"></div></div>
     </div>
     <div data-show="land quick">
-      <div class="row"><div><label>Daire tipi</label><select id="ut"><option value="auto">Otomatik</option><option>1+1</option><option selected>2+1</option><option>3+1</option><option>4+1</option></select></div>
-      <div><label>Kat başına daire</label><select id="upf"><option value="auto">Otomatik</option><option value="1">1</option><option value="2">2</option></select></div></div>
+      <div class="r2"><div><label for="ut">Daire tipi</label><select id="ut"><option value="auto">Otomatik</option><option>1+1</option><option selected>2+1</option><option>3+1</option><option>4+1</option></select></div>
+      <div><label for="upf">Kat başına daire</label><select id="upf"><option value="auto">Otomatik</option><option value="1">1</option><option value="2">2</option></select></div></div>
     </div>
     <div data-show="dxf" hidden>
-      <label>Plan (.dxf — katmanlar: DUVAR, PENCERE, KAPI, MAHAL)</label><input id="file" type="file" accept=".dxf">
-      <div class="row"><div><label>Kat sayısı</label><input id="df" type="number" value="1"></div><div><label>Kat yüksekliği (m)</label><input id="dfh" type="number" step="0.1" value="3.0"></div></div>
+      <label for="file">Plan · .dxf (DUVAR · PENCERE · KAPI · MAHAL)</label><input id="file" type="file" accept=".dxf">
+      <div class="r2"><div><label for="df">Kat sayısı</label><input id="df" type="number" value="1"></div><div><label for="dfh">Kat yüksekliği · m</label><input id="dfh" type="number" step="0.1" value="3.0"></div></div>
     </div>
-    <div class="row"><div><label>Firma</label><input id="co" placeholder="[Firma Adı]"></div><div><label>Müşteri</label><input id="cu" placeholder="[Müşteri Adı]"></div></div>
-    <label style="display:flex;gap:6px;align-items:center;margin-top:10px;color:var(--ink)"><input id="r3d" type="checkbox" style="width:auto"> 3D model de üret (Blender)</label>
-    <button id="go" style="width:100%;margin-top:12px">Projeyi oluştur</button>
-    <div class="spin" id="spin">Hazırlanıyor…</div><div class="err" id="err"></div>
+    <div class="r2"><div><label for="co">Firma</label><input id="co" placeholder="Firma adı"></div><div><label for="cu">Müşteri</label><input id="cu" placeholder="Müşteri adı"></div></div>
+    <label class="check"><input id="r3d" type="checkbox"> Blender render + GLB de üret</label>
+    <button class="primary" id="go">▶ PROJEYİ ÜRET</button>
+    <div class="err" id="err"></div>
   </div>
-  <div class="card" style="margin-top:16px"><h3>Son projeler</h3><div class="list" id="recent"></div></div>
+  <div class="glass pad"><p class="sec-t">ARŞİV</p><div class="recent" id="recent"></div></div>
 </aside>
-<section class="card" id="out">
-  <div class="tabs" id="tabs">
-    <button data-t="ozet" class="on">Özet</button><button data-t="cizim">Çizimler</button><button data-t="metraj">Metraj</button>
-    <button data-t="maliyet">Maliyet ve fiyat</button><button data-t="belge">Belgeler</button><button data-t="3d">3D</button>
+
+<section class="stage">
+  <div class="glass vp" id="vp">
+    <canvas id="cv"></canvas>
+    <div class="hud tl"><div class="pname" id="hname">—</div><div class="meta" id="hmeta">3D ÖN TASARIM</div></div>
+    <div class="hud tr">
+      <button class="vbtn on" data-vm="wire">TEL</button><button class="vbtn" data-vm="xray">X-RAY</button><button class="vbtn" data-vm="solid">KATI</button>
+      <button class="vbtn on" id="rot" title="Otomatik döndür" aria-label="Otomatik döndür">⟳</button><button class="vbtn" id="fit" title="Kadrajı sıfırla" aria-label="Kadrajı sıfırla">⌖</button>
+    </div>
+    <div class="hud bl"><div class="stats" id="hstats"></div></div>
+    <div class="hud br"><div class="slider"><span>KESİT</span><input id="lv" type="range" min="1" max="1" value="1" aria-label="Gösterilen kat"><b id="lvt">—</b></div></div>
+    <div class="scan" id="scan"><div id="scantxt">PLAN ÜRETİLİYOR</div></div>
   </div>
-  <div id="view"><div class="empty">Soldan bilgileri girip <b>Projeyi oluştur</b>'a basın.</div></div>
+  <div class="glass">
+    <div class="tabs" id="tabs">
+      <button data-t="ozet" class="on"><i>01</i>ÖZET</button><button data-t="cizim"><i>02</i>ÇİZİMLER</button><button data-t="metraj"><i>03</i>METRAJ</button>
+      <button data-t="maliyet"><i>04</i>MALİYET · FİYAT</button><button data-t="belge"><i>05</i>BELGELER</button><button data-t="3d"><i>06</i>RENDER</button>
+    </div>
+    <div id="view"><div class="empty">SOLDAN BİLGİLERİ GİRİP “PROJEYİ ÜRET”E BASIN</div></div>
+  </div>
 </section>
 </main>
-<div id="zoom" onclick="this.style.display='none'"><img></div>
-<script>
+<div id="zoom"><img alt=""></div>
+
+<script type="module">
+import * as THREE from 'three';
+import {OrbitControls} from 'three/addons/controls/OrbitControls.js';
+import {EffectComposer} from 'three/addons/postprocessing/EffectComposer.js';
+import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
+import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
+import {OutputPass} from 'three/addons/postprocessing/OutputPass.js';
+
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const tl=v=>v==null?'—':v.toLocaleString('tr-TR',{style:'currency',currency:'TRY',maximumFractionDigits:0});
 const n2=v=>v==null?'—':Number(v).toLocaleString('tr-TR',{maximumFractionDigits:2});
 const SHEET={vaziyet:'Vaziyet planı',zemin_kat_plani:'Zemin kat planı',normal_kat_plani:'Normal kat planı',kesit_AA:'A-A kesiti',on_gorunus:'Ön görünüş'};
 let mode='land', P=null, tab='ozet', adj={}, timer=null;
 
+/* ================================================================ 3D viewport */
+const V={};
+function initViewport(){
+  const cv=$('#cv'), host=$('#vp');
+  const R=new THREE.WebGLRenderer({canvas:cv,antialias:true,alpha:true});
+  R.setPixelRatio(Math.min(devicePixelRatio,2));
+  R.toneMapping=THREE.ACESFilmicToneMapping;
+  const S=new THREE.Scene(); S.fog=new THREE.FogExp2(0x04070c,0.0065);
+  const C=new THREE.PerspectiveCamera(38,1,0.1,3000);
+  const O=new OrbitControls(C,cv); O.enableDamping=true; O.dampingFactor=.07; O.autoRotate=!matchMedia('(prefers-reduced-motion:reduce)').matches; O.autoRotateSpeed=.55; O.maxPolarAngle=Math.PI*.49;
+  S.add(new THREE.HemisphereLight(0x9fdcff,0x05080c,.9));
+  const sun=new THREE.DirectionalLight(0xffffff,1.4); sun.position.set(-60,120,80); S.add(sun);
+  const g1=new THREE.GridHelper(600,120,0x1b5f73,0x0f2d3b); g1.material.transparent=true; g1.material.opacity=.35; S.add(g1);
+  const g2=new THREE.GridHelper(600,600,0x0c2330,0x0c2330); g2.material.transparent=true; g2.material.opacity=.18; g2.position.y=-.01; S.add(g2);
+  const comp=new EffectComposer(R); comp.addPass(new RenderPass(S,C));
+  const bloom=new UnrealBloomPass(new THREE.Vector2(1,1),.45,.45,.3); comp.addPass(bloom); comp.addPass(new OutputPass());
+  Object.assign(V,{R,S,C,O,comp,bloom,root:new THREE.Group(),levels:[],mode:'wire',t0:0});
+  S.add(V.root);
+  V.mat={
+    edge:new THREE.LineBasicMaterial({color:0x3ee8ff,transparent:true,opacity:.85}),
+    edgeDim:new THREE.LineBasicMaterial({color:0x3ee8ff,transparent:true,opacity:.28}),
+    edgeIn:new THREE.LineBasicMaterial({color:0x6fcfff,transparent:true,opacity:.16}),
+    edgeSite:new THREE.LineBasicMaterial({color:0x3cffa6,transparent:true,opacity:.9}),
+    edgeSet:new THREE.LineDashedMaterial({color:0xffb547,dashSize:.8,gapSize:.6,transparent:true,opacity:.75}),
+    face:new THREE.MeshStandardMaterial({color:0x14222f,roughness:.75,metalness:.15,transparent:true,opacity:0,depthWrite:false}),
+    slab:new THREE.MeshStandardMaterial({color:0x10202d,roughness:.8,metalness:.1,transparent:true,opacity:0,depthWrite:false}),
+    glass:new THREE.MeshBasicMaterial({color:0x3ee8ff,transparent:true,opacity:.16,side:THREE.DoubleSide,depthWrite:false}),
+    site:new THREE.MeshBasicMaterial({color:0x3cffa6,transparent:true,opacity:.035,side:THREE.DoubleSide,depthWrite:false}),
+    tree:new THREE.MeshBasicMaterial({color:0x3cffa6,wireframe:true,transparent:true,opacity:.35}),
+  };
+  const resize=()=>{const w=host.clientWidth,h=host.clientHeight;R.setSize(w,h,false);comp.setSize(w,h);bloom.setSize(w,h);C.aspect=w/h;C.updateProjectionMatrix();};
+  new ResizeObserver(resize).observe(host); resize();
+  // katlar sırayla yükselir: grup ofseti + malzeme opaklığı yerine görünürlük/ölçek (paylaşılan malzemeler bozulmasın)
+  const loop=()=>{
+    requestAnimationFrame(loop); O.update();
+    const now=performance.now();
+    V.levels.forEach((L,i)=>{
+      const k=Math.min(1,Math.max(0,(now-V.t0-i*140)/650)), e=1-Math.pow(1-k,3);
+      L.group.position.y=(1-e)*-5; L.group.scale.y=.2+.8*e; L.group.visible=L.show&&k>0;
+    });
+    comp.render();
+  };
+  requestAnimationFrame(loop);
+  $$('[data-vm]').forEach(b=>b.onclick=()=>{$$('[data-vm]').forEach(x=>x.classList.toggle('on',x===b));setMode(b.dataset.vm);});
+  $('#rot').onclick=()=>{O.autoRotate=!O.autoRotate;$('#rot').classList.toggle('on',O.autoRotate);};
+  $('#rot').classList.toggle('on',O.autoRotate);
+  $('#fit').onclick=()=>fit();
+  $('#lv').oninput=()=>applyLevels();
+}
+
+function setMode(m){
+  V.mode=m; const M=V.mat;
+  M.face.opacity={wire:0,xray:.10,solid:.94}[m]; M.face.depthWrite=m==='solid';
+  M.slab.opacity={wire:.05,xray:.14,solid:.97}[m]; M.slab.depthWrite=m==='solid';
+  M.edge.opacity=m==='solid'?.6:.8; M.edgeIn.opacity={wire:.16,xray:.22,solid:.12}[m];
+  V.bloom.strength=(m==='solid'?.25:.45)*(V.dense?.6:1);
+}
+
+// eleman listesi → sahne (plan x,y,z → three x, z, -y)
+function edgesOf(geo,mat){return new THREE.LineSegments(new THREE.EdgesGeometry(geo,20),mat);}
+function addBox(g,cx,cy,z0,L,T,H,ang,faceMat,edgeMat){
+  const geo=new THREE.BoxGeometry(L,H,T);
+  const grp=new THREE.Group(); grp.position.set(cx,z0+H/2,-cy); grp.rotation.y=ang;
+  grp.add(new THREE.Mesh(geo,faceMat), edgesOf(geo,edgeMat)); g.add(grp);
+}
+function buildWall(g,w){
+  const [x0,y0]=w.start,[x1,y1]=w.end, L=Math.hypot(x1-x0,y1-y0); if(L<1e-4)return;
+  const ux=(x1-x0)/L, uy=(y1-y0)/L, ang=Math.atan2(uy,ux), T=w.thickness||.2, H=w.height||2.8, zb=w.base_z||0;
+  const at=s=>[x0+ux*s,y0+uy*s];
+  const em=T>=.2?V.mat.edge:V.mat.edgeIn;  // iç bölme duvarları sönük: yoğun planda parlama sisi olmasın
+  const seg=(a,b,za,zt)=>{if(b-a<1e-3||zt-za<1e-3)return;const [cx,cy]=at((a+b)/2);addBox(g,cx,cy,zb+za,b-a,T,zt-za,ang,V.mat.face,em);};
+  let cur=0; const ops=[...(w.openings||[])].sort((a,b)=>a.offset-b.offset);
+  for(const o of ops){
+    const a=o.offset,b=a+o.width,door=o.kind==='door',sill=door?0:(o.sill??.9),top=sill+(o.height??(door?2.1:1.4));
+    seg(cur,a,0,H); seg(a,b,0,sill); seg(a,b,top,H);
+    if(!door){const [cx,cy]=at((a+b)/2);const p=new THREE.Mesh(new THREE.PlaneGeometry(b-a,top-sill),V.mat.glass);p.position.set(cx,zb+(sill+top)/2,-cy);p.rotation.y=ang;g.add(p);}
+    cur=b;
+  }
+  seg(cur,L,0,H);
+}
+function shapeOf(pts){const s=new THREE.Shape();pts.forEach(([x,y],i)=>i?s.lineTo(x,y):s.moveTo(x,y));s.closePath();return s;}
+function buildSlab(g,e){
+  const t=e.thickness||.2, pts=e.points, role=e.role;
+  if(role==='site'){
+    const ring=[...pts,pts[0]].map(([x,y])=>new THREE.Vector3(x,.03,-y));
+    g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(ring),V.mat.edgeSite));
+    const m=new THREE.Mesh(new THREE.ShapeGeometry(shapeOf(pts)),V.mat.site);m.rotation.x=-Math.PI/2;m.position.y=.02;g.add(m);
+    return;
+  }
+  const geo=new THREE.ExtrudeGeometry(shapeOf(pts),{depth:t,bevelEnabled:false});
+  const m=new THREE.Mesh(geo,e.tag==='water'?V.mat.glass:V.mat.slab);
+  m.rotation.x=-Math.PI/2; m.position.y=(e.z||0)-t;
+  const ed=edgesOf(geo,role==='paving'?V.mat.edgeDim:V.mat.edge); ed.rotation.x=-Math.PI/2; ed.position.y=m.position.y;
+  g.add(m,ed);
+}
+function build(elements,zoning){
+  V.root.clear(); V.levels=[]; V.dense=elements.filter(e=>e.type==='wall').length>150;
+  const byLevel=new Map(), lvlOf=e=>e.level||'0';
+  for(const e of elements){
+    if(!byLevel.has(lvlOf(e)))byLevel.set(lvlOf(e),{name:lvlOf(e),z:1e9,items:[]});
+    const L=byLevel.get(lvlOf(e)); L.items.push(e);
+    const z=e.type==='slab'?(e.z||0):e.type==='wall'?(e.base_z||0):(e.z??(e.origin?e.origin[2]:1e9));
+    L.z=Math.min(L.z,z);
+  }
+  const site=byLevel.get('Arsa'); byLevel.delete('Arsa');
+  const lv=[...byLevel.values()].sort((a,b)=>a.z-b.z);
+  const mk=L=>{const group=new THREE.Group();for(const e of L.items){
+    if(e.type==='wall')buildWall(group,e);
+    else if(e.type==='slab')buildSlab(group,e);
+    else if(e.type==='box'){const [ox,oy,oz]=e.origin,[sx,sy,sz]=e.size;addBox(group,ox+sx/2,oy+sy/2,oz,sx,sy,sz,0,V.mat.face,V.mat.edge);}
+    else if(e.type==='stairs'){const [ox,oy,oz]=e.origin,r=(e.rotation_z||0)*Math.PI/180,run=e.run||.28,w=e.width||1.2;
+      for(let i=0;i<(e.steps||10);i++){const d=(i+.5)*run,cx=ox+Math.cos(r)*d-Math.sin(r)*w/2,cy=oy+Math.sin(r)*d+Math.cos(r)*w/2;addBox(group,cx,cy,oz,run,w,(i+1)*(e.rise||.17),r,V.mat.face,V.mat.edgeDim);}}
+    else if(e.type==='tree'){const [x,y]=e.position,h=e.height||5;const m=new THREE.Mesh(new THREE.IcosahedronGeometry(h*.28,1),V.mat.tree);m.position.set(x,(e.base_z||0)+h*.65,-y);group.add(m);}
+  }
+  V.root.add(group);return {name:L.name,group,show:true,site:false};};
+  if(site){
+    const s=mk(site); s.site=true;
+    const pr=site.items.find(e=>e.name==='parsel');
+    if(pr&&zoning&&zoning.front!=null){  // imar çekme hattı
+      const W=pr.points[1][0],D=pr.points[2][1],f=zoning.front,sd=zoning.side,r=zoning.rear;
+      const pts=[[sd,f],[W-sd,f],[W-sd,D-r],[sd,D-r],[sd,f]].map(([x,y])=>new THREE.Vector3(x,.05,-y));
+      const ln=new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),V.mat.edgeSet); ln.computeLineDistances(); s.group.add(ln);
+    }
+    V.levels.push(s);
+  }
+  lv.forEach(L=>V.levels.push(mk(L)));
+  V.nLv=lv.map(l=>l.name);
+  const sl=$('#lv'); sl.max=Math.max(1,lv.length); sl.value=sl.max;
+  const box=new THREE.Box3(); V.levels.filter(L=>!L.site).forEach(L=>box.expandByObject(L.group));
+  if(box.isEmpty())V.levels.forEach(L=>box.expandByObject(L.group));
+  const c=box.getCenter(new THREE.Vector3()); V.root.position.set(-c.x,0,-c.z);
+  V.box=box.translate(new THREE.Vector3(-c.x,0,-c.z));
+  setMode(V.mode); applyLevels(); fit(); V.t0=performance.now();
+}
+function applyLevels(){
+  const n=+$('#lv').value; let i=0;
+  V.levels.forEach(L=>{if(L.site){L.show=true;return;}i++;L.show=i<=n;});
+  $('#lvt').textContent=V.nLv?.length?(V.nLv[n-1]||'—').toUpperCase():'—';
+}
+function fit(){
+  const b=V.box; if(!b)return; const s=b.getSize(new THREE.Vector3());
+  const d=(Math.max(s.x,s.y*1.3,s.z)*1.75+8)*Math.max(1,1.2/V.C.aspect);  // dikey ekranda uzaklaş
+  V.O.target.set(0,s.y*.38,0); V.C.position.set(-d*.62,d*.5+s.y*.3,d*.78); V.C.lookAt(V.O.target);
+}
+function demoElements(){  // proje yokken: demo kule
+  const els=[{type:'slab',name:'parsel',role:'site',level:'Arsa',points:[[0,0],[40,0],[40,34],[0,34]],z:0,thickness:.2}];
+  const W=22,D=13,ox=9,oy=6,fh=3.2,P=(x,y)=>[ox+x,oy+y];
+  const win=n=>Array.from({length:n},(_,i)=>({offset:.6+i*(W-1.2)/n,width:(W-1.2)/n-.6,kind:'window',sill:.4,height:2.2}));
+  for(let f=0;f<9;f++){const z=f*fh,level='Kat '+f;
+    els.push({type:'slab',level,role:'floor',points:[P(0,0),P(W,0),P(W,D),P(0,D)],z,thickness:.25},
+      {type:'wall',level,start:P(0,0),end:P(W,0),thickness:.25,height:fh-.25,base_z:z,openings:win(7)},
+      {type:'wall',level,start:P(W,0),end:P(W,D),thickness:.25,height:fh-.25,base_z:z,openings:[{offset:1,width:D-2,kind:'window',sill:.4,height:2.2}]},
+      {type:'wall',level,start:P(W,D),end:P(0,D),thickness:.25,height:fh-.25,base_z:z,openings:win(7)},
+      {type:'wall',level,start:P(0,D),end:P(0,0),thickness:.25,height:fh-.25,base_z:z});}
+  els.push({type:'slab',level:'Çatı',role:'roof',points:[P(0,0),P(W,0),P(W,D),P(0,D)],z:9*fh,thickness:.3});
+  return els;
+}
+
+/* ================================================================ uygulama */
 $$('#mode button').forEach(b=>b.onclick=()=>{mode=b.dataset.m;$$('#mode button').forEach(x=>x.classList.toggle('on',x===b));
   $$('[data-show]').forEach(el=>el.hidden=!el.dataset.show.split(' ').includes(mode));});
 $$('#tabs button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;$$('#tabs button').forEach(x=>x.classList.toggle('on',x===b));render();});
-
 async function api(url,opt){const r=await fetch(url,opt);const j=await r.json().catch(()=>({detail:r.statusText}));if(!r.ok)throw new Error(j.detail||r.statusText);return j;}
-function busy(on,msg){$('#go').disabled=on;$('#spin').style.display=on?'block':'none';if(msg)$('#spin').textContent=msg;}
-function fail(e){$('#err').style.display='block';$('#err').textContent=e.message||e;}
+const STEPS=['PLAN ÜRETİLİYOR','METRAJ ÇIKARILIYOR','MALİYET HESAPLANIYOR','ÇİZİMLER HAZIRLANIYOR','BELGELER YAZILIYOR'];
+function busy(on){
+  $('#go').disabled=on; $('#scan').style.display=on?'block':'none'; $('#status').classList.toggle('busy',on);
+  $('#stxt').textContent=on?'İŞLENİYOR':'SİSTEM HAZIR'; clearInterval(busy.t);
+  if(on){let i=0;$('#scantxt').textContent=STEPS[0];busy.t=setInterval(()=>$('#scantxt').textContent=STEPS[++i%STEPS.length],1100);}
+}
+function fail(e){$('#err').style.display='block';$('#err').textContent='⚠ '+(e.message||e);}
 
 $('#go').onclick=async()=>{
-  $('#err').style.display='none';busy(true,$('#r3d').checked?'Hazırlanıyor (3D ile ~20 sn)…':'Hazırlanıyor…');
+  $('#err').style.display='none';busy(true);
   const v=id=>parseFloat($(id).value), co=$('#co').value, cu=$('#cu').value;
   const extra={name:$('#name').value,render_3d:$('#r3d').checked,...(co?{company:{name:co}}:{}),...(cu?{customer:{name:cu}}:{})};
   const program={unit_type:$('#ut').value,units_per_floor:$('#upf').value==='auto'?'auto':+$('#upf').value};
@@ -114,53 +425,67 @@ $('#go').onclick=async()=>{
         :{...extra,quick:{gross_area:v('#qa'),floors:v('#qf'),...program}};
       P=await api('/api/projects',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     }
-    adj=P.brief.adjust||{};history.replaceState(null,'','#'+P.id);render();recent();
+    await loaded();
   }catch(e){fail(e)}finally{busy(false)}
 };
-
-async function recent(){const l=await api('/api/projects');$('#recent').innerHTML=l.length?l.map(p=>`<a href="#${p.id}" onclick="openP('${p.id}');return false">${p.name}<br><small>${n2(p.area)} m² · ${tl(p.total)}</small></a>`).join(''):'<small>Henüz yok</small>';}
-async function openP(id){P=await api('/api/projects/'+id);adj=P.brief.adjust||{};history.replaceState(null,'','#'+id);render();}
+async function loaded(){
+  adj=P.brief.adjust||{}; history.replaceState(null,'',location.search+'#'+P.id);
+  build(await api(`/api/projects/${P.id}/elements`),P.zoning); hud(); render(); recent();
+}
+async function openP(id){P=await api('/api/projects/'+id);await loaded();}
+async function recent(){
+  const l=await api('/api/projects');
+  $('#recent').innerHTML=l.length?l.slice(0,8).map(p=>`<a href="#${p.id}" data-open="${p.id}"><span>${p.name}</span><small>${n2(p.area)} m² · ${tl(p.total)}</small></a>`).join(''):'<div class="empty" style="padding:14px">ARŞİV BOŞ</div>';
+  $$('[data-open]').forEach(a=>a.onclick=e=>{e.preventDefault();openP(a.dataset.open);});
+}
+function hud(){
+  const c=P.cost,s=P.summary,r=P.report;
+  $('#hname').textContent=P.name;
+  $('#hmeta').textContent=[r.floors?`${r.floors} KAT`:null,r.unit_count?`${r.unit_count} × ${r.unit_type}`:null,r.source==='dxf'?'DXF':'ŞEMATİK ÖN TASARIM'].filter(Boolean).join(' · ');
+  $('#hstats').innerHTML=`<div><small>GENEL TOPLAM</small><b class="hl">${tl(c.total)}</b></div><div><small>m² BİRİM</small><b>${tl(c.per_m2)}</b></div><div><small>BRÜT ALAN</small><b>${n2(s.gross_floor_area)} m²</b></div>`;
+}
 
 function render(){
-  const V=$('#view');if(!P){return}
+  const out=$('#view'); if(!P)return;
   const c=P.cost,s=P.summary,r=P.report;
   if(tab==='ozet'){
-    const ch=r.checks?Object.entries(r.checks).filter(([k,x])=>'ok' in x).map(([k,x])=>`<tr><td>${({taks:"TAKS",kaks:"KAKS / Emsal",floors:"Kat sayısı"})[k]||k}</td><td class="n">${x.limit}</td><td class="n">${x.value}</td><td class="${x.ok?'ok':'bad'}">${x.ok?'✓ uygun':'✗ aşım'}</td></tr>`).join(''):'';
-    const w=(r.warnings||[]).map(x=>`<div class="warn">⚠ ${x}</div>`).join('');
-    V.innerHTML=`<div class="kpis">
-      <div class="kpi"><small>Genel toplam (KDV dahil)</small><b>${tl(c.total)}</b></div>
-      <div class="kpi"><small>m² birim fiyat (KDV dahil)</small><b>${tl(c.per_m2)}</b></div>
-      <div class="kpi"><small>Brüt inşaat alanı</small><b>${n2(s.gross_floor_area)} m²</b></div>
-      <div class="kpi"><small>Net kullanım alanı</small><b>${n2(s.net_room_area)} m²</b></div>
-      <div class="kpi"><small>Kat / daire</small><b>${r.floors??'—'} kat · ${r.unit_count||'—'} ${r.unit_type||''}</b></div></div>
-      ${w}${ch?`<h3 style="margin-top:14px">İmar kontrolü</h3><table><tr><th>Kriter</th><th class="n">İzin</th><th class="n">Proje</th><th></th></tr>${ch}</table>`:''}
-      ${r.checks?`<p class="note">Çekmeler: ön ${r.checks.setbacks.front} m · sol ${r.checks.setbacks.side_left} m · sağ ${r.checks.setbacks.side_right} m · arka ${r.checks.setbacks.rear} m</p>`:''}
-      ${P.files.preview_png?`<img src="${P.files.preview_png}" style="width:100%;border-radius:8px;margin-top:10px">`:''}
+    const lab={taks:'TAKS',kaks:'KAKS / EMSAL',floors:'KAT SAYISI'};
+    const ch=r.checks?Object.entries(r.checks).filter(([k,x])=>'ok' in x).map(([k,x])=>`<tr><td class="mono">${lab[k]||k}</td><td class="n">${x.limit}</td><td class="n">${x.value}</td><td class="n"><span class="flag ${x.ok?'ok':'bad'}">${x.ok?'UYGUN':'AŞIM'}</span></td></tr>`).join(''):'';
+    out.innerHTML=`${(r.warnings||[]).map(x=>`<div class="warnbox">⚠ ${x}</div>`).join('')}
+      <div class="kpis">
+        <div class="kpi hl"><small>Genel toplam · KDV dahil</small><b>${tl(c.total)}</b></div>
+        <div class="kpi"><small>m² birim · KDV dahil</small><b>${tl(c.per_m2)}</b></div>
+        <div class="kpi"><small>Brüt inşaat alanı</small><b>${n2(s.gross_floor_area)} m²</b></div>
+        <div class="kpi"><small>Net kullanım alanı</small><b>${n2(s.net_room_area)} m²</b></div>
+        <div class="kpi"><small>Kat · daire</small><b>${r.floors??'—'} · ${r.unit_count||'—'} ${r.unit_type||''}</b></div></div>
+      ${ch?`<p class="sec-t">İMAR KONTROLÜ</p><table><tr><th>Kriter</th><th class="n">İzin</th><th class="n">Proje</th><th class="n">Durum</th></tr>${ch}</table>
+      <p class="note mono">ÇEKMELER · ÖN ${r.checks.setbacks.front} m · SOL ${r.checks.setbacks.side_left} m · SAĞ ${r.checks.setbacks.side_right} m · ARKA ${r.checks.setbacks.rear} m</p>`:''}
       <p class="note">${r.note||''} ${c.note||''}</p>`;
   }else if(tab==='cizim'){
-    V.innerHTML=`<div class="dl" style="margin-bottom:12px"><a href="${P.files.cizim_pdf}" target="_blank">Tüm çizimler (PDF, A3)</a></div>
-      <div class="sheets">${P.sheets.map(x=>`<div class="sheet"><img src="${x.png}?v=${Date.now()}" onclick="zoom(this.src)"><div><span>${SHEET[x.name.replace(/^\d+_/,'')]||x.name}</span><a href="${x.dxf}">DXF</a></div></div>`).join('')}</div>`;
+    const nm=x=>SHEET[x.name.replace(/^\d+_/,'')]||x.name;
+    out.innerHTML=`<div style="margin-bottom:14px"><a class="ghost" href="${P.files.cizim_pdf}" target="_blank">↓ TÜM PAFTALAR · PDF A3</a></div>
+      <div class="sheets">${P.sheets.map(x=>`<div class="sheet"><img src="${x.png}" alt="${nm(x)}" data-z="${x.png}"><div><span>${nm(x)}</span><a href="${x.dxf}">DXF ↓</a></div></div>`).join('')}</div>`;
+    $$('[data-z]').forEach(i=>i.onclick=()=>{$('#zoom img').src=i.dataset.z;$('#zoom img').className='bp';$('#zoom').style.display='flex';});
   }else if(tab==='metraj'){
     const rows=[['Brüt inşaat alanı',s.gross_floor_area,'m²'],['Net mahal alanı',s.net_room_area,'m²'],['Duvar aks uzunluğu',s.wall_length,'m'],['Net duvar alanı',s.wall_net_area,'m²'],['Duvar hacmi',s.wall_volume,'m³'],['Pencere',s.window_count,'adet'],['Pencere alanı',s.window_area,'m²'],['Kapı',s.door_count,'adet'],['Çatı alanı',s.roof_area,'m²']];
     const lv={};P.rooms.forEach(x=>(lv[x.level]=lv[x.level]||[]).push(x));
-    V.innerHTML=`<table><tr><th>Kalem</th><th class="n">Miktar</th><th>Birim</th></tr>${rows.map(x=>`<tr><td>${x[0]}</td><td class="n">${n2(x[1])}</td><td>${x[2]}</td></tr>`).join('')}</table>
-      <h3 style="margin-top:16px">Mahal listesi</h3>${Object.entries(lv).map(([l,rs])=>`<details ${l===Object.keys(lv)[0]?'open':''}><summary>${l} — ${n2(rs.reduce((a,b)=>a+b.area,0))} m²</summary><table>${rs.map(x=>`<tr><td>${x.name.split('/').slice(1).join(' / ')}</td><td class="n">${n2(x.area)} m²</td></tr>`).join('')}</table></details>`).join('')}`;
+    out.innerHTML=`<div class="cols" style="margin-top:0"><div><p class="sec-t">MAHAL LİSTESİ</p>${Object.entries(lv).map(([l,rs],i)=>`<details ${i===0?'open':''}><summary>${l.toUpperCase()} — ${n2(rs.reduce((a,b)=>a+b.area,0))} m²</summary><table>${rs.map(x=>`<tr><td>${x.name.split('/').slice(1).join(' / ')}</td><td class="n">${n2(x.area)} m²</td></tr>`).join('')}</table></details>`).join('')}</div>
+      <div><p class="sec-t">ÖZET METRAJ</p><table>${rows.map(x=>`<tr><td>${x[0]}</td><td class="n">${n2(x[1])}</td><td class="mono" style="color:var(--mute)">${x[2]}</td></tr>`).join('')}</table></div></div>`;
   }else if(tab==='maliyet'){
-    V.innerHTML=`<table id="ct"><tr><th></th><th>Poz</th><th>İmalat</th><th class="n">Miktar</th><th>Birim</th><th class="n">Birim fiyat</th><th class="n">Tutar</th></tr>
-      ${c.rows.map(x=>`<tr style="${x.enabled?'':'opacity:.45'}"><td><input type="checkbox" style="width:auto" ${x.enabled?'checked':''} data-dis="${x.code}"></td><td>${x.code}</td>
+    out.innerHTML=`<div class="scroll"><table><tr><th></th><th>Poz</th><th>İmalat</th><th class="n">Miktar</th><th>Birim</th><th class="n">Birim fiyat ₺</th><th class="n">Tutar</th></tr>
+      ${c.rows.map(x=>`<tr style="${x.enabled?'':'opacity:.4'}"><td><input type="checkbox" style="width:16px;accent-color:var(--cy)" ${x.enabled?'checked':''} data-dis="${x.code}" aria-label="${x.code} dahil"></td><td class="code">${x.code}</td>
       <td>${x.variants.length?`<select data-var="${x.code}">${x.variants.map(v=>`<option value="${v.id}" ${v.id===x.variant?'selected':''}>${x.name.split(' — ')[0]} — ${v.name}</option>`).join('')}</select>`:x.name}</td>
-      <td class="n">${x.auto_quantity==null?n2(x.quantity):`<input class="num" data-qty="${x.code}" value="${x.quantity}" title="Otomatik: ${n2(x.auto_quantity)}">`}</td><td>${x.unit}</td>
-      <td class="n">${x.auto_quantity==null?n2(x.unit_price):`<input class="num" data-up="${x.code}" value="${x.unit_price}">`}</td><td class="n">${tl(x.amount)}</td></tr>`).join('')}</table>
-      <div style="margin-top:8px"><button class="sec" id="addx">+ Ek kalem</button></div>
-      <div class="row" style="margin-top:14px;align-items:start"><div>
-        <div class="row3"><div><label>Genel gider %</label><input data-pct="overhead_pct" type="number" value="${c.overhead_pct}"></div><div><label>Kâr %</label><input data-pct="profit_pct" type="number" value="${c.profit_pct}"></div><div><label>KDV %</label><input data-pct="vat_pct" type="number" value="${c.vat_pct}"></div></div>
-        ${c.approx?`<label>Kontrol: yaklaşık m² maliyet sınıfı</label><select id="apc">${Object.entries(c.approx.classes).map(([k,v])=>`<option ${k===c.approx.class?'selected':''} value="${k}">${k} — ${tl(v)}/m²</option>`).join('')}</select>
-        <p class="note">Yaklaşık yöntem: ${n2(c.approx.area)} m² × ${tl(c.approx.unit_cost)} = <b>${tl(c.approx.amount)}</b> (metraj bazlı ara toplam: ${tl(c.subtotal)})</p>`:''}
+      <td class="n">${x.auto_quantity==null?n2(x.quantity):`<input class="num" data-qty="${x.code}" value="${x.quantity}" title="Otomatik: ${n2(x.auto_quantity)}">`}</td><td class="mono" style="color:var(--mute)">${x.unit}</td>
+      <td class="n">${x.auto_quantity==null?n2(x.unit_price):`<input class="num" data-up="${x.code}" value="${x.unit_price}">`}</td><td class="n">${tl(x.amount)}</td></tr>`).join('')}</table></div>
+      <div style="margin-top:12px"><button class="ghost" id="addx">+ EK KALEM</button></div>
+      <div class="cols"><div>
+        <div class="r3"><div><label>Genel gider %</label><input data-pct="overhead_pct" type="number" value="${c.overhead_pct}"></div><div><label>Kâr %</label><input data-pct="profit_pct" type="number" value="${c.profit_pct}"></div><div><label>KDV %</label><input data-pct="vat_pct" type="number" value="${c.vat_pct}"></div></div>
+        ${c.approx?`<label>Kontrol · yaklaşık m² maliyet sınıfı</label><select id="apc">${Object.entries(c.approx.classes).map(([k,v])=>`<option ${k===c.approx.class?'selected':''} value="${k}">${k} — ${tl(v)}/m²</option>`).join('')}</select>
+        <p class="note mono">${n2(c.approx.area)} m² × ${tl(c.approx.unit_cost)} = ${tl(c.approx.amount)} · metraj bazlı ara toplam ${tl(c.subtotal)}</p>`:''}
         <p class="note">${c.note||''}</p></div>
-      <table class="totals"><tr><td>Ara toplam</td><td class="n">${tl(c.subtotal)}</td></tr><tr><td>Genel gider (%${c.overhead_pct})</td><td class="n">${tl(c.overhead)}</td></tr>
-        <tr><td>Kâr (%${c.profit_pct})</td><td class="n">${tl(c.profit)}</td></tr><tr><td>KDV hariç</td><td class="n">${tl(c.total_before_vat)}</td></tr><tr><td>KDV (%${c.vat_pct})</td><td class="n">${tl(c.vat)}</td></tr>
-        <tr class="big"><td>GENEL TOPLAM</td><td class="n">${tl(c.total)}</td></tr><tr><td>m² (KDV dahil)</td><td class="n">${tl(c.per_m2)}</td></tr></table></div>`;
-    const set=(k,code,val)=>{adj[k]=adj[k]||{};if(val===null)delete adj[k][code];else adj[k][code]=val;};
+      <div class="totals"><div>Ara toplam<b>${tl(c.subtotal)}</b></div><div>Genel gider %${c.overhead_pct}<b>${tl(c.overhead)}</b></div><div>Kâr %${c.profit_pct}<b>${tl(c.profit)}</b></div>
+        <div>KDV hariç<b>${tl(c.total_before_vat)}</b></div><div>KDV %${c.vat_pct}<b>${tl(c.vat)}</b></div><div class="big">GENEL TOPLAM<b>${tl(c.total)}</b></div><div>m² · KDV dahil<b>${tl(c.per_m2)}</b></div></div></div>`;
+    const set=(k,code,val)=>{adj[k]=adj[k]||{};adj[k][code]=val;};
     $$('[data-up]').forEach(i=>i.onchange=()=>{set('overrides',i.dataset.up,parseFloat(i.value));push();});
     $$('[data-qty]').forEach(i=>i.onchange=()=>{set('qty_overrides',i.dataset.qty,parseFloat(i.value));push();});
     $$('[data-var]').forEach(i=>i.onchange=()=>{set('variants',i.dataset.var,i.value);if(adj.overrides)delete adj.overrides[i.dataset.var];push();});
@@ -170,21 +495,28 @@ function render(){
     $('#addx').onclick=()=>{const nm=prompt('Kalem adı');if(!nm)return;const q=parseFloat(prompt('Miktar','1'))||1,p=parseFloat(prompt('Birim fiyat (₺)','0'))||0,u=prompt('Birim','götürü')||'götürü';
       adj.extra_items=[...(adj.extra_items||[]),{name:nm,quantity:q,unit_price:p,unit:u}];push();};
   }else if(tab==='belge'){
-    V.innerHTML=`<div class="dl"><a href="${P.files.teklif_docx}">Teklif mektubu (.docx)</a><a href="${P.files.metraj_maliyet_xlsx}">Metraj + maliyet (.xlsx, formüllü)</a>
-      <a href="${P.files.sartname_docx}">Teknik şartname (.docx)</a><a href="${P.files.cizim_pdf}" target="_blank">Çizimler (.pdf)</a></div>
-      <p class="note">Maliyet sekmesinde yaptığınız her değişiklik bu belgeleri yeniden üretir.</p>`;
+    const D=[['TEKLİF','Teklif mektubu','.docx · kapsam, bedel, ödeme planı',P.files.teklif_docx],['MALİYET','Metraj + maliyet','.xlsx · formüllü',P.files.metraj_maliyet_xlsx],
+             ['ŞARTNAME','Teknik şartname','.docx · malzeme, uygulama, ölçü',P.files.sartname_docx],['ÇİZİM','Tüm paftalar','.pdf · A3',P.files.cizim_pdf]];
+    out.innerHTML=`<div class="docs">${D.map(d=>`<a class="doc" href="${d[3]}" ${d[3].endsWith('.pdf')?'target="_blank"':''}><small>${d[0]} ↓</small><b>${d[1]}</b><span>${d[2]}</span></a>`).join('')}</div>
+      <p class="note">Maliyet sekmesindeki her değişiklik bu belgeleri yeniden üretir.</p>`;
   }else if(tab==='3d'){
-    V.innerHTML=P.files.model_glb?`<model-viewer src="${P.files.model_glb}" camera-controls auto-rotate shadow-intensity="1" exposure="1.1"></model-viewer>
-      <div class="row" style="margin-top:10px"><img src="${P.files.preview_png}" style="width:100%;border-radius:8px"><img src="${P.files.colormap_png}" style="width:100%;border-radius:8px"></div>
-      <p class="note">Sağdaki renk haritası, AI video modeline (Higgsfield/Seedance) kontrol görüntüsü olarak verilir.</p>`
-      :`<div class="empty">3D model henüz üretilmedi.<br><br><button id="mk3d">Blender ile 3D üret</button></div>`;
-    if($('#mk3d'))$('#mk3d').onclick=async e=>{e.target.disabled=true;e.target.textContent='Üretiliyor…';try{P=await api(`/api/projects/${P.id}/render`,{method:'POST'});render();}catch(x){alert(x.message)}};
+    out.innerHTML=P.files.preview_png?`<div class="renders"><figure style="margin:0"><img src="${P.files.preview_png}" alt="Blender önizleme"><figcaption class="note mono">BLENDER ÖNİZLEME</figcaption></figure>
+      <figure style="margin:0"><img src="${P.files.colormap_png}" alt="Malzeme renk haritası"><figcaption class="note mono">MALZEME RENK HARİTASI · AI VİDEO KONTROL GÖRÜNTÜSÜ</figcaption></figure></div>
+      <div style="margin-top:12px"><a class="ghost" href="${P.files.model_glb}">↓ MODEL · GLB</a></div>`
+      :`<div class="empty">BLENDER RENDER HENÜZ ALINMADI<br><br><button class="ghost" id="mk3d">▶ BLENDER İLE ÜRET</button></div>`;
+    if($('#mk3d'))$('#mk3d').onclick=async e=>{e.target.disabled=true;e.target.textContent='ÜRETİLİYOR…';busy(true);try{P=await api(`/api/projects/${P.id}/render`,{method:'POST'});render();}catch(x){fail(x)}finally{busy(false)}};
   }
 }
-function push(){clearTimeout(timer);timer=setTimeout(async()=>{try{P=await api(`/api/projects/${P.id}/adjust`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(adj)});render();recent();}catch(e){alert(e.message)}},300);}
-function zoom(src){$('#zoom img').src=src;$('#zoom').style.display='flex';}
+function push(){clearTimeout(timer);timer=setTimeout(async()=>{try{$('#status').classList.add('busy');P=await api(`/api/projects/${P.id}/adjust`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(adj)});hud();render();recent();}catch(e){fail(e)}finally{$('#status').classList.remove('busy')}},300);}
+$('#zoom').onclick=()=>$('#zoom').style.display='none';
+
+initViewport();
 recent();
-if(location.hash.length>1)openP(location.hash.slice(1)).then(()=>{const t=new URLSearchParams(location.search).get('tab');if(t)$(`#tabs [data-t="${t}"]`).click();});
+const Q_=new URLSearchParams(location.search), tabQ=Q_.get('tab'), vmQ=Q_.get('vm');
+if(tabQ)$(`#tabs [data-t="${tabQ}"]`)?.click();
+if(vmQ)$(`[data-vm="${vmQ}"]`)?.click();
+const demo=()=>{build(demoElements());$('#hname').textContent='ArchAI';$('#hmeta').textContent='DEMO · PROJE ÜRETMEK İÇİN SOLDAKİ FORMU KULLANIN';};
+if(location.hash.length>1)openP(location.hash.slice(1)).catch(demo); else demo();
 </script>
 </body>
 </html>

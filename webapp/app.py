@@ -107,6 +107,15 @@ def get_project(pid: str):
     return _public(pid, json.loads(p.read_text()))
 
 
+@app.get("/api/projects/{pid}/elements")
+def get_elements(pid: str):
+    """3D viewport için eleman listesi."""
+    p = PROJECTS / pid / "elements.json"
+    if not p.exists() or "/" in pid:
+        raise HTTPException(404)
+    return json.loads(p.read_text())
+
+
 @app.put("/api/projects/{pid}/adjust")
 def adjust(pid: str, adj: dict):
     if not (PROJECTS / pid / "project.json").exists() or "/" in pid:
