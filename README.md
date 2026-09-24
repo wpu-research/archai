@@ -59,4 +59,4 @@ Blender 4.5 LTS: `~/Applications/blender-4.5.14-linux-x64/` (başka yer için `A
 - Birim fiyatlar örnektir. Mekanik/elektrik tesisatı m² başına götürü.
 - DXF içe aktarma katman kurallarına dayanır; DWG önce DXF'e çevrilmelidir. Eğik/eğrisel duvarlar yaklaşık.
 - Köprü localhost'ta auth'suz `exec_python` çalıştırır; web uygulamasında kimlik doğrulama yok — yalnız yerel kullanım.
-- `references/villa_ref.png` üçüncü taraf içeriğidir; repo paylaşılmadan çıkarılmalı.
+- Üçüncü taraf referans görseller (Instagram karesi) repoda tutulmaz; `.gitignore`da.
