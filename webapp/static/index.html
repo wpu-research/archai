@@ -127,6 +127,24 @@ details.kunye summary{font:500 10.5px var(--mono);letter-spacing:.14em;color:var
 .selbar{display:flex;gap:6px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--line);background:rgba(255,181,71,.07)}.selbar b{flex:1;font-size:12.5px}
 .ihint{display:none;position:absolute;left:18px;bottom:66px;max-width:calc(100% - 360px);white-space:normal !important;z-index:4;font:500 11px var(--mono);letter-spacing:.06em;color:#ffd28a;background:rgba(4,8,14,.82);border:1px solid rgba(255,181,71,.45);padding:7px 14px;border-radius:99px;pointer-events:none;white-space:nowrap}
 @media (max-width:700px){.idrawer{left:8px;right:8px;width:auto;top:auto;height:52%}}
+.truebtn{color:#c9b6ff;border-color:rgba(170,140,255,.5)}.truebtn:hover{box-shadow:inset 0 0 12px rgba(170,140,255,.3)}.truebtn:disabled{opacity:.45;cursor:wait}
+.jobs{position:fixed;right:18px;bottom:18px;z-index:15;display:grid;gap:8px;width:320px}
+.job{background:rgba(9,17,27,.92);border:1px solid rgba(170,140,255,.45);border-radius:11px;padding:11px 13px;font:500 11px var(--mono);letter-spacing:.06em;backdrop-filter:blur(10px);box-shadow:0 12px 40px rgba(0,0,0,.5)}
+.job b{color:#d8ccff;font-weight:600}.job small{display:block;color:var(--mute);margin-top:3px}
+.job .bar{height:4px;border-radius:4px;background:rgba(255,255,255,.08);margin-top:8px;overflow:hidden}.job .bar i{display:block;height:100%;background:linear-gradient(90deg,#8f6bff,var(--cy));transition:width .4s}
+.job button{margin-top:8px;width:100%}
+.tour,.photo{position:fixed;inset:0;z-index:25;background:#000;display:none}
+.tour.on,.photo.on{display:block}.tour canvas{width:100%;height:100%;display:block;cursor:grab}.tour canvas:active{cursor:grabbing}
+.tour-top{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:8px;padding:14px 18px;background:linear-gradient(180deg,rgba(0,0,0,.75),transparent);font-family:var(--mono)}
+.tour-top b{font:600 18px var(--sans)}.tour-top small{display:block;color:var(--mute);font-size:10.5px;letter-spacing:.14em}.tour-top .sp{flex:1}
+.tour-rooms{position:absolute;left:0;right:0;bottom:0;padding:14px 18px 40px;display:flex;gap:6px;overflow-x:auto;background:linear-gradient(0deg,rgba(0,0,0,.8),transparent)}
+.tour-rooms button{flex:none;padding:8px 11px;border:1px solid var(--line-hi);border-radius:8px;background:rgba(4,8,14,.7);color:var(--ink);font:500 11px var(--mono)}
+.tour-rooms button.on{border-color:#c9b6ff;color:#d8ccff;box-shadow:inset 0 0 14px rgba(170,140,255,.3)}.tour-rooms i{font-style:normal;color:var(--mute);margin-right:6px}
+.tour-hint{position:absolute;left:50%;bottom:10px;transform:translateX(-50%);font:500 9.5px var(--mono);letter-spacing:.16em;color:var(--mute)}
+.photo img{position:absolute;inset:0;margin:auto;max-width:100%;max-height:100%;object-fit:contain}
+.gallery{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:12px}
+.gallery button{padding:0;border:1px solid var(--line);border-radius:10px;overflow:hidden;background:#000;text-align:left}
+.gallery img{width:100%;aspect-ratio:16/9;object-fit:cover;display:block}.gallery span{display:block;padding:7px 10px;font:500 10.5px var(--mono);color:var(--mute)}
 .walkbtn{color:var(--ok);border-color:rgba(60,255,166,.45)}.walkbtn:hover{box-shadow:inset 0 0 12px rgba(60,255,166,.25)}
 .whud{display:none;position:absolute;inset:0;pointer-events:none}
 .vp.walking .whud{display:block}.vp.walking>.hud{display:none}.vp.walking canvas{cursor:crosshair}
@@ -261,6 +279,8 @@ summary{cursor:pointer;padding:9px 0;font:500 12px var(--mono);letter-spacing:.0
     <div class="hud tl"><div class="pname" id="hname">—</div><div class="meta" id="hmeta">3D ÖN TASARIM</div></div>
     <div class="hud tr">
       <button class="vbtn walkbtn" id="walk" title="Projenin içinde birinci şahıs gezin">◉ YÜRÜ</button>
+      <button class="vbtn truebtn" data-real="still" title="Bu kadrajı Blender Cycles ile fotogerçekçi render et">📷 FOTO</button>
+      <button class="vbtn truebtn" data-real="pano" title="Her oda için Cycles 360° panorama: sanal tur">◎ 360° TUR</button>
       <button class="vbtn realbtn" id="edit" title="Zemin, boya ve nesne düzenleyici">✎ DÜZENLE</button>
       <button class="vbtn on" data-vm="wire">TEL</button><button class="vbtn" data-vm="xray">X-RAY</button><button class="vbtn" data-vm="solid">KATI</button><button class="vbtn realbtn" data-vm="real">◈ GERÇEKÇİ</button>
       <button class="vbtn on" id="rot" title="Otomatik döndür" aria-label="Otomatik döndür">⟳</button><button class="vbtn" id="fit" title="Kadrajı sıfırla" aria-label="Kadrajı sıfırla">⌖</button>
@@ -270,7 +290,7 @@ summary{cursor:pointer;padding:9px 0;font:500 12px var(--mono);letter-spacing:.0
     <div class="whud" id="whud">
       <div class="cross"></div>
       <div class="hud tl"><div class="meta" id="wlvl">—</div><div class="pname" id="wroom">—</div><div class="meta" id="warea"></div></div>
-      <div class="hud tr"><button class="vbtn realbtn" id="wedit">✎ DÜZENLE</button><button class="vbtn" id="wdn" title="Alt kat (Q)">▼ KAT</button><button class="vbtn" id="wup" title="Üst kat (E)">▲ KAT</button><button class="vbtn on" id="wexit">✕ ÇIK</button></div>
+      <div class="hud tr"><button class="vbtn truebtn" data-real="still">📷 FOTO</button><button class="vbtn truebtn" data-real="pano">◎ 360°</button><button class="vbtn realbtn" id="wedit">✎ DÜZENLE</button><button class="vbtn" id="wdn" title="Alt kat (Q)">▼ KAT</button><button class="vbtn" id="wup" title="Üst kat (E)">▲ KAT</button><button class="vbtn on" id="wexit">✕ ÇIK</button></div>
       <div class="whelp" id="whelp"><b>TIKLA</b> VE GEZ · WASD / OKLAR HAREKET · FARE BAKIŞ · SHIFT KOŞ · Q / E KAT · ESC</div>
     </div>
     <aside class="idrawer glass" id="idrawer">
@@ -291,6 +311,16 @@ summary{cursor:pointer;padding:9px 0;font:500 12px var(--mono);letter-spacing:.0
 </section>
 </main>
 <div id="zoom"><img alt=""></div>
+<div class="jobs" id="jobs"></div>
+<div class="tour" id="tour">
+  <canvas id="tourcv"></canvas>
+  <div class="tour-top"><div><b id="tname">—</b><small id="tlvl"></small></div><div class="sp"></div>
+    <a class="vbtn" id="tdl" download>↓ JPG</a><button class="vbtn on" id="tclose">✕ KAPAT</button></div>
+  <div class="tour-rooms" id="trooms"></div>
+  <div class="tour-hint">SÜRÜKLE: BAK · TEKERLEK: YAKINLAŞ · ODALAR ARASI GEÇİŞ AŞAĞIDA</div>
+</div>
+<div class="photo" id="photo"><img alt="Cycles fotogerçekçi render"><div class="tour-top"><b>CYCLES · FOTOGERÇEKÇİ RENDER</b><div class="sp"></div>
+  <a class="vbtn" id="pdl" download>↓ JPG</a><button class="vbtn on" id="pclose">✕ KAPAT</button></div></div>
 
 <script type="module">
 import * as THREE from 'three';
@@ -667,6 +697,77 @@ $('#villa').onclick=async()=>{
     await loaded(); showcase();
   }catch(e){fail(e)}finally{busy(false);$('#villa').disabled=false;}
 };
+/* ================================================================ GERÇEK render (Blender Cycles) */
+const TR={jobs:{}};
+async function submitReal(kind){
+  if(!P){fail(new Error('Önce bir proje açın'));return;}
+  $$('[data-real]').forEach(b=>b.disabled=true);
+  try{
+    const {glb,job}=await IN.exportForRender(kind);
+    const fd=new FormData(); fd.append('scene',new Blob([glb],{type:'model/gltf-binary'}),'scene.glb'); fd.append('job',JSON.stringify(job));
+    const j=await api(`/api/projects/${P.id}/real`,{method:'POST',body:fd});
+    TR.jobs[j.id]=j; drawJobs(); pollJob(j.id);
+  }catch(e){fail(e)}finally{$$('[data-real]').forEach(b=>b.disabled=false);}
+}
+async function pollJob(id){
+  try{const j=await api('/api/jobs/'+id); TR.jobs[id]=j; drawJobs();
+    if(j.status==='queued'||j.status==='running')setTimeout(()=>pollJob(id),1500);
+    else if(j.status==='done'&&tab==='3d')render();}
+  catch(e){setTimeout(()=>pollJob(id),4000);}
+}
+function drawJobs(){
+  $('#jobs').innerHTML=Object.values(TR.jobs).filter(j=>!j.dismissed).map(j=>{
+    const pct=j.status==='done'?100:Math.round(100*(j.done||0)/(j.total||1));
+    const head=j.kind==='still'?'📷 GERÇEK FOTO':'◎ 360° TUR';
+    const st={queued:`sırada${j.queued_ahead?` (önünde ${j.queued_ahead})`:''}`,running:j.kind==='pano'?`${j.done}/${j.total} oda${j.current?' · '+j.current:''}`:'Cycles ışık hesaplıyor…',
+      done:`hazır · ${j.elapsed}s · ${j.device||''}`,error:'hata: '+(j.error||'')}[j.status]||j.status;
+    return `<div class="job"><b>${head}</b><small>${st}</small><div class="bar"><i style="width:${pct}%"></i></div>
+      ${j.status==='done'?`<button class="vbtn truebtn" data-open-job="${j.id}">${j.kind==='still'?'FOTOĞRAFI AÇ':'TURU BAŞLAT'}</button>`:''}
+      ${j.status==='done'||j.status==='error'?`<button class="vbtn" data-dismiss="${j.id}">KAPAT</button>`:''}</div>`;}).join('');
+  $$('[data-open-job]').forEach(b=>b.onclick=()=>openJob(TR.jobs[b.dataset.openJob]));
+  $$('[data-dismiss]').forEach(b=>b.onclick=()=>{TR.jobs[b.dataset.dismiss].dismissed=true;drawJobs();});
+}
+function openJob(j){ if(j.kind==='still')openPhoto(j.urls[0]); else openTour(j); }
+function openPhoto(url){ $('#photo img').src=url; $('#pdl').href=url; $('#photo').classList.add('on'); }
+$('#pclose').onclick=()=>$('#photo').classList.remove('on');
+$$('[data-real]').forEach(b=>b.onclick=()=>{if(document.pointerLockElement)document.exitPointerLock();submitReal(b.dataset.real);});
+
+// 360° tur görüntüleyici: içten görülen küre + sürükle-bak
+const TV={};
+function openTour(j){
+  if(!TV.R){
+    const cv=$('#tourcv'); TV.R=new THREE.WebGLRenderer({canvas:cv,antialias:true}); TV.R.outputColorSpace=THREE.SRGBColorSpace;
+    TV.S=new THREE.Scene(); TV.C=new THREE.PerspectiveCamera(75,1,.1,100);
+    const g=new THREE.SphereGeometry(10,96,64); g.scale(-1,1,1);
+    TV.mesh=new THREE.Mesh(g,new THREE.MeshBasicMaterial()); TV.S.add(TV.mesh);
+    TV.yaw=0; TV.pitch=0; TV.loader=new THREE.TextureLoader();
+    const size=()=>{TV.R.setSize(innerWidth,innerHeight,false);TV.R.setPixelRatio(Math.min(devicePixelRatio,2));TV.C.aspect=innerWidth/innerHeight;TV.C.updateProjectionMatrix();};
+    addEventListener('resize',size); size();
+    let drag=null;
+    cv.addEventListener('pointerdown',e=>{drag=[e.clientX,e.clientY];cv.setPointerCapture(e.pointerId);});
+    cv.addEventListener('pointermove',e=>{if(!drag)return;const k=TV.C.fov/innerHeight*Math.PI/180;
+      TV.yaw+=(e.clientX-drag[0])*k; TV.pitch=Math.max(-1.45,Math.min(1.45,TV.pitch+(e.clientY-drag[1])*k)); drag=[e.clientX,e.clientY];});
+    cv.addEventListener('pointerup',()=>drag=null);
+    cv.addEventListener('wheel',e=>{TV.C.fov=Math.max(35,Math.min(95,TV.C.fov+e.deltaY*.04));TV.C.updateProjectionMatrix();e.preventDefault();},{passive:false});
+    const loop=()=>{requestAnimationFrame(loop);if(!$('#tour').classList.contains('on'))return;
+      TV.C.rotation.set(TV.pitch,TV.yaw,0,'YXZ');TV.R.render(TV.S,TV.C);};
+    loop();
+  }
+  TV.job=j; const vps=j.viewpoints||[];
+  const byLv={}; vps.forEach((v,i)=>(byLv[v.level]=byLv[v.level]||[]).push([v,i]));
+  $('#trooms').innerHTML=Object.entries(byLv).map(([lv,list])=>list.map(([v,i])=>`<button data-vp="${i}"><i>${lv==='Zemin Kat'?'Z':lv.replace('Kat ','')+'K'}</i>${v.name.split(' · ').pop()}</button>`).join('')).join('');
+  $$('[data-vp]').forEach(b=>b.onclick=()=>showPano(+b.dataset.vp));
+  $('#tour').classList.add('on'); showPano(0);
+}
+function showPano(i){
+  const j=TV.job, v=j.viewpoints[i], url=j.urls.find(u=>u.endsWith(`pano_${v.id}.jpg`))||j.urls[i];
+  TV.loader.load(url,t=>{t.colorSpace=THREE.SRGBColorSpace;TV.mesh.material.map?.dispose();TV.mesh.material.map=t;TV.mesh.material.needsUpdate=true;});
+  $('#tname').textContent=v.name.split(' · ').pop(); $('#tlvl').textContent=v.level.toUpperCase()+' · CYCLES 360°'; $('#tdl').href=url;
+  $$('[data-vp]').forEach(b=>b.classList.toggle('on',+b.dataset.vp===i));
+}
+$('#tclose').onclick=()=>$('#tour').classList.remove('on');
+addEventListener('keydown',e=>{if(e.code==='Escape'){$('#tour').classList.remove('on');$('#photo').classList.remove('on');}});
+
 // vitrin: gerçekçi mod + zemin kat maket görünümü
 function showcase(){ if(V.mode!=='real')$('[data-vm="real"]').click(); $('#lv').value=1; applyLevels(); V.O.autoRotate=false; $('#rot').classList.remove('on'); fitVisible(); }
 async function loaded(){
@@ -741,7 +842,13 @@ function render(){
     out.innerHTML=`<div class="docs">${D.map(d=>`<a class="doc" href="${d[3]}" ${d[3].endsWith('.pdf')?'target="_blank"':''}><small>${d[0]} ↓</small><b>${d[1]}</b><span>${d[2]}</span></a>`).join('')}</div>
       <p class="note">Maliyet sekmesindeki her değişiklik bu belgeleri yeniden üretir.</p>`;
   }else if(tab==='3d'){
-    out.innerHTML=P.files.preview_png?`<div class="renders"><figure style="margin:0"><img src="${P.files.preview_png}" alt="Blender önizleme"><figcaption class="note mono">BLENDER ÖNİZLEME</figcaption></figure>
+    out.innerHTML=`<p class="sec-t">CYCLES · GERÇEK RENDER</p><p class="note">3D sahnede <b>📷 FOTO</b> o anki kadrajı, <b>◎ 360° TUR</b> her odayı fotogerçekçi render eder (Blender Cycles, ekran kartı).</p>
+      <div class="gallery" id="rgal"><span class="note">yükleniyor…</span></div><p class="sec-t" style="margin-top:22px">BLENDER ÖNİZLEME</p><div id="bprev"></div>`;
+    api(`/api/projects/${P.id}/real`).then(list=>{list.forEach(j=>TR.jobs[j.id]??={...j,dismissed:true});
+      $('#rgal').innerHTML=list.length?list.map(j=>`<button data-gal="${j.id}"><img src="${j.urls[0]}" alt="" loading="lazy"><span>${j.kind==='still'?'📷 FOTO':'◎ 360° TUR · '+j.urls.length+' oda'} · ${j.id.split('-')[1].replace(/(..)(..)(..)/,'$1:$2')}</span></button>`).join('')
+        :'<span class="note">Henüz gerçek render yok.</span>';
+      $$('[data-gal]').forEach(b=>b.onclick=()=>openJob(list.find(j=>j.id===b.dataset.gal)));}).catch(()=>{});
+    const bp=$('#bprev'); bp.innerHTML=P.files.preview_png?`<div class="renders"><figure style="margin:0"><img src="${P.files.preview_png}" alt="Blender önizleme"><figcaption class="note mono">BLENDER ÖNİZLEME</figcaption></figure>
       <figure style="margin:0"><img src="${P.files.colormap_png}" alt="Malzeme renk haritası"><figcaption class="note mono">MALZEME RENK HARİTASI · AI VİDEO KONTROL GÖRÜNTÜSÜ</figcaption></figure></div>
       <div style="margin-top:12px"><a class="ghost" href="${P.files.model_glb}">↓ MODEL · GLB</a></div>`
       :`<div class="empty">BLENDER RENDER HENÜZ ALINMADI<br><br><button class="ghost" id="mk3d">▶ BLENDER İLE ÜRET</button></div>`;

@@ -4,9 +4,13 @@
 """
 
 import json
+import os
+import queue
 import re
 import shutil
+import subprocess
 import threading
+import time
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -212,6 +216,107 @@ def files(pid: str, path: str):
     if not str(f).startswith(str(PROJECTS.resolve()) + "/") or not f.is_file():
         raise HTTPException(404)
     return FileResponse(f, filename=f.name if f.suffix in (".docx", ".xlsx", ".dxf", ".pdf") else None)
+
+
+# ------------------------------------------------------------------ fotogerçekçi render kuyruğu (Blender Cycles)
+BLENDER = os.environ.get("ARCHAI_BLENDER", str(Path.home() / "Applications/blender-4.5.14-linux-x64/blender"))
+RENDER_SCRIPT = ROOT / "scripts" / "render_real.py"
+HDRI = ROOT / "webapp" / "static" / "assets" / "hdri" / "sky_2k.hdr"
+JOBS: dict[str, dict] = {}
+_render_q: "queue.Queue[str]" = queue.Queue()
+QUALITY = {"still": {"samples": 256, "width": 1920}, "pano": {"samples": 160, "width": 2048},
+           "still_hq": {"samples": 512, "width": 2560}, "pano_hq": {"samples": 320, "width": 4096}}
+
+
+def _render_worker():
+    while True:
+        jid = _render_q.get()
+        j = JOBS[jid]
+        j["status"] = "running"
+        j["started"] = time.time()
+        log = open(Path(j["dir"]) / "blender.log", "w")
+        try:
+            proc = subprocess.Popen([BLENDER, "-b", "--factory-startup", "--python", str(RENDER_SCRIPT), "--", str(Path(j["dir"]) / "job.json")],
+                                    stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+            for line in proc.stdout:
+                log.write(line)
+                if line.startswith("ARCHAI_PROGRESS"):
+                    parts = line.split()
+                    j["done"], j["total"] = int(parts[1]), int(parts[2])
+                    j["current"] = " ".join(p for p in parts[3:] if not p.replace(".", "").isdigit())
+                elif line.startswith("ARCHAI_RESULT"):
+                    j["results"].append(Path(line.split(maxsplit=1)[1].strip()).name)
+                elif line.startswith("ARCHAI_DEVICE"):
+                    j["device"] = line.split(maxsplit=1)[1].strip()
+            proc.wait()
+            j["status"] = "done" if proc.returncode == 0 and j["results"] else "error"
+            if j["status"] == "error":
+                j["error"] = f"Blender çıkış kodu {proc.returncode}; log: blender.log"
+        except Exception as ex:  # noqa: BLE001 — iş durumu kullanıcıya dönmeli
+            j["status"], j["error"] = "error", str(ex)
+        finally:
+            log.close()
+            j["elapsed"] = round(time.time() - j["started"], 1)
+            (Path(j["dir"]) / "status.json").write_text(json.dumps(j, ensure_ascii=False, default=str))
+
+
+threading.Thread(target=_render_worker, daemon=True).start()
+
+
+@app.post("/api/projects/{pid}/real")
+def submit_real(pid: str, scene: UploadFile = File(...), job: str = Form(...)):
+    d = PROJECTS / pid
+    if "/" in pid or not d.is_dir():
+        raise HTTPException(404)
+    try:
+        spec = json.loads(job)
+    except ValueError:
+        raise HTTPException(422, "job geçerli JSON değil")
+    kind = spec.get("kind")
+    if kind not in ("still", "pano"):
+        raise HTTPException(422, "kind: still | pano")
+    q = QUALITY[kind + ("_hq" if spec.get("hq") else "")]
+    jid = f"{kind}-{datetime.now():%H%M%S}-{uuid.uuid4().hex[:4]}"
+    jd = d / "real" / jid
+    jd.mkdir(parents=True)
+    with (jd / "scene.glb").open("wb") as f:
+        shutil.copyfileobj(scene.file, f)
+    if (jd / "scene.glb").stat().st_size > 300e6:
+        raise HTTPException(413, "sahne çok büyük")
+    spec.update(glb=str(jd / "scene.glb"), hdri=str(HDRI), out_dir=str(jd), samples=q["samples"], width=q["width"])
+    (jd / "job.json").write_text(json.dumps(spec, ensure_ascii=False))
+    JOBS[jid] = {"id": jid, "pid": pid, "kind": kind, "dir": str(jd), "status": "queued", "done": 0,
+                 "total": len(spec.get("viewpoints", [])) or 1, "results": [], "queued_ahead": _render_q.qsize(),
+                 "viewpoints": spec.get("viewpoints", [])}
+    _render_q.put(jid)
+    return _job_public(JOBS[jid])
+
+
+def _job_public(j):
+    base = f"/files/{j['pid']}/real/{j['id']}"
+    return {k: v for k, v in j.items() if k != "dir"} | {"urls": [f"{base}/{r}" for r in j["results"]]}
+
+
+@app.get("/api/jobs/{jid}")
+def job_status(jid: str):
+    j = JOBS.get(jid)
+    if not j:
+        raise HTTPException(404)
+    return _job_public(j)
+
+
+@app.get("/api/projects/{pid}/real")
+def list_real(pid: str):
+    """Tamamlanmış gerçek render'lar (sunucu yeniden başlasa da diskten)."""
+    d = PROJECTS / pid / "real"
+    if "/" in pid or not d.is_dir():
+        return []
+    out = []
+    for st in sorted(d.glob("*/status.json"), reverse=True):
+        j = json.loads(st.read_text())
+        if j.get("status") == "done":
+            out.append(_job_public(j))
+    return out
 
 
 class _nolock:

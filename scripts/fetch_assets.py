@@ -61,6 +61,7 @@ def main():
         lic[mid] = {"source": f"https://polyhaven.com/a/{mid}", "license": "CC0"}
     files = json.loads(get(API + HDRI))
     total += save(files["hdri"]["1k"]["hdr"]["url"], ROOT / "hdri" / "sky_1k.hdr")
+    total += save(files["hdri"]["2k"]["hdr"]["url"], ROOT / "hdri" / "sky_2k.hdr")  # Cycles: pencereden görünen gökyüzü
     lic[HDRI] = {"source": f"https://polyhaven.com/a/{HDRI}", "license": "CC0"}
     (ROOT / "LICENSES.json").write_text(json.dumps(lic, indent=1))
     print(f"toplam {total / 1e6:.1f} MB")

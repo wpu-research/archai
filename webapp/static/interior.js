@@ -58,8 +58,10 @@ export function createInterior(ctx) {
       t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(1 / f.tile, 1 / f.tile);
       t.anisotropy = 8; if (srgb) t.colorSpace = THREE.SRGBColorSpace; return t;
     };
-    return texCache[id] = new THREE.MeshStandardMaterial({map: load('diff', true), normalMap: load('nor_gl'), roughnessMap: load('rough'),
+    const fm = new THREE.MeshStandardMaterial({map: load('diff', true), normalMap: load('nor_gl'), roughnessMap: load('rough'),
       roughness: 1, normalScale: new THREE.Vector2(.6, .6)});
+    fm.name = 'archai_floor_' + f.id;
+    return texCache[id] = fm;
   }
   const plaster = (() => {
     const t = k => { const x = texLoader.load(`${A}tex/painted_plaster_wall/${k}.jpg`); x.wrapS = x.wrapT = THREE.RepeatWrapping; return x; };
@@ -95,6 +97,8 @@ export function createInterior(ctx) {
     leaves: [0x4f6b3a, 0x5d7a43, 0x445f33].map(c => new THREE.MeshStandardMaterial({color: c, roughness: .9, flatShading: true})),
     paving: new THREE.MeshStandardMaterial({color: 0xb5b0a6, roughness: .9}),
   };
+  for (const [k, m] of Object.entries(M)) if (m.isMaterial) m.name = 'archai_' + k;  // Cycles tarafı adla tanır
+  plaster.name = 'archai_plaster';
   const oakTex = texLoader.load(`${A}tex/oak_wood_planks/diff.jpg`); oakTex.colorSpace = THREE.SRGBColorSpace;
   oakTex.wrapS = oakTex.wrapT = THREE.RepeatWrapping; M.oak.map = oakTex; M.oak.color.set(0xffffff);
 
@@ -726,8 +730,38 @@ export function createInterior(ctx) {
   $$('#itabs button').forEach(b => b.onclick = () => { tab = b.dataset.it; cancelTool(); renderPanel(); });
   $('#iclose').onclick = () => openPanel(false);
 
+  // ------------------------------------------------------------------ Cycles'a gönderim: sahne GLB + iş tanımı
+  async function exportForRender(kind) {
+    if (!S.real) await setReal(true);
+    const {GLTFExporter} = await import('three/addons/exporters/GLTFExporter.js');
+    const vis = V.levels.map(L => L.group.visible);
+    V.levels.forEach(L => { L.group.visible = true; L.group.position.y = 0; L.group.scale.y = 1; });  // tavanlar dahil tüm katlar
+    const aux = [S.selBox, S.ghost, S.hl].filter(Boolean); const auxVis = aux.map(o => o.visible);
+    if (S.hl) highlight(null);
+    aux.forEach(o => o.visible = false);
+    V.root.updateMatrixWorld(true);
+    // userData döngüsel referans içerir (nesne ↔ sahibi); exporter JSON'a çevirmeye çalışıp binlerce kez hata üretir → geçici boşalt
+    const ud = []; [V.root, S.ground].forEach(r => r.traverse(o => { ud.push([o, o.userData]); o.userData = {}; }));
+    let glb;
+    try { glb = await new GLTFExporter().parseAsync([V.root, S.ground], {binary: true, onlyVisible: true, maxTextureSize: 2048}); }
+    finally { ud.forEach(([o, d]) => o.userData = d); V.levels.forEach((L, i) => L.group.visible = vis[i]); aux.forEach((o, i) => o.visible = auxVis[i]); }
+    const rooms = (V.elements || []).filter(e => e.type === 'room');
+    const W3 = (x, y, z) => toWorld(x, y, z).toArray().map(v => +v.toFixed(4));
+    const lights = rooms.filter(r => !/Merdiven|Şaft|Asansör/.test(r.name)).map(r => {
+      const xs = r.points.map(p => p[0]), ys = r.points.map(p => p[1]), [cx, cy] = centroid(r.points);
+      return {pos: W3(cx, cy, (r.z || 0) + (r.height || 2.8) - .02), w: Math.max(...xs) - Math.min(...xs), d: Math.max(...ys) - Math.min(...ys)};
+    });
+    const job = {kind, sun: S.sun ? {pos: S.sun.position.toArray(), target: S.sun.target.position.toArray()} : null, lights};
+    if (kind === 'still') { V.C.updateMatrixWorld(); job.camera = {matrix: V.C.matrixWorld.elements.slice(), fov: V.C.fov, aspect: V.C.aspect}; }
+    else job.viewpoints = rooms.filter(r => !/Merdiven|Şaft|Asansör|Depo/.test(r.name) && polyArea(r.points) > 4).map((r, i) => {
+      const [cx, cy] = centroid(r.points);
+      return {id: `r${i}`, name: r.name.split('/').slice(1).join(' · '), level: r.level, pos: W3(cx, cy, (r.z || 0) + 1.55)};
+    });
+    return {glb, job};
+  }
+
   return {
-    setReal, load, openPanel, resizeAO, autoFurnish,
+    setReal, load, openPanel, resizeAO, autoFurnish, exportForRender,
     async measure(kind) { const b = new THREE.Box3().setFromObject(await loadItem(kind)); const r = v => +v.toFixed(3);
       return {min: [r(b.min.x), r(b.min.y), r(b.min.z)], max: [r(b.max.x), r(b.max.y), r(b.max.z)]}; },
     items: () => ITEMS.map(i => i.id),
