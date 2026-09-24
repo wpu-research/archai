@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "archai-blender": {
+      "command": "uv",
+      "args": ["run", "--project", "/home/wpu/Desktop/Projects/Emre", "python", "/home/wpu/Desktop/Projects/Emre/mcp_server/server.py"]
+    }
+  }
+}

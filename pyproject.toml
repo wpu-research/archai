@@ -1,0 +1,6 @@
+[project]
+name = "archai"
+version = "0.1.0"
+description = "LLM ajanı → Blender mimari modelleme → colormap → AI video prototipi"
+requires-python = ">=3.11"
+dependencies = ["mcp>=2.2"]
