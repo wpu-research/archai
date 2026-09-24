@@ -1,12 +1,11 @@
-"""Blender Cycles fotogerçekçi render: tarayıcıdaki sahne (GLB) → foto veya oda oda 360° panorama.
+"""Blender Cycles fotogerçekçi render: tarayıcıdaki sahne (GLB) → verilen kameradan fotoğraf.
 
     blender -b --factory-startup --python scripts/render_real.py -- job.json
 
 job.json (koordinatlar three.js dünya uzayında, Y yukarı; burada Blender'a çevrilir):
-  glb, hdri, out_dir, kind: "still" | "pano"
+  glb, hdri, out_dir, kind: "still"
   sun: {pos:[x,y,z], target:[x,y,z]}
-  camera: {matrix:[16, sütun-öncelikli], fov: dikey derece, aspect}          (still)
-  viewpoints: [{id, name, level, pos:[x,y,z]}]                              (pano)
+  camera: {matrix:[16, sütun-öncelikli], fov: dikey derece, aspect}
   lights: [{pos:[x,y,z], w, d}]  — oda tavanı yumuşak alan ışıkları (opsiyonel)
   samples, width, exposure
 Standart çıktıya ilerleme satırları yazar: ARCHAI_PROGRESS i n ad / ARCHAI_RESULT yol
@@ -140,34 +139,18 @@ sc.camera = cam
 cam_d.clip_start = 0.05
 
 # ---------------------------------------------------------------- render
-if job["kind"] == "still":
-    c = job["camera"]
-    e = c["matrix"]
-    M = Matrix(((e[0], e[4], e[8], e[12]), (e[1], e[5], e[9], e[13]), (e[2], e[6], e[10], e[14]), (e[3], e[7], e[11], e[15])))
-    cam.matrix_world = C4 @ M
-    cam_d.sensor_fit = "VERTICAL"
-    cam_d.angle_y = math.radians(c["fov"])
-    W = int(job.get("width", 1920))
-    sc.render.resolution_x, sc.render.resolution_y = W, int(round(W / c["aspect"]))
-    path = os.path.join(out, "foto.jpg")
-    sc.render.filepath = path
-    t0 = time.time()
-    log("ARCHAI_PROGRESS", 0, 1, "foto")
-    bpy.ops.render.render(write_still=True)
-    log("ARCHAI_PROGRESS", 1, 1, "foto", round(time.time() - t0, 1))
-    log("ARCHAI_RESULT", path)
-else:
-    cam_d.type = "PANO"
-    cam_d.panorama_type = "EQUIRECTANGULAR"
-    W = int(job.get("width", 2048))
-    sc.render.resolution_x, sc.render.resolution_y = W, W // 2
-    vps = job["viewpoints"]
-    for i, vp in enumerate(vps):
-        cam.location = conv(vp["pos"])
-        cam.rotation_euler = (math.pi / 2, 0, 0)  # ufuk düz; görüntü merkezi Blender +Y (three −Z)
-        path = os.path.join(out, f"pano_{vp['id']}.jpg")
-        sc.render.filepath = path
-        t0 = time.time()
-        bpy.ops.render.render(write_still=True)
-        log("ARCHAI_PROGRESS", i + 1, len(vps), vp["name"], round(time.time() - t0, 1))
-        log("ARCHAI_RESULT", path)
+c = job["camera"]
+e = c["matrix"]
+M = Matrix(((e[0], e[4], e[8], e[12]), (e[1], e[5], e[9], e[13]), (e[2], e[6], e[10], e[14]), (e[3], e[7], e[11], e[15])))
+cam.matrix_world = C4 @ M
+cam_d.sensor_fit = "VERTICAL"
+cam_d.angle_y = math.radians(c["fov"])
+W = int(job.get("width", 1920))
+sc.render.resolution_x, sc.render.resolution_y = W, int(round(W / c["aspect"]))
+path = os.path.join(out, "foto.jpg")
+sc.render.filepath = path
+t0 = time.time()
+log("ARCHAI_PROGRESS", 0, 1, "foto")
+bpy.ops.render.render(write_still=True)
+log("ARCHAI_PROGRESS", 1, 1, "foto", round(time.time() - t0, 1))
+log("ARCHAI_RESULT", path)

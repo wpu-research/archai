@@ -224,8 +224,7 @@ RENDER_SCRIPT = ROOT / "scripts" / "render_real.py"
 HDRI = ROOT / "webapp" / "static" / "assets" / "hdri" / "sky_2k.hdr"
 JOBS: dict[str, dict] = {}
 _render_q: "queue.Queue[str]" = queue.Queue()
-QUALITY = {"still": {"samples": 256, "width": 1920}, "pano": {"samples": 160, "width": 2048},
-           "still_hq": {"samples": 512, "width": 2560}, "pano_hq": {"samples": 320, "width": 4096}}
+QUALITY = {"still": {"samples": 256, "width": 1920}, "still_hq": {"samples": 512, "width": 2560}}
 
 
 def _render_worker():
@@ -273,8 +272,8 @@ def submit_real(pid: str, scene: UploadFile = File(...), job: str = Form(...)):
     except ValueError:
         raise HTTPException(422, "job geçerli JSON değil")
     kind = spec.get("kind")
-    if kind not in ("still", "pano"):
-        raise HTTPException(422, "kind: still | pano")
+    if kind != "still":
+        raise HTTPException(422, "kind: still")
     q = QUALITY[kind + ("_hq" if spec.get("hq") else "")]
     jid = f"{kind}-{datetime.now():%H%M%S}-{uuid.uuid4().hex[:4]}"
     jd = d / "real" / jid
@@ -286,8 +285,7 @@ def submit_real(pid: str, scene: UploadFile = File(...), job: str = Form(...)):
     spec.update(glb=str(jd / "scene.glb"), hdri=str(HDRI), out_dir=str(jd), samples=q["samples"], width=q["width"])
     (jd / "job.json").write_text(json.dumps(spec, ensure_ascii=False))
     JOBS[jid] = {"id": jid, "pid": pid, "kind": kind, "dir": str(jd), "status": "queued", "done": 0,
-                 "total": len(spec.get("viewpoints", [])) or 1, "results": [], "queued_ahead": _render_q.qsize(),
-                 "viewpoints": spec.get("viewpoints", [])}
+                 "total": 1, "results": [], "queued_ahead": _render_q.qsize()}
     _render_q.put(jid)
     return _job_public(JOBS[jid])
 
