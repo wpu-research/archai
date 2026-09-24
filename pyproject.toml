@@ -3,4 +3,21 @@ name = "archai"
 version = "0.1.0"
 description = "LLM ajanı → Blender mimari modelleme → colormap → AI video prototipi"
 requires-python = ">=3.11"
-dependencies = ["mcp>=2.2"]
+dependencies = [
+    "ezdxf>=1.4.4",
+    "fastapi>=0.141.1",
+    "mcp>=2.2",
+    "openpyxl>=3.1.5",
+    "python-docx>=1.2.0",
+    "python-multipart>=0.0.32",
+    "uvicorn>=0.53.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.1.1",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+testpaths = ["tests"]

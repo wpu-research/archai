@@ -1,0 +1,334 @@
+[
+ {
+  "type": "slab",
+  "name": "doseme",
+  "role": "floor",
+  "tag": "concrete",
+  "points": [
+   [
+    -0.125,
+    -0.125
+   ],
+   [
+    12.125,
+    -0.125
+   ],
+   [
+    12.125,
+    9.125
+   ],
+   [
+    -0.125,
+    9.125
+   ]
+  ],
+  "z": 0,
+  "thickness": 0.2
+ },
+ {
+  "type": "wall",
+  "name": "S",
+  "start": [
+   0,
+   0
+  ],
+  "end": [
+   12,
+   0
+  ],
+  "thickness": 0.25,
+  "height": 2.8,
+  "openings": [
+   {
+    "offset": 1.0,
+    "width": 2.5,
+    "kind": "window"
+   },
+   {
+    "offset": 4.5,
+    "width": 1.5,
+    "kind": "window"
+   },
+   {
+    "offset": 8.5,
+    "width": 1.0,
+    "kind": "door"
+   },
+   {
+    "offset": 10.0,
+    "width": 1.2,
+    "kind": "window"
+   }
+  ]
+ },
+ {
+  "type": "wall",
+  "name": "E",
+  "start": [
+   12,
+   0
+  ],
+  "end": [
+   12,
+   9
+  ],
+  "thickness": 0.25,
+  "height": 2.8,
+  "openings": [
+   {
+    "offset": 6.0,
+    "width": 1.5,
+    "kind": "window"
+   }
+  ]
+ },
+ {
+  "type": "wall",
+  "name": "N",
+  "start": [
+   12,
+   9
+  ],
+  "end": [
+   0,
+   9
+  ],
+  "thickness": 0.25,
+  "height": 2.8,
+  "openings": [
+   {
+    "offset": 1.0,
+    "width": 2.0,
+    "kind": "window"
+   },
+   {
+    "offset": 6.0,
+    "width": 0.7,
+    "kind": "window"
+   },
+   {
+    "offset": 9.5,
+    "width": 1.5,
+    "kind": "window"
+   }
+  ]
+ },
+ {
+  "type": "wall",
+  "name": "W",
+  "start": [
+   0,
+   9
+  ],
+  "end": [
+   0,
+   0
+  ],
+  "thickness": 0.25,
+  "height": 2.8,
+  "openings": [
+   {
+    "offset": 5.5,
+    "width": 1.5,
+    "kind": "window"
+   }
+  ]
+ },
+ {
+  "type": "wall",
+  "name": "I1",
+  "start": [
+   0,
+   5
+  ],
+  "end": [
+   12,
+   5
+  ],
+  "thickness": 0.1,
+  "height": 2.8,
+  "openings": [
+   {
+    "offset": 2.0,
+    "width": 0.9,
+    "kind": "door"
+   },
+   {
+    "offset": 5.0,
+    "width": 0.8,
+    "kind": "door"
+   },
+   {
+    "offset": 9.0,
+    "width": 0.9,
+    "kind": "door"
+   }
+  ]
+ },
+ {
+  "type": "wall",
+  "name": "I2",
+  "start": [
+   7,
+   0
+  ],
+  "end": [
+   7,
+   5
+  ],
+  "thickness": 0.1,
+  "height": 2.8,
+  "openings": [
+   {
+    "offset": 2.0,
+    "width": 0.9,
+    "kind": "door"
+   }
+  ]
+ },
+ {
+  "type": "wall",
+  "name": "I3",
+  "start": [
+   4.5,
+   5
+  ],
+  "end": [
+   4.5,
+   9
+  ],
+  "thickness": 0.1,
+  "height": 2.8,
+  "openings": []
+ },
+ {
+  "type": "wall",
+  "name": "I4",
+  "start": [
+   7,
+   5
+  ],
+  "end": [
+   7,
+   9
+  ],
+  "thickness": 0.1,
+  "height": 2.8,
+  "openings": []
+ },
+ {
+  "type": "room",
+  "name": "Salon",
+  "points": [
+   [
+    0.125,
+    0.125
+   ],
+   [
+    6.95,
+    0.125
+   ],
+   [
+    6.95,
+    4.95
+   ],
+   [
+    0.125,
+    4.95
+   ]
+  ],
+  "height": 2.8
+ },
+ {
+  "type": "room",
+  "name": "Mutfak",
+  "points": [
+   [
+    7.05,
+    0.125
+   ],
+   [
+    11.875,
+    0.125
+   ],
+   [
+    11.875,
+    4.95
+   ],
+   [
+    7.05,
+    4.95
+   ]
+  ],
+  "height": 2.8
+ },
+ {
+  "type": "room",
+  "name": "Yatak Odası 1",
+  "points": [
+   [
+    0.125,
+    5.05
+   ],
+   [
+    4.45,
+    5.05
+   ],
+   [
+    4.45,
+    8.875
+   ],
+   [
+    0.125,
+    8.875
+   ]
+  ],
+  "height": 2.8
+ },
+ {
+  "type": "room",
+  "name": "Banyo",
+  "points": [
+   [
+    4.55,
+    5.05
+   ],
+   [
+    6.95,
+    5.05
+   ],
+   [
+    6.95,
+    8.875
+   ],
+   [
+    4.55,
+    8.875
+   ]
+  ],
+  "height": 2.8
+ },
+ {
+  "type": "room",
+  "name": "Yatak Odası 2",
+  "points": [
+   [
+    7.05,
+    5.05
+   ],
+   [
+    11.875,
+    5.05
+   ],
+   [
+    11.875,
+    8.875
+   ],
+   [
+    7.05,
+    8.875
+   ]
+  ],
+  "height": 2.8
+ }
+]

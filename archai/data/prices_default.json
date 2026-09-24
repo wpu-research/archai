@@ -1,0 +1,63 @@
+{
+  "_note": "ÖRNEK fiyatlardır — gerçek teklif için güncel ÇŞİDB birim fiyatları veya firma fiyat listesi girilmelidir.",
+  "currency": "TRY",
+  "overhead_pct": 10,
+  "profit_pct": 15,
+  "vat_pct": 20,
+  "approx_unit_costs": {
+    "_note": "Yaklaşık m² birim maliyet (yapı sınıfına göre). ÖRNEK değer — yılın yapı yaklaşık birim maliyetleri tebliğinden girilmeli.",
+    "III-B": 21000,
+    "IV-A": 25000,
+    "IV-C": 30000,
+    "V-A": 38000
+  },
+  "items": [
+    {"code": "BET-01", "group": "Kaba inşaat", "name": "Betonarme döşeme (beton + demir + kalıp)", "unit": "m³", "unit_price": 9500,
+     "qty": {"metric": "volume", "type": "slab", "role": ["floor", "roof"]}},
+    {"code": "DUV-01", "group": "Kaba inşaat", "name": "Dış duvar örgüsü (≥20 cm)", "unit": "m²", "unit_price": 1250,
+     "qty": {"metric": "net_area", "type": "wall", "min_thickness": 0.2}},
+    {"code": "DUV-02", "group": "Kaba inşaat", "name": "İç bölme duvar örgüsü (<20 cm)", "unit": "m²", "unit_price": 850,
+     "qty": {"metric": "net_area", "type": "wall", "max_thickness": 0.19}},
+    {"code": "YAL-01", "group": "Kaba inşaat", "name": "Dış cephe ısı yalıtımı (mantolama)", "unit": "m²", "unit_price": 1400,
+     "qty": {"metric": "net_area", "type": "wall", "min_thickness": 0.2}},
+    {"code": "CAT-01", "group": "Kaba inşaat", "name": "Teras çatı su yalıtımı", "unit": "m²", "unit_price": 1100,
+     "qty": {"metric": "area", "type": "slab", "role": "roof"}},
+    {"code": "SIV-01", "group": "İnce inşaat", "name": "İç sıva + alçı + boya (duvar yüzeyi)", "unit": "m²", "unit_price": 520,
+     "qty": {"metric": "wall_finish_area", "type": "room"}},
+    {"code": "SIV-02", "group": "İnce inşaat", "name": "Dış cephe sıva + boya", "unit": "m²", "unit_price": 650,
+     "qty": {"metric": "net_area", "type": "wall", "min_thickness": 0.2}},
+    {"code": "TAV-01", "group": "İnce inşaat", "name": "Tavan alçı + boya", "unit": "m²", "unit_price": 420,
+     "qty": {"metric": "ceiling_area", "type": "room"}},
+    {"code": "SAP-01", "group": "İnce inşaat", "name": "Tesviye şapı", "unit": "m²", "unit_price": 380,
+     "qty": {"metric": "area", "type": "room"}},
+    {"code": "ZEM-01", "group": "İnce inşaat", "name": "Zemin kaplaması", "unit": "m²", "unit_price": 950,
+     "qty": {"metric": "area", "type": "room"},
+     "variants": [
+       {"id": "laminat", "name": "Laminat parke", "unit_price": 950},
+       {"id": "seramik", "name": "Porselen seramik 60x120", "unit_price": 1350},
+       {"id": "masif", "name": "Masif ahşap parke", "unit_price": 2600},
+       {"id": "traverten", "name": "Traverten", "unit_price": 3100}
+     ], "selected": "laminat"},
+    {"code": "SUP-01", "group": "İnce inşaat", "name": "Süpürgelik", "unit": "m", "unit_price": 180,
+     "qty": {"metric": "skirting_length", "type": "room"}},
+    {"code": "PEN-01", "group": "Doğrama", "name": "Pencere (PVC/alüminyum + ısıcam)", "unit": "m²", "unit_price": 6500,
+     "qty": {"metric": "area", "type": "opening", "kind": "window"},
+     "variants": [
+       {"id": "pvc", "name": "PVC doğrama + çift cam", "unit_price": 6500},
+       {"id": "alu", "name": "Isı yalıtımlı alüminyum + çift cam", "unit_price": 9800},
+       {"id": "alu_triple", "name": "Isı yalıtımlı alüminyum + üçlü cam", "unit_price": 12500}
+     ], "selected": "pvc"},
+    {"code": "PEN-02", "group": "Doğrama", "name": "Denizlik / pencere söveleri", "unit": "m", "unit_price": 450,
+     "qty": {"metric": "width", "type": "opening", "kind": "window"}},
+    {"code": "KAP-01", "group": "Doğrama", "name": "Kapı (kasa + pervaz + kanat)", "unit": "adet", "unit_price": 14000,
+     "qty": {"metric": "count", "type": "opening", "kind": "door"}},
+    {"code": "HAV-01", "group": "Dış mekân", "name": "Havuz (betonarme + kaplama + makine dairesi)", "unit": "m²", "unit_price": 28000,
+     "qty": {"metric": "area", "type": "slab", "role": "pool"}},
+    {"code": "PEY-01", "group": "Dış mekân", "name": "Teras / çevre taş kaplama", "unit": "m²", "unit_price": 1900,
+     "qty": {"metric": "area", "type": "slab", "role": "paving"}},
+    {"code": "TES-01", "group": "Tesisat", "name": "Mekanik tesisat (m² başına götürü)", "unit": "m²", "unit_price": 2400,
+     "qty": {"metric": "area", "type": "slab", "role": "floor"}},
+    {"code": "TES-02", "group": "Tesisat", "name": "Elektrik tesisatı (m² başına götürü)", "unit": "m²", "unit_price": 1600,
+     "qty": {"metric": "area", "type": "slab", "role": "floor"}}
+  ]
+}
