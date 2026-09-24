@@ -300,7 +300,12 @@ def el_stairs(e):
     return out
 
 
-ELEMENTS = {"box": el_box, "wall": el_wall, "slab": el_slab, "cylinder": el_cylinder,
+def el_room(e):
+    """Mahal: metraj içindir, geometri üretmez (döşemeyi slab temsil eder)."""
+    return []
+
+
+ELEMENTS = {"room": el_room, "box": el_box, "wall": el_wall, "slab": el_slab, "cylinder": el_cylinder,
             "sphere": el_sphere, "tree": el_tree, "stairs": el_stairs}
 
 
@@ -599,6 +604,19 @@ def cmd_render(args):
                         "-c:v", "libx264", "-pix_fmt", "yuv420p", "-crf", "16", video], check=True)
     return {"video": video if ff else None, "frames_dir": frames_dir, "engine": engine,
             "frames": sc.frame_end - sc.frame_start + 1}
+
+
+def cmd_export_glb(args):
+    """Önizleme malzemeleriyle GLB (web 3D görüntüleyici için)."""
+    path = os.path.abspath(os.path.expanduser(args["path"]))
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    _set_materials("PV")
+    bpy.ops.object.select_all(action="DESELECT")
+    for o in bpy.data.objects:
+        if o.type == "MESH" and "archai_tag" in o:
+            o.select_set(True)
+    bpy.ops.export_scene.gltf(filepath=path, export_format="GLB", use_selection=True, export_yup=True)
+    return {"glb": path, "bytes": os.path.getsize(path)}
 
 
 def cmd_save(args):

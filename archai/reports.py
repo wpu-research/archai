@@ -153,3 +153,81 @@ def write_docx(path, spec, cost=None):
             doc.add_paragraph(cost["note"]).runs[0].italic = True
     doc.save(path)
     return path
+
+
+def _tl(v):
+    return f"{v:,.2f} ₺".replace(",", "X").replace(".", ",").replace("X", ".")
+
+
+def write_offer_docx(path, project, report, qres, cost, company=None, customer=None, offer_no=None):
+    """Müşteriye gidecek teklif mektubu."""
+    company = company or {"name": "[Firma Adı]", "address": "[Adres]", "phone": "[Telefon]", "email": "[E-posta]"}
+    customer = customer or {"name": "[Müşteri Adı]"}
+    s = qres["summary"]
+    gfa = s["gross_floor_area"]
+    months = round(6 + gfa / 250)  # kaba süre tahmini
+    doc = Document()
+    st = doc.styles["Normal"]
+    st.font.name, st.font.size = "Calibri", Pt(10.5)
+    p = doc.add_paragraph()
+    p.add_run(company["name"]).bold = True
+    doc.add_paragraph(f'{company.get("address", "")}  ·  {company.get("phone", "")}  ·  {company.get("email", "")}')
+    doc.add_paragraph(f"Tarih: {date.today():%d.%m.%Y}      Teklif No: {offer_no or date.today():%Y%m%d}".replace(
+        f"{date.today():%Y%m%d}", offer_no or f"{date.today():%Y%m%d}-01"))
+    doc.add_heading(f"{project} — Yapım Teklifi", 0)
+    doc.add_paragraph(f"Sayın {customer['name']},")
+    doc.add_paragraph("Aşağıda bilgileri verilen yapının anahtar teslim yapımı için fiyat teklifimizi bilgilerinize sunarız. "
+                      "Teklif, ekteki şematik ön tasarım ve ön metraja dayanmaktadır.")
+
+    doc.add_heading("1. Proje özeti", 1)
+    t = doc.add_table(rows=0, cols=2)
+    t.style = "Light Grid Accent 1"
+    rows = [("Toplam inşaat alanı (brüt)", f"{gfa:.2f} m²"), ("Net kullanım alanı", f"{s['net_room_area']:.2f} m²"),
+            ("Kat sayısı", str(report.get("floors", ""))),
+            ("Daire", f"{report.get('unit_count', '')} adet {report.get('unit_type', '')}")]
+    if report.get("parcel_area"):
+        rows.insert(0, ("Parsel alanı", f"{report['parcel_area']:.2f} m²"))
+    for k, v in rows:
+        c = t.add_row().cells
+        c[0].text, c[1].text = k, v
+
+    doc.add_heading("2. Kapsam ve bedel", 1)
+    t = doc.add_table(rows=1, cols=2)
+    t.style = "Light Grid Accent 1"
+    t.rows[0].cells[0].text, t.rows[0].cells[1].text = "İş grubu", "Tutar (KDV hariç, kâr/genel gider dahil)"
+    k = (cost["total_before_vat"] / cost["subtotal"]) if cost["subtotal"] else 1
+    for g, amt in cost["groups"].items():
+        if amt:
+            c = t.add_row().cells
+            c[0].text, c[1].text = g, _tl(amt * k)
+    for label, val in [("KDV hariç toplam", cost["total_before_vat"]), (f"KDV (%{cost['vat_pct']})", cost["vat"]),
+                       ("GENEL TOPLAM", cost["total"])]:
+        c = t.add_row().cells
+        c[0].text, c[1].text = label, _tl(val)
+        if label == "GENEL TOPLAM":
+            for cell in c:
+                cell.paragraphs[0].runs[0].bold = True
+    if cost.get("per_m2"):
+        doc.add_paragraph(f"Brüt m² birim fiyatı (KDV dahil): {_tl(cost['per_m2'])}")
+
+    doc.add_heading("3. Ödeme planı", 1)
+    for x in ["%20 sözleşme imzasında avans", "%30 kaba inşaat tamamlandığında", "%30 ince inşaat tamamlandığında",
+              "%20 geçici kabulde"]:
+        doc.add_paragraph(x, style="List Bullet")
+    doc.add_heading("4. Süre", 1)
+    doc.add_paragraph(f"Tahmini yapım süresi, ruhsat alımından itibaren yaklaşık {months} aydır.")
+    doc.add_heading("5. Teklife dahil olmayanlar", 1)
+    for x in ["Ruhsat, iskân ve belediye harçları; zemin etüdü", "Proje müellifliği ve kontrollük hizmetleri",
+              "Altyapı bağlantı bedelleri (elektrik, su, doğalgaz abonelikleri)", "Mobilya, beyaz eşya ve dekorasyon",
+              "İmar durumu veya zemin koşullarından doğacak ek imalatlar"]:
+        doc.add_paragraph(x, style="List Bullet")
+    doc.add_heading("6. Geçerlilik ve notlar", 1)
+    doc.add_paragraph("Bu teklif düzenlenme tarihinden itibaren 30 gün geçerlidir.")
+    doc.add_paragraph("Miktarlar şematik ön tasarımdan hesaplanmıştır; kesin fiyat, onaylı uygulama projeleri üzerinden "
+                      "yapılacak kesin metraj ile belirlenecektir.")
+    if cost.get("note"):
+        doc.add_paragraph(cost["note"]).runs[0].italic = True
+    doc.add_paragraph("\nSaygılarımızla,")
+    doc.add_paragraph(company["name"]).runs[0].bold = True
+    doc.save(path)
+    return path

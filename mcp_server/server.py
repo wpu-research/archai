@@ -159,6 +159,12 @@ def render(kind: str = "colormap", still: int | None = None, resolution: list[in
 
 
 @mcp.tool()
+def export_glb(path: str) -> dict:
+    """Sahneyi GLB olarak dışa aktarır (web'de 3D görüntüleme için)."""
+    return call("export_glb", {"path": path})
+
+
+@mcp.tool()
 def save_blend(path: str) -> dict:
     """Sahneyi .blend olarak kaydeder."""
     return call("save", {"path": path})
