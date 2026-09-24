@@ -86,7 +86,7 @@ def build(elements: list[dict]) -> dict:
 
     Her elemanda "type" zorunlu, "name" ve "tag" (semantik malzeme) önerilir.
     Geçerli tag'ler: wall, concrete, floor, roof, glass, frame, wood, stone, metal,
-    water, vegetation, tree, fabric, furniture, ground, terrain.
+    water, vegetation, tree, fabric, furniture, ground, terrain, sea, hill, terracotta.
 
     Tipler:
       box      {origin:[x,y,z] (min köşe), size:[sx,sy,sz], rotation_z?}
@@ -96,7 +96,7 @@ def build(elements: list[dict]) -> dict:
       slab     {points:[[x,y],...], z (üst yüz), thickness=0.2}   — döşeme, çatı, havuz suyu, teras
       cylinder {center:[x,y,z_alt], radius, height, radius_top?} — kolon
       sphere   {center:[x,y,z], radius, scale?}
-      tree     {position:[x,y], height=5, crown_scale?}
+      tree     {position:[x,y], height=5, base_z=0, crown_scale?}
       stairs   {origin:[x,y,z], width, steps, rise, run, rotation_z?}
 
     Hatalı elemanlar atlanır ve "errors" listesinde döner; kalanlar oluşturulur.
@@ -172,19 +172,20 @@ def open_blend(path: str) -> dict:
 
 @mcp.tool()
 def prepare_video_job(name: str, style_prompt: str, materials: dict[str, str],
-                      camera_note: str = "") -> dict:
+                      camera_note: str = "", source_dir: str | None = None) -> dict:
     """Video modeline (Higgsfield / Seedance / Kling vb.) gönderilecek paketi hazırlar.
 
     materials: tag → gerçek malzeme tarifi, örn. {"wall": "white lime-washed stucco",
                "wood": "weathered oak pergola beams"}. Sahnede olan tag'lerin hepsini ver.
     Çıktı klasörü: colormap.mp4 (kontrol videosu), ilk kare, prompt.txt (renk→malzeme
-    lejantı dahil) ve job.json. render(kind="colormap") önceden alınmış olmalı."""
+    lejantı dahil) ve job.json. render(kind="colormap") önceden alınmış olmalı;
+    render'ı farklı out_dir'e aldıysan aynısını source_dir olarak ver."""
     info = call("scene_info", {"limit": 0})
     palette = info["palette"]
-    src = OUT / "colormap.mp4"
+    src = Path(source_dir or OUT).expanduser() / "colormap.mp4"
     if not src.exists():
         raise RuntimeError("önce render(kind='colormap') ile animasyonu al")
-    job = OUT / "jobs" / name
+    job = Path(source_dir or OUT).expanduser() / "jobs" / name
     job.mkdir(parents=True, exist_ok=True)
     (job / "colormap.mp4").write_bytes(src.read_bytes())
     subprocess.run(["ffmpeg", "-loglevel", "error", "-y", "-i", str(src), "-frames:v", "1",

@@ -57,6 +57,9 @@ PALETTE = {
     "furniture": (1.00, 0.45, 0.00),
     "ground": (0.70, 0.70, 0.65),
     "terrain": (0.45, 0.60, 0.30),
+    "sea": (0.05, 0.15, 0.55),
+    "hill": (0.80, 0.70, 0.45),
+    "terracotta": (0.55, 0.18, 0.00),
     "sky": (0.85, 0.93, 1.00),
 }
 
@@ -78,6 +81,9 @@ PREVIEW = {
     "furniture": ((0.55, 0.45, 0.35), 0.6, 0.0, 0.0),
     "ground": ((0.60, 0.58, 0.52), 0.9, 0.0, 0.0),
     "terrain": ((0.35, 0.42, 0.22), 0.95, 0.0, 0.0),
+    "sea": ((0.02, 0.12, 0.30), 0.05, 0.0, 0.0),
+    "hill": ((0.45, 0.42, 0.30), 0.95, 0.0, 0.0),
+    "terracotta": ((0.60, 0.30, 0.18), 0.8, 0.0, 0.0),
     "sky": ((0.85, 0.93, 1.00), 1.0, 0.0, 0.0),
 }
 
@@ -267,13 +273,14 @@ def el_sphere(e):
 
 
 def el_tree(e):
-    """Basit ağaç: gövde + taç. position [x,y], height."""
+    """Basit ağaç: gövde + taç. position [x,y], height, base_z (zemin kotu)."""
     x, y = e["position"]
     h = e.get("height", 5.0)
+    z = e.get("base_z", 0.0)
     name = e.get("name", "tree")
-    trunk = el_cylinder({"name": f"{name}_trunk", "center": [x, y, 0], "radius": h * 0.03,
+    trunk = el_cylinder({"name": f"{name}_trunk", "center": [x, y, z], "radius": h * 0.03,
                          "height": h * 0.55, "tag": "wood"})
-    crown = el_sphere({"name": f"{name}_crown", "center": [x, y, h * 0.65], "radius": h * 0.3,
+    crown = el_sphere({"name": f"{name}_crown", "center": [x, y, z + h * 0.65], "radius": h * 0.3,
                        "scale": e.get("crown_scale", [1, 1, 0.8]), "tag": "tree"})
     return trunk + crown
 
@@ -435,7 +442,7 @@ def cmd_camera_path(args):
 
     mode = args.get("mode", "orbit")
     ease = args.get("ease", True)
-    objs = [o for o in bpy.data.objects if o.type == "MESH" and o.get("archai_tag") not in ("ground", "terrain")]
+    objs = [o for o in bpy.data.objects if o.type == "MESH" and o.get("archai_tag") not in ("ground", "terrain", "sea", "hill")]
     bb = _bbox(objs) or (Vector((-5, -5, 0)), Vector((5, 5, 3)))
     center = (bb[0] + bb[1]) / 2
 

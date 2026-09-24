@@ -1,0 +1,22 @@
+Photorealistic cinematic architectural film of a Mediterranean clifftop villa above the sea near Saint-Tropez, late morning sun, crisp shadows, warm stone tones, 35mm film look.
+
+The input video is a flat color segmentation map of an architectural scene. Keep the geometry, proportions and camera motion exactly. Replace each flat color with the material below:
+- #33bf33 (vegetation): dense lavender and rosemary shrubs
+- #ff7300 (furniture): woven rattan dining chairs
+- #e64040 (wall): warm off-white lime plaster, thick square columns and fascia
+- #8c8066 (stone): pale travertine paving and dry-laid limestone retaining walls
+- #ccb273 (hill): distant hazy rocky coastline and headlands
+- #ff8ccc (fabric): off-white linen cushions, parasol and curtains
+- #0d731a (tree): umbrella pines, olive trees and a slim Italian cypress
+- #d98026 (wood): tree trunks and teak furniture
+- #73994c (terrain): dry mediterranean garden: lavender, rosemary, gravel paths
+- #1a1a73 (frame): slim bronze window frames
+- #40d9ff (glass): dark glazed windows with reflections
+- #8c4ccc (roof): flat roof of weathered timber planks and reed shading
+- #1affbf (water): clear turquoise infinity pool water with caustics
+- #8c2e00 (terracotta): large terracotta planters
+- #0d268c (sea): deep blue Mediterranean sea with sun glints
+- #4c66ff (metal): thin parasol pole
+- #d9edff (sky): natural sky
+
+Camera: slow forward push-in with a gentle crane up, high vantage point from the garden
