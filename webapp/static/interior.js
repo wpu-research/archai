@@ -458,7 +458,16 @@ export function createInterior(ctx) {
   }
   const levelZ = n => ((V.elements || []).find(e => e.type === 'slab' && e.role === 'floor' && e.level === n) || {z: 0}).z;
   function clearObjects() { for (const o of S.objs.values()) o.parent?.remove(o); S.objs.clear(); }
-  async function restoreObjects() { clearObjects(); for (const o of S.design.objects) await spawnObject(o); }
+  // paralel yükle; render dışa aktarımı S.restoring bitene kadar bekler (yarım sahne gönderilmesin)
+  function restoreObjects() {
+    clearObjects();
+    const token = S.restoreToken = {};
+    S.restoring = Promise.all(S.design.objects.map(async o => {
+      const obj = await spawnObject(o);
+      if (obj && S.restoreToken !== token) { obj.parent?.remove(obj); S.objs.delete(o.id); }  // daha yeni bir yükleme başladıysa at
+    }));
+    return S.restoring;
+  }
   const uid = () => Math.random().toString(36).slice(2, 10);
 
   // ------------------------------------------------------------------ ışın / etkileşim
@@ -733,6 +742,7 @@ export function createInterior(ctx) {
   // ------------------------------------------------------------------ Cycles'a gönderim: sahne GLB + iş tanımı
   async function exportForRender(kind) {
     if (!S.real) await setReal(true);
+    await S.restoring;  // tüm mobilya yüklenmeden sahne gönderme
     const {GLTFExporter} = await import('three/addons/exporters/GLTFExporter.js');
     const vis = V.levels.map(L => L.group.visible);
     V.levels.forEach(L => { L.group.visible = true; L.group.position.y = 0; L.group.scale.y = 1; });  // tavanlar dahil tüm katlar
@@ -753,10 +763,35 @@ export function createInterior(ctx) {
     });
     const job = {kind, sun: S.sun ? {pos: S.sun.position.toArray(), target: S.sun.target.position.toArray()} : null, lights};
     if (kind === 'still') { V.C.updateMatrixWorld(); job.camera = {matrix: V.C.matrixWorld.elements.slice(), fov: V.C.fov, aspect: V.C.aspect}; }
-    else job.viewpoints = rooms.filter(r => !/Merdiven|Şaft|Asansör|Depo/.test(r.name) && polyArea(r.points) > 4).map((r, i) => {
-      const [cx, cy] = centroid(r.points);
-      return {id: `r${i}`, name: r.name.split('/').slice(1).join(' · '), level: r.level, pos: W3(cx, cy, (r.z || 0) + 1.55)};
-    });
+    else {
+      // bakış noktası: oda merkezi mobilyanın içine düşebilir → ızgarada mobilyaya en uzak, merkeze yakın nokta
+      const boxes = {};
+      for (const obj of S.objs.values()) {
+        const it = obj.userData.item; if (!it || it.kind === 'hali') continue;
+        const b = new THREE.Box3().setFromObject(obj);
+        (boxes[it.level] ??= []).push(b);
+      }
+      const clearance = (lvl, x, y) => {
+        const p = toWorld(x, y, 0); let m = 9;
+        for (const b of boxes[lvl] || []) {
+          const dx = Math.max(b.min.x - p.x, 0, p.x - b.max.x), dz = Math.max(b.min.z - p.z, 0, p.z - b.max.z);
+          m = Math.min(m, Math.hypot(dx, dz));
+        }
+        return m;
+      };
+      job.viewpoints = rooms.filter(r => !/Merdiven|Şaft|Asansör|Depo/.test(r.name) && polyArea(r.points) > 4).map((r, i) => {
+        const [cx, cy] = centroid(r.points), xs = r.points.map(p => p[0]), ys = r.points.map(p => p[1]);
+        const x0 = Math.min(...xs) + .45, x1 = Math.max(...xs) - .45, y0 = Math.min(...ys) + .45, y1 = Math.max(...ys) - .45;
+        let best = [cx, cy], score = -1e9;
+        for (let gx = 0; gx <= 8; gx++) for (let gy = 0; gy <= 8; gy++) {
+          const x = x0 + (x1 - x0) * gx / 8, y = y0 + (y1 - y0) * gy / 8;
+          if (!inPoly([x, y], r.points)) continue;
+          const c = Math.min(clearance(r.level, x, y), 1.2), sc = c * 3 - Math.hypot(x - cx, y - cy) * .35;
+          if (sc > score) { score = sc; best = [x, y]; }
+        }
+        return {id: `r${i}`, name: r.name.split('/').slice(1).join(' · '), level: r.level, pos: W3(best[0], best[1], (r.z || 0) + 1.55)};
+      });
+    }
     return {glb, job};
   }
 
