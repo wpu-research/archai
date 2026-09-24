@@ -33,3 +33,17 @@ def test_bad_input_and_path_traversal():
                                       "zoning": {"taks": 0.4, "kaks": 1, "front": 5, "side": 3, "rear": 3}})
     assert r.status_code == 422  # çekmelerden sonra alan yok
     assert c.get("/files/../../pyproject.toml").status_code == 404
+
+
+def test_interior_roundtrip():
+    r = c.post("/api/projects", json={"name": "ic mekan", "quick": {"gross_area": 300, "floors": 2, "unit_type": "2+1"}})
+    pid = r.json()["id"]
+    assert c.get(f"/api/projects/{pid}/interior").json() == {"floors": {}, "paint": "kirik_beyaz", "objects": []}
+    design = {"floors": {"Zemin Kat/Daire A/Salon": "marble_tiles"}, "paint": "bej",
+              "objects": [{"id": "a1", "kind": "klozet", "level": "Zemin Kat", "x": 1.5, "y": 2.0, "rot": 1.57, "evil": "x"}]}
+    assert c.put(f"/api/projects/{pid}/interior", json=design).json()["objects"] == 1
+    got = c.get(f"/api/projects/{pid}/interior").json()
+    assert got["floors"]["Zemin Kat/Daire A/Salon"] == "marble_tiles" and got["paint"] == "bej"
+    assert "evil" not in got["objects"][0]  # yalnız izinli alanlar saklanır
+    assert c.put("/api/projects/yok/interior", json=design).status_code == 404
+    assert c.put(f"/api/projects/{pid}/interior", json={"objects": "x"}).status_code == 422

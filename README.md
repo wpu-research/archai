@@ -25,6 +25,15 @@ uv run pytest -q
 - `teklif.docx` — müşteriye teklif mektubu (kapsam, bedel, m² fiyatı, ödeme planı, süre, hariçler)
 - `3d/` — Blender önizleme, colormap (AI video kontrol görüntüsü), `model.glb`
 
+## 3D: gezinti, gerçekçi render, iç mekân düzenleyici
+
+- **◉ YÜRÜ** — birinci şahıs gezinti (WASD + fare / dokunmatik), duvar çarpışması, Q/E kat; `?walk=x,y,yön` paylaşım linki
+- **◈ GERÇEKÇİ** — HDRI ortam ışığı, gölgeli güneş, GTAO, PBR zemin dokuları, sıva duvar, pencere/kapı kasaları
+- **✎ DÜZENLE** — zemin kaplaması (tıkla → odaya tıkla / bu kat / tüm katlar, kaplama metrajı), duvar boyası,
+  nesne yerleştirme (vitrifiye, mutfak, yatak, gardırop parametrik; salon mobilyası Poly Haven), taşı/döndür/sil,
+  **ÖRNEK DÖŞE**; düzen proje başına `interior.json`'a kaydedilir
+- Varlıklar CC0 (Poly Haven), repoda değil: `uv run python scripts/fetch_assets.py` (~29 MB)
+
 ## Modüller
 
 | | |

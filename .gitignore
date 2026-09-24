@@ -1,3 +1,8 @@
 .venv/
 out/
 __pycache__/
+
+# CC0 varlıklar: scripts/fetch_assets.py ile indirilir
+webapp/static/assets/tex/
+webapp/static/assets/models/
+webapp/static/assets/hdri/

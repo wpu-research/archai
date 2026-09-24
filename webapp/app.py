@@ -125,6 +125,29 @@ def get_elements(pid: str):
     return json.loads(p.read_text())
 
 
+@app.get("/api/projects/{pid}/interior")
+def get_interior(pid: str):
+    """İç mekân düzeni: zemin kaplamaları, boya, yerleştirilen nesneler."""
+    p = PROJECTS / pid / "interior.json"
+    if "/" in pid or not (PROJECTS / pid).is_dir():
+        raise HTTPException(404)
+    return json.loads(p.read_text()) if p.exists() else {"floors": {}, "paint": "kirik_beyaz", "objects": []}
+
+
+@app.put("/api/projects/{pid}/interior")
+def put_interior(pid: str, design: dict):
+    if "/" in pid or not (PROJECTS / pid).is_dir():
+        raise HTTPException(404)
+    objs = design.get("objects", [])
+    if not isinstance(objs, list) or len(objs) > 2000:
+        raise HTTPException(422, "geçersiz nesne listesi")
+    clean = {"floors": {str(k): str(v) for k, v in (design.get("floors") or {}).items()},
+             "paint": str(design.get("paint", "kirik_beyaz")),
+             "objects": [{k: o[k] for k in ("id", "kind", "level", "x", "y", "rot", "h") if k in o} for o in objs]}
+    (PROJECTS / pid / "interior.json").write_text(json.dumps(clean, ensure_ascii=False))
+    return {"ok": True, "objects": len(clean["objects"])}
+
+
 @app.put("/api/projects/{pid}/adjust")
 def adjust(pid: str, adj: dict):
     if not (PROJECTS / pid / "project.json").exists() or "/" in pid:
