@@ -112,7 +112,7 @@ def build_spec(project_name, qres, cost):
     summary = [
         ("Brüt inşaat alanı", f'{s["gross_floor_area"]:.2f} m²'),
         ("Net kullanım alanı (mahaller)", f'{s["net_room_area"]:.2f} m²'),
-        ("Kat sayısı", str(len([l for l in s["levels"] if l != "Çatı"]))),
+        ("Kat sayısı", str(len({l["level"] for l in qres["lines"] if l["type"] == "slab" and l["role"] == "floor"}))),
         ("Toplam duvar aks uzunluğu", f'{s["wall_length"]:.2f} m'),
         ("Pencere", f'{int(s["window_count"])} adet / {s["window_area"]:.2f} m²'),
         ("Kapı", f'{int(s["door_count"])} adet'),

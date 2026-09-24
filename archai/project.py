@@ -12,6 +12,37 @@ from pathlib import Path
 
 from . import costing, drawings, quantities as Q, reports, spec
 from .dxf_import import import_dxf
+
+SETTINGS = Path(__file__).resolve().parents[1] / "out" / "settings.json"
+INFO_KEYS = ("company", "customer", "site", "owner", "architect", "drawn_by", "checked_by", "approved_by", "rev")
+
+
+def load_settings():
+    try:
+        return json.loads(SETTINGS.read_text())
+    except (OSError, ValueError):
+        return {}
+
+
+def save_settings(data):
+    SETTINGS.parent.mkdir(parents=True, exist_ok=True)
+    SETTINGS.write_text(json.dumps(data, ensure_ascii=False, indent=1))
+    return data
+
+
+def build_info(brief):
+    """Kalıcı ayarlar (firma, varsayılan imzacılar) + projeye özel künye."""
+    base = load_settings()
+    info = {k: base.get(k) for k in INFO_KEYS if base.get(k)}
+    for k in INFO_KEYS:
+        v = brief.get(k)
+        if isinstance(v, dict):
+            info[k] = {**(info.get(k) or {}), **{a: b for a, b in v.items() if b}}
+        elif v:
+            info[k] = v
+    if not info.get("owner") and (info.get("customer") or {}).get("name"):
+        info["owner"] = info["customer"]["name"]
+    return info
 from .generate import generate
 
 
@@ -55,9 +86,10 @@ def finalize(brief, elements, report, meta, out_dir, render_3d=False):
     name = brief.get("name", "Proje")
     q = Q.compute(elements)
     cost = costing.estimate(q, adjust=brief.get("adjust"))
-    files = write_documents(out, name, brief, report, q, cost)
+    info = build_info(brief)
+    files = write_documents(out, name, brief, report, q, cost, info)
     files.update({f"cizim_{k}": v for k, v in
-                  drawings.export_all(out / "cizimler", elements, report, meta.get("zoning", {}), name).items()})
+                  drawings.export_all(out / "cizimler", elements, report, meta.get("zoning", {}), name, info).items()})
     if render_3d:
         files.update(render(elements, out / "3d"))
     result = {"name": name, "brief": brief, **meta, "report": report, "summary": q["summary"], "rooms": q["rooms"],
@@ -67,13 +99,13 @@ def finalize(brief, elements, report, meta, out_dir, render_3d=False):
     return result
 
 
-def write_documents(out, name, brief, report, q, cost):
+def write_documents(out, name, brief, report, q, cost, info=None):
+    info = info if info is not None else build_info(brief)
     sp = spec.build_spec(name, q, cost)
     return {
-        "metraj_maliyet_xlsx": str(reports.write_xlsx(out / "metraj_maliyet.xlsx", name, q, cost)),
-        "sartname_docx": str(reports.write_docx(out / "teknik_sartname.docx", sp, cost)),
-        "teklif_docx": str(reports.write_offer_docx(out / "teklif.docx", name, report, q, cost,
-                                                   brief.get("company"), brief.get("customer"))),
+        "metraj_maliyet_xlsx": str(reports.write_xlsx(out / "metraj_maliyet.xlsx", name, q, cost, info)),
+        "sartname_docx": str(reports.write_docx(out / "teknik_sartname.docx", sp, cost, info)),
+        "teklif_docx": str(reports.write_offer_docx(out / "teklif.docx", name, report, q, cost, info=info)),
     }
 
 

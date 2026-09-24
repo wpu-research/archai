@@ -49,3 +49,20 @@ def test_quick_mode_hits_area(tmp_path):
     assert res["report"]["unit_type"] == "2+1"
     for k in ("metraj_maliyet_xlsx", "sartname_docx", "teklif_docx", "cizim_pdf"):
         assert Path(res["files"][k]).exists(), k
+
+
+def test_amount_in_words():
+    from archai.reports import amount_in_words, words_tr
+    assert words_tr(1000) == "bin" and words_tr(1100) == "bin yüz" and words_tr(2001) == "iki bin bir"
+    assert words_tr(36289874) == "otuz altı milyon iki yüz seksen dokuz bin sekiz yüz yetmiş dört"
+    assert amount_in_words(1250.5) == "Yalnız bin iki yüz elli Türk Lirası elli Kuruş."
+
+
+def test_formal_plan_is_true_scale_1_100():
+    from archai import drawings
+    parcel, zoning, program = CASES[1]
+    els, rep = generate(parcel, zoning, program)
+    sh = drawings.compose({"project": "t"}, "A-01", "ZEMİN KAT PLANI",
+                          lambda s: drawings.draw_plan(s, els, "Zemin Kat", 10.0, "ZEMİN KAT PLANI"))
+    assert sh.S == 100
+    assert sh.doc.dimstyles.get("TR-CM").dxf.dimlfac == 100  # ölçüler cm

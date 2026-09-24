@@ -35,6 +35,11 @@ class Brief(BaseModel):
     adjust: dict | None = None
     company: dict | None = None
     customer: dict | None = None
+    site: dict | None = None
+    architect: str | None = None
+    drawn_by: str | None = None
+    checked_by: str | None = None
+    approved_by: str | None = None
     render_3d: bool = False
 
 
@@ -74,7 +79,7 @@ def create_project(b: Brief):
 
 @app.post("/api/projects/dxf")
 def create_from_dxf(file: UploadFile = File(...), name: str = Form("DXF Projesi"), floors: int = Form(1),
-                    floor_height: float = Form(3.0), render_3d: bool = Form(False)):
+                    floor_height: float = Form(3.0), render_3d: bool = Form(False), meta: str = Form("{}")):
     if not file.filename.lower().endswith(".dxf"):
         raise HTTPException(422, "yalnız .dxf kabul ediliyor (DWG'yi AutoCAD/ODA ile DXF'e çevirin)")
     pid = _new_id(name)
@@ -83,7 +88,11 @@ def create_from_dxf(file: UploadFile = File(...), name: str = Form("DXF Projesi"
     src = d / "plan.dxf"
     with src.open("wb") as f:
         shutil.copyfileobj(file.file, f)
-    brief = {"name": name, "dxf": {"floors": floors, "floor_height": floor_height}}
+    try:
+        extra = {k: v for k, v in json.loads(meta).items() if k in project.INFO_KEYS}
+    except ValueError:
+        raise HTTPException(422, "meta geçerli JSON değil")
+    brief = {"name": name, "dxf": {"floors": floors, "floor_height": floor_height}, **extra}
     with _blender_lock if render_3d else _nolock():
         result, _ = _run(lambda: project.run_dxf(src, brief, d, render_3d=render_3d))
     return _public(pid, result)
@@ -134,6 +143,17 @@ def render_3d(pid: str):
     r["files"].update(files)
     (d / "project.json").write_text(json.dumps(r, ensure_ascii=False, indent=1, default=str))
     return _public(pid, r)
+
+
+@app.get("/api/settings")
+def get_settings():
+    return project.load_settings()
+
+
+@app.put("/api/settings")
+def put_settings(data: dict):
+    allowed = {k: v for k, v in data.items() if k in project.INFO_KEYS}
+    return project.save_settings(allowed)
 
 
 @app.get("/api/prices")

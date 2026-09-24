@@ -77,6 +77,8 @@ button:active{transform:translateY(1px)}
 .seg button{padding:8px 4px;font:500 11px var(--mono);letter-spacing:.1em;color:var(--mute);border-radius:7px}
 .seg button.on{color:#00131a;background:var(--cy);box-shadow:0 0 16px rgba(62,232,255,.35)}
 .err{display:none;margin-top:10px;padding:9px 10px;border:1px solid rgba(255,93,108,.4);background:rgba(255,93,108,.08);color:var(--bad);border-radius:8px;font:500 12px var(--mono)}
+details.kunye{margin-top:14px;padding:2px 12px 10px;background:rgba(2,6,11,.35)}
+details.kunye summary{font:500 10.5px var(--mono);letter-spacing:.14em;color:var(--cy)}
 .recent a{display:flex;justify-content:space-between;gap:10px;padding:9px 2px;border-bottom:1px dashed var(--line);text-decoration:none;color:var(--ink);font-size:13px}
 .recent a:hover{color:var(--cy)}.recent small{font:500 11px var(--mono);color:var(--mute);white-space:nowrap}
 
@@ -194,7 +196,23 @@ summary{cursor:pointer;padding:9px 0;font:500 12px var(--mono);letter-spacing:.0
       <label for="file">Plan · .dxf (DUVAR · PENCERE · KAPI · MAHAL)</label><input id="file" type="file" accept=".dxf">
       <div class="r2"><div><label for="df">Kat sayısı</label><input id="df" type="number" value="1"></div><div><label for="dfh">Kat yüksekliği · m</label><input id="dfh" type="number" step="0.1" value="3.0"></div></div>
     </div>
-    <div class="r2"><div><label for="co">Firma</label><input id="co" placeholder="Firma adı"></div><div><label for="cu">Müşteri</label><input id="cu" placeholder="Müşteri adı"></div></div>
+    <details class="kunye"><summary>PROJE KÜNYESİ · YER · İMZALAR</summary>
+      <div class="r3"><div><label for="s_il">İl</label><input id="s_il" data-k="site.il"></div><div><label for="s_ilce">İlçe</label><input id="s_ilce" data-k="site.ilce"></div><div><label for="s_mah">Mahalle</label><input id="s_mah" data-k="site.mahalle"></div></div>
+      <div class="r3"><div><label for="s_pafta">Pafta</label><input id="s_pafta" data-k="site.pafta"></div><div><label for="s_ada">Ada</label><input id="s_ada" data-k="site.ada"></div><div><label for="s_parsel">Parsel</label><input id="s_parsel" data-k="site.parsel"></div></div>
+      <label for="s_road">Cephe aldığı yol</label><input id="s_road" data-k="site.road">
+      <div class="r2"><div><label for="c_name">Yapı sahibi / müşteri</label><input id="c_name" data-k="customer.name"></div><div><label for="c_addr">Müşteri adresi</label><input id="c_addr" data-k="customer.address"></div></div>
+      <div class="r2"><div><label for="p_arch">Müellif mimar</label><input id="p_arch" data-k="architect" data-save></div><div><label for="p_drawn">Çizen</label><input id="p_drawn" data-k="drawn_by" data-save></div></div>
+      <div class="r2"><div><label for="p_chk">Kontrol</label><input id="p_chk" data-k="checked_by" data-save></div><div><label for="p_app">Onay</label><input id="p_app" data-k="approved_by" data-save></div></div>
+    </details>
+    <details class="kunye"><summary>FİRMA BİLGİLERİ · ANTET</summary>
+      <label for="f_name">Firma unvanı</label><input id="f_name" data-k="company.name" data-save>
+      <label for="f_addr">Adres</label><input id="f_addr" data-k="company.address" data-save>
+      <div class="r2"><div><label for="f_tel">Telefon</label><input id="f_tel" data-k="company.phone" data-save></div><div><label for="f_mail">E-posta</label><input id="f_mail" data-k="company.email" data-save></div></div>
+      <div class="r2"><div><label for="f_vd">Vergi dairesi</label><input id="f_vd" data-k="company.tax_office" data-save></div><div><label for="f_vn">Vergi no</label><input id="f_vn" data-k="company.tax_no" data-save></div></div>
+      <div class="r2"><div><label for="f_sig">Yetkili adı soyadı</label><input id="f_sig" data-k="company.signatory" data-save></div><div><label for="f_ttl">Unvanı</label><input id="f_ttl" data-k="company.title" data-save></div></div>
+      <div class="r2"><div><label for="f_city">Yetkili mahkeme ili</label><input id="f_city" data-k="company.city" data-save></div><div style="align-self:end"><button class="ghost" id="saveco" style="width:100%">KAYDET</button></div></div>
+      <p class="note" style="margin-top:6px">Firma bilgileri ve imzacılar kaydedilir; tüm paftalarda, teklif ve şartnamede kullanılır.</p>
+    </details>
     <label class="check"><input id="r3d" type="checkbox"> Blender render + GLB de üret</label>
     <button class="primary" id="go">▶ PROJEYİ ÜRET</button>
     <div class="err" id="err"></div>
@@ -412,13 +430,13 @@ function fail(e){$('#err').style.display='block';$('#err').textContent='⚠ '+(e
 
 $('#go').onclick=async()=>{
   $('#err').style.display='none';busy(true);
-  const v=id=>parseFloat($(id).value), co=$('#co').value, cu=$('#cu').value;
-  const extra={name:$('#name').value,render_3d:$('#r3d').checked,...(co?{company:{name:co}}:{}),...(cu?{customer:{name:cu}}:{})};
+  const v=id=>parseFloat($(id).value);
+  const extra={name:$('#name').value,render_3d:$('#r3d').checked,...kunye()};
   const program={unit_type:$('#ut').value,units_per_floor:$('#upf').value==='auto'?'auto':+$('#upf').value};
   try{
     if(mode==='dxf'){
       const f=$('#file').files[0];if(!f)throw new Error('DXF dosyası seçin');
-      const fd=new FormData();fd.append('file',f);fd.append('name',extra.name);fd.append('floors',$('#df').value);fd.append('floor_height',$('#dfh').value);fd.append('render_3d',extra.render_3d);
+      const fd=new FormData();fd.append('file',f);fd.append('name',extra.name);fd.append('floors',$('#df').value);fd.append('floor_height',$('#dfh').value);fd.append('render_3d',extra.render_3d);fd.append('meta',JSON.stringify(kunye()));
       P=await api('/api/projects/dxf',{method:'POST',body:fd});
     }else{
       const body=mode==='land'?{...extra,parcel:{width:v('#pw'),depth:v('#pd')},zoning:{taks:v('#taks'),kaks:v('#kaks'),front:v('#fr'),side:v('#sd'),rear:v('#rr'),max_floors:v('#mf'),floor_height:v('#fh')},program}
@@ -428,6 +446,12 @@ $('#go').onclick=async()=>{
     await loaded();
   }catch(e){fail(e)}finally{busy(false)}
 };
+// künye: data-k="a.b" alanlarını iç içe nesneye topla
+function kunye(onlySaved=false){const o={};$$('[data-k]').forEach(i=>{if(onlySaved&&!i.hasAttribute('data-save'))return;const v=i.value.trim();if(!v)return;
+  const [a,b]=i.dataset.k.split('.');if(b){(o[a]=o[a]||{})[b]=v;}else o[a]=v;});return o;}
+async function loadSettings(){try{const st=await api('/api/settings');$$('[data-k]').forEach(i=>{const [a,b]=i.dataset.k.split('.');const v=b?(st[a]||{})[b]:st[a];if(v&&!i.value)i.value=v;});}catch(e){}}
+$('#saveco').onclick=async e=>{e.preventDefault();try{await api('/api/settings',{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(kunye(true))});
+  e.target.textContent='KAYDEDİLDİ ✓';setTimeout(()=>e.target.textContent='KAYDET',1500);}catch(x){fail(x)}};
 async function loaded(){
   adj=P.brief.adjust||{}; history.replaceState(null,'',location.search+'#'+P.id);
   build(await api(`/api/projects/${P.id}/elements`),P.zoning); hud(); render(); recent();
@@ -511,7 +535,7 @@ function push(){clearTimeout(timer);timer=setTimeout(async()=>{try{$('#status').
 $('#zoom').onclick=()=>$('#zoom').style.display='none';
 
 initViewport();
-recent();
+recent(); loadSettings();
 const Q_=new URLSearchParams(location.search), tabQ=Q_.get('tab'), vmQ=Q_.get('vm');
 if(tabQ)$(`#tabs [data-t="${tabQ}"]`)?.click();
 if(vmQ)$(`[data-vm="${vmQ}"]`)?.click();
