@@ -1,51 +1,53 @@
-# ArchAI — prototip
+# ArchAI
 
-LLM ajanı → Blender'da mimari model → kamera yolu → **colormap** (malzeme segmentasyon) videosu →
-AI video modeli (Higgsfield / Seedance / Kling). Instagram'daki "GPT-6 Astra + Revit/3ds Max + Higgsfield"
-iş akışının açık, kendi kontrolümüzdeki versiyonu.
-
-```
-ajan (Claude Code / MCP istemcisi)
-  └─ mcp_server/server.py          MCP araçları (stdio)
-       └─ TCP 127.0.0.1:9876
-            └─ blender_addon/archai_bridge.py   Blender içinde (headless veya GUI)
-```
-
-## Kurulum
-
-- Blender 4.5 LTS: `~/Applications/blender-4.5.14-linux-x64/` (başka yer için `ARCHAI_BLENDER`)
-- `uv sync`
-- Claude Code bu klasörde açılınca `.mcp.json`'daki `archai-blender` sunucusunu onayla.
-
-Köprü ayakta değilse ilk araç çağrısında headless Blender otomatik başlar.
-Modeli canlı izlemek için GUI'de: Blender → Edit → Preferences → Add-ons → Install from Disk →
-`blender_addon/archai_bridge.py` (headless süreci önce `shutdown_blender` ile kapat, port aynı).
-
-## Smoke test
+Arazi ve imar bilgisi (ya da sadece m²) veya mevcut bir DXF plandan:
+**plan → teknik çizimler → metraj → maliyet / fiyat ayarlama → teknik şartname → teklif → 3D / AI video.**
 
 ```
-uv run python scripts/demo_villa.py          # 2 kare: colormap + preview
-uv run python scripts/demo_villa.py --full   # + 96 kare colormap.mp4 + video paketi
+uv sync
+uv run uvicorn webapp.app:app --port 8000     # → http://localhost:8000
+uv run pytest -q
 ```
 
-Çıktılar `out/` altında; video paketi `out/jobs/<ad>/` (colormap.mp4, ilk kare, prompt.txt, job.json).
+## Girdiler
 
-## Araçlar
+| Mod | Girdi | Ne olur |
+|---|---|---|
+| **Arazi** | parsel cephe × derinlik, TAKS, KAKS, çekmeler, maks. kat, daire tipi | kütle imar sınırına göre boyutlanır, kat planı otomatik yerleşir |
+| **Hızlı teklif** | toplam m², kat sayısı, daire tipi | aynı üretici sanal bir parselle çalışır — teklif gerçek metraja dayanır |
+| **DXF plan** | katmanlı DXF (DUVAR, PENCERE, KAPI, MAHAL, ops. KONTUR) | çift çizgi duvarlar, açıklıklar ve mahaller okunur, katlar tekrarlanır |
 
-| Araç | İş |
+## Çıktılar (proje başına `out/projects/<id>/`)
+
+- `cizimler/` — vaziyet, zemin ve normal kat planı, A-A kesiti, ön görünüş: ayrı **DXF** + tek **PDF (A3)**
+- `metraj_maliyet.xlsx` — formüllü maliyet (Excel'de birim fiyat değişince toplamlar güncellenir), metraj, mahal listesi
+- `teknik_sartname.docx` — kalem kalem malzeme / uygulama / ölçü-ödeme
+- `teklif.docx` — müşteriye teklif mektubu (kapsam, bedel, m² fiyatı, ödeme planı, süre, hariçler)
+- `3d/` — Blender önizleme, colormap (AI video kontrol görüntüsü), `model.glb`
+
+## Modüller
+
+| | |
 |---|---|
-| `build` | duvar (+pencere/kapı açıklıkları), döşeme/çatı/havuz poligonu, kutu, kolon, ağaç, merdiven |
-| `exec_python` | serbest bpy — yeni objeyi `tag_object(obj, "wall")` ile etiketle |
-| `scene_info` | obje/tag özeti, sınır kutusu, palet |
-| `camera_path` | orbit / flythrough (Catmull-Rom) / dolly |
-| `render` | `colormap` (Workbench, düz renk, AA/dither kapalı), `preview` (EEVEE), `preview_cycles` |
-| `prepare_video_job` | renk→malzeme lejantlı prompt + kontrol videosu paketi |
+| `archai/generate.py` | arazi + imar + program → eleman listesi (TAKS/KAKS/çekme/kat kontrolü, çekirdekli 1–2 daireli kat, geniş / dar-derin yerleşim) |
+| `archai/dxf_import.py` | DXF → eleman listesi |
+| `archai/quantities.py` | eleman listesinden analitik metraj (aks uzunluğu, net duvar, açıklık, mahal) |
+| `archai/costing.py` | birim fiyat × metraj; varyant, override, kalem kapatma, ek kalem, genel gider / kâr / KDV, yaklaşık m² yöntemi |
+| `archai/data/prices_default.json` | **ÖRNEK** birim fiyat listesi — güncel ÇŞİDB birim fiyatları veya firma listesiyle değiştirilmeli |
+| `archai/spec.py`, `archai/reports.py` | şartname, Excel, teklif |
+| `archai/drawings.py` | DXF/PDF teknik çizimler |
+| `archai/project.py` | uçtan uca akış |
+| `webapp/` | FastAPI + tek sayfa arayüz |
+| `blender_addon/`, `mcp_server/` | Blender köprüsü ve MCP araçları (ajan modelleme, colormap, GLB) |
 
-Her obje bir semantik **tag** taşır (wall, glass, wood, water…). Colormap'te tag'in paletteki düz
-rengi, preview'da kaba PBR malzemesi kullanılır.
+Blender 4.5 LTS: `~/Applications/blender-4.5.14-linux-x64/` (başka yer için `ARCHAI_BLENDER`).
 
-## Bilinen sınırlar
+## Sınırlar — bilinmesi gerekenler
 
-- Video modeli adımı henüz **elle**: paket hazır, API entegrasyonu yok (sağlayıcı seçilmedi).
-- Köprü localhost'ta auth'suz `exec_python` çalıştırır — yalnız yerel geliştirme için.
-- Eğri/organik geometri `exec_python` ile yapılmalı; `build` kutu tabanlı.
+- Üretilen plan **şematik ön tasarımdır** (avan seviyesi); ruhsat projesi değildir, mimar kontrolü ve imzası gerekir.
+  Emsal hesabı yaklaşıktır (emsal dışı alanlar ayrıştırılmıyor). Parsel şimdilik dikdörtgen.
+- Kat planı kural tabanlı: kat başına 1–2 daire, tek çekirdek; ısıtma, statik, tesisat projesi üretilmez.
+- Birim fiyatlar örnektir. Mekanik/elektrik tesisatı m² başına götürü.
+- DXF içe aktarma katman kurallarına dayanır; DWG önce DXF'e çevrilmelidir. Eğik/eğrisel duvarlar yaklaşık.
+- Köprü localhost'ta auth'suz `exec_python` çalıştırır; web uygulamasında kimlik doğrulama yok — yalnız yerel kullanım.
+- `references/villa_ref.png` üçüncü taraf içeriğidir; repo paylaşılmadan çıkarılmalı.

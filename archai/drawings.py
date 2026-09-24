@@ -317,13 +317,16 @@ def export_all(out_dir, elements, report, zoning, project):
     salon = next((e for e in elements if e["type"] == "room" and e.get("level") == ground and "Salon" in e["name"]), None)
     cut_x = sum(p[0] for p in salon["points"]) / 4 if salon else sum(w["start"][0] for w in walls) / len(walls)
 
+    has_site = any(e.get("name") == "parsel" for e in elements)
     sheets = [("01_vaziyet", lambda m: draw_site(m, elements, report, zoning, project)),
               ("02_zemin_kat_plani", lambda m: draw_plan(m, elements, ground, project, "Zemin Kat Planı")),
               ("03_normal_kat_plani", lambda m: draw_plan(m, elements, typical, project, f"Normal Kat Planı ({typical})")),
               ("04_kesit_AA", lambda m: draw_section(m, elements, cut_x, project)),
               ("05_on_gorunus", lambda m: draw_elevation(m, elements, project))]
     if typical == ground:
-        sheets.pop(2)
+        sheets = [x for x in sheets if x[0] != "03_normal_kat_plani"]
+    if not has_site:
+        sheets = [x for x in sheets if x[0] != "01_vaziyet"]
     paths = {}
     cfg = Configuration(background_policy=BackgroundPolicy.WHITE, color_policy=ColorPolicy.BLACK,
                         lineweight_scaling=1.2, min_lineweight=0.1)

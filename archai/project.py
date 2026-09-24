@@ -11,7 +11,8 @@ import math
 from pathlib import Path
 
 from . import costing, drawings, quantities as Q, reports, spec
-from .generate import EXT_T, generate
+from .dxf_import import import_dxf
+from .generate import generate
 
 
 def quick_brief(q):
@@ -28,31 +29,66 @@ def quick_brief(q):
 
 
 def run(brief, out_dir, render_3d=False):
-    out = Path(out_dir)
-    out.mkdir(parents=True, exist_ok=True)
-    name = brief.get("name", "Proje")
+    """Arazi veya hızlı mod: plan üret, sonra tüm çıktıları hazırla."""
     if "quick" in brief:
         parcel, zoning, program = quick_brief(brief["quick"])
     else:
         parcel, zoning, program = brief["parcel"], brief["zoning"], brief.get("program", {})
     elements, report = generate(parcel, zoning, program)
+    meta = {"parcel": parcel, "zoning": zoning, "program": program}
+    return finalize(brief, elements, report, meta, out_dir, render_3d), elements
+
+
+def run_dxf(dxf_path, brief, out_dir, render_3d=False):
+    """Mevcut plandan (DXF): içe aktar, sonra tüm çıktıları hazırla."""
+    p = brief.get("dxf", {})
+    elements, imp = import_dxf(dxf_path, floors=int(p.get("floors", 1)), floor_height=float(p.get("floor_height", 3.0)))
+    s = Q.compute(elements)["summary"]
+    report = {**imp, "gross_total": s["gross_floor_area"], "unit_count": p.get("unit_count", ""),
+              "unit_type": p.get("unit_type", ""), "source": "dxf"}
+    return finalize(brief, elements, report, {"dxf": str(dxf_path)}, out_dir, render_3d), elements
+
+
+def finalize(brief, elements, report, meta, out_dir, render_3d=False):
+    out = Path(out_dir)
+    out.mkdir(parents=True, exist_ok=True)
+    name = brief.get("name", "Proje")
     q = Q.compute(elements)
     cost = costing.estimate(q, adjust=brief.get("adjust"))
+    files = write_documents(out, name, brief, report, q, cost)
+    files.update({f"cizim_{k}": v for k, v in
+                  drawings.export_all(out / "cizimler", elements, report, meta.get("zoning", {}), name).items()})
+    if render_3d:
+        files.update(render(elements, out / "3d"))
+    result = {"name": name, "brief": brief, **meta, "report": report, "summary": q["summary"], "rooms": q["rooms"],
+              "cost": cost, "files": files}
+    (out / "elements.json").write_text(json.dumps(elements, ensure_ascii=False, indent=1))
+    (out / "project.json").write_text(json.dumps(result, ensure_ascii=False, indent=1, default=str))
+    return result
+
+
+def write_documents(out, name, brief, report, q, cost):
     sp = spec.build_spec(name, q, cost)
-    files = {
+    return {
         "metraj_maliyet_xlsx": str(reports.write_xlsx(out / "metraj_maliyet.xlsx", name, q, cost)),
         "sartname_docx": str(reports.write_docx(out / "teknik_sartname.docx", sp, cost)),
         "teklif_docx": str(reports.write_offer_docx(out / "teklif.docx", name, report, q, cost,
                                                    brief.get("company"), brief.get("customer"))),
     }
-    files.update({f"cizim_{k}": v for k, v in drawings.export_all(out / "cizimler", elements, report, zoning, name).items()})
-    if render_3d:
-        files.update(render(elements, out / "3d"))
-    result = {"name": name, "brief": brief, "parcel": parcel, "zoning": zoning, "program": program,
-              "report": report, "summary": q["summary"], "rooms": q["rooms"], "cost": cost, "files": files}
-    (out / "elements.json").write_text(json.dumps(elements, ensure_ascii=False, indent=1))
+
+
+def readjust(out_dir, adjust):
+    """Fiyat ayarı değişince: maliyeti yeniden hesapla, belgeleri yeniden yaz (çizimler aynı kalır)."""
+    out = Path(out_dir)
+    result = json.loads((out / "project.json").read_text())
+    elements = json.loads((out / "elements.json").read_text())
+    q = Q.compute(elements)
+    cost = costing.estimate(q, adjust=adjust)
+    result["brief"]["adjust"] = adjust
+    result["cost"] = cost
+    result["files"].update(write_documents(out, result["name"], result["brief"], result["report"], q, cost))
     (out / "project.json").write_text(json.dumps(result, ensure_ascii=False, indent=1, default=str))
-    return result, elements
+    return result
 
 
 def render(elements, out_dir):

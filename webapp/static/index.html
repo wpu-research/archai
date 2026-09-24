@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ArchAI — Proje ve Teklif</title>
+<script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
+<style>
+:root{--bg:#f5f6f8;--panel:#fff;--ink:#1c2230;--mute:#667085;--line:#e3e6eb;--acc:#1f5eff;--acc2:#e9efff;--ok:#12805c;--bad:#c4321c;--warn:#b25e09}
+@media (prefers-color-scheme:dark){:root{--bg:#0f1218;--panel:#171b23;--ink:#e7eaf0;--mute:#98a2b3;--line:#2a303b;--acc:#6f95ff;--acc2:#1e2740;--ok:#3ccf98;--bad:#ff7a66;--warn:#f0a44a}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--ink);font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+header{display:flex;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--line);background:var(--panel)}
+header b{font-size:17px}header span{color:var(--mute)}
+main{display:grid;grid-template-columns:340px 1fr;gap:16px;padding:16px;max-width:1500px;margin:auto}
+@media (max-width:900px){main{grid-template-columns:1fr}}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+h3{margin:0 0 10px;font-size:14px}label{display:block;font-size:12px;color:var(--mute);margin:8px 0 3px}
+input,select{width:100%;padding:7px 8px;border:1px solid var(--line);border-radius:6px;background:var(--bg);color:var(--ink);font:inherit}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:8px}.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+button{padding:9px 12px;border:0;border-radius:7px;background:var(--acc);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+button.sec{background:var(--acc2);color:var(--acc)}button:disabled{opacity:.5;cursor:wait}
+.seg{display:flex;background:var(--bg);border:1px solid var(--line);border-radius:8px;padding:3px;gap:3px;margin-bottom:6px}
+.seg button{flex:1;background:none;color:var(--mute);padding:6px}.seg button.on{background:var(--panel);color:var(--ink);box-shadow:0 1px 2px #0002}
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:-14px -14px 14px;padding:0 10px;overflow-x:auto}
+.tabs button{background:none;color:var(--mute);border-radius:0;padding:11px 12px;border-bottom:2px solid transparent;white-space:nowrap}
+.tabs button.on{color:var(--acc);border-color:var(--acc)}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px;margin-bottom:14px}
+.kpi{border:1px solid var(--line);border-radius:8px;padding:10px}.kpi small{color:var(--mute);display:block}.kpi b{font-size:18px}
+table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:6px 7px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+th{color:var(--mute);font-weight:600;font-size:12px;position:sticky;top:0;background:var(--panel)}td.n,th.n{text-align:right;font-variant-numeric:tabular-nums}
+td input,td select{padding:4px 6px}td input.num{text-align:right;width:110px}
+.ok{color:var(--ok)}.bad{color:var(--bad)}.warn{color:var(--warn)}
+.note{color:var(--mute);font-size:12px;margin-top:8px}
+.sheets{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px}
+.sheet{border:1px solid var(--line);border-radius:8px;overflow:hidden;background:#fff}.sheet img{width:100%;display:block;cursor:zoom-in}
+.sheet div{padding:6px 8px;display:flex;justify-content:space-between;background:var(--panel);font-size:12px}
+a{color:var(--acc)}.dl{display:flex;flex-wrap:wrap;gap:8px}.dl a{padding:10px 14px;border:1px solid var(--line);border-radius:8px;text-decoration:none;background:var(--bg)}
+.empty{color:var(--mute);text-align:center;padding:60px 10px}
+.list a{display:block;padding:6px 0;border-bottom:1px solid var(--line);text-decoration:none;font-size:13px}.list small{color:var(--mute)}
+.totals td{border:0;padding:3px 7px}.totals tr.big td{font-weight:700;font-size:15px;border-top:1px solid var(--line)}
+model-viewer{width:100%;height:520px;background:var(--bg);border-radius:8px}
+#zoom{position:fixed;inset:0;background:#000c;display:none;align-items:center;justify-content:center;z-index:9}#zoom img{max-width:96vw;max-height:96vh;background:#fff}
+.err{background:#c4321c22;color:var(--bad);padding:8px;border-radius:6px;margin-top:8px;display:none}
+.spin{display:none;color:var(--mute);margin-top:8px}
+</style>
+</head>
+<body>
+<header><b>ArchAI</b><span>Arazi / m² / plan → çizim, metraj, maliyet, şartname, teklif</span></header>
+<main>
+<aside>
+  <div class="card">
+    <div class="seg" id="mode"><button data-m="land" class="on">Arazi</button><button data-m="quick">Hızlı teklif</button><button data-m="dxf">DXF plan</button></div>
+    <label>Proje adı</label><input id="name" value="Yeni Konut Projesi">
+    <div data-show="land">
+      <div class="row"><div><label>Parsel cephe (m)</label><input id="pw" type="number" value="30"></div><div><label>Parsel derinlik (m)</label><input id="pd" type="number" value="28"></div></div>
+      <div class="row"><div><label>TAKS</label><input id="taks" type="number" step="0.01" value="0.40"></div><div><label>KAKS / Emsal</label><input id="kaks" type="number" step="0.05" value="2.00"></div></div>
+      <div class="row3"><div><label>Ön çekme</label><input id="fr" type="number" value="5"></div><div><label>Yan çekme</label><input id="sd" type="number" value="3"></div><div><label>Arka çekme</label><input id="rr" type="number" value="3"></div></div>
+      <div class="row"><div><label>Maks. kat</label><input id="mf" type="number" value="6"></div><div><label>Kat yüksekliği (m)</label><input id="fh" type="number" step="0.1" value="3.0"></div></div>
+    </div>
+    <div data-show="quick" hidden>
+      <div class="row"><div><label>Toplam brüt alan (m²)</label><input id="qa" type="number" value="600"></div><div><label>Kat sayısı</label><input id="qf" type="number" value="3"></div></div>
+    </div>
+    <div data-show="land quick">
+      <div class="row"><div><label>Daire tipi</label><select id="ut"><option value="auto">Otomatik</option><option>1+1</option><option selected>2+1</option><option>3+1</option><option>4+1</option></select></div>
+      <div><label>Kat başına daire</label><select id="upf"><option value="auto">Otomatik</option><option value="1">1</option><option value="2">2</option></select></div></div>
+    </div>
+    <div data-show="dxf" hidden>
+      <label>Plan (.dxf — katmanlar: DUVAR, PENCERE, KAPI, MAHAL)</label><input id="file" type="file" accept=".dxf">
+      <div class="row"><div><label>Kat sayısı</label><input id="df" type="number" value="1"></div><div><label>Kat yüksekliği (m)</label><input id="dfh" type="number" step="0.1" value="3.0"></div></div>
+    </div>
+    <div class="row"><div><label>Firma</label><input id="co" placeholder="[Firma Adı]"></div><div><label>Müşteri</label><input id="cu" placeholder="[Müşteri Adı]"></div></div>
+    <label style="display:flex;gap:6px;align-items:center;margin-top:10px;color:var(--ink)"><input id="r3d" type="checkbox" style="width:auto"> 3D model de üret (Blender)</label>
+    <button id="go" style="width:100%;margin-top:12px">Projeyi oluştur</button>
+    <div class="spin" id="spin">Hazırlanıyor…</div><div class="err" id="err"></div>
+  </div>
+  <div class="card" style="margin-top:16px"><h3>Son projeler</h3><div class="list" id="recent"></div></div>
+</aside>
+<section class="card" id="out">
+  <div class="tabs" id="tabs">
+    <button data-t="ozet" class="on">Özet</button><button data-t="cizim">Çizimler</button><button data-t="metraj">Metraj</button>
+    <button data-t="maliyet">Maliyet ve fiyat</button><button data-t="belge">Belgeler</button><button data-t="3d">3D</button>
+  </div>
+  <div id="view"><div class="empty">Soldan bilgileri girip <b>Projeyi oluştur</b>'a basın.</div></div>
+</section>
+</main>
+<div id="zoom" onclick="this.style.display='none'"><img></div>
+<script>
+const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+const tl=v=>v==null?'—':v.toLocaleString('tr-TR',{style:'currency',currency:'TRY',maximumFractionDigits:0});
+const n2=v=>v==null?'—':Number(v).toLocaleString('tr-TR',{maximumFractionDigits:2});
+const SHEET={vaziyet:'Vaziyet planı',zemin_kat_plani:'Zemin kat planı',normal_kat_plani:'Normal kat planı',kesit_AA:'A-A kesiti',on_gorunus:'Ön görünüş'};
+let mode='land', P=null, tab='ozet', adj={}, timer=null;
+
+$$('#mode button').forEach(b=>b.onclick=()=>{mode=b.dataset.m;$$('#mode button').forEach(x=>x.classList.toggle('on',x===b));
+  $$('[data-show]').forEach(el=>el.hidden=!el.dataset.show.split(' ').includes(mode));});
+$$('#tabs button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;$$('#tabs button').forEach(x=>x.classList.toggle('on',x===b));render();});
+
+async function api(url,opt){const r=await fetch(url,opt);const j=await r.json().catch(()=>({detail:r.statusText}));if(!r.ok)throw new Error(j.detail||r.statusText);return j;}
+function busy(on,msg){$('#go').disabled=on;$('#spin').style.display=on?'block':'none';if(msg)$('#spin').textContent=msg;}
+function fail(e){$('#err').style.display='block';$('#err').textContent=e.message||e;}
+
+$('#go').onclick=async()=>{
+  $('#err').style.display='none';busy(true,$('#r3d').checked?'Hazırlanıyor (3D ile ~20 sn)…':'Hazırlanıyor…');
+  const v=id=>parseFloat($(id).value), co=$('#co').value, cu=$('#cu').value;
+  const extra={name:$('#name').value,render_3d:$('#r3d').checked,...(co?{company:{name:co}}:{}),...(cu?{customer:{name:cu}}:{})};
+  const program={unit_type:$('#ut').value,units_per_floor:$('#upf').value==='auto'?'auto':+$('#upf').value};
+  try{
+    if(mode==='dxf'){
+      const f=$('#file').files[0];if(!f)throw new Error('DXF dosyası seçin');
+      const fd=new FormData();fd.append('file',f);fd.append('name',extra.name);fd.append('floors',$('#df').value);fd.append('floor_height',$('#dfh').value);fd.append('render_3d',extra.render_3d);
+      P=await api('/api/projects/dxf',{method:'POST',body:fd});
+    }else{
+      const body=mode==='land'?{...extra,parcel:{width:v('#pw'),depth:v('#pd')},zoning:{taks:v('#taks'),kaks:v('#kaks'),front:v('#fr'),side:v('#sd'),rear:v('#rr'),max_floors:v('#mf'),floor_height:v('#fh')},program}
+        :{...extra,quick:{gross_area:v('#qa'),floors:v('#qf'),...program}};
+      P=await api('/api/projects',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
+    }
+    adj=P.brief.adjust||{};history.replaceState(null,'','#'+P.id);render();recent();
+  }catch(e){fail(e)}finally{busy(false)}
+};
+
+async function recent(){const l=await api('/api/projects');$('#recent').innerHTML=l.length?l.map(p=>`<a href="#${p.id}" onclick="openP('${p.id}');return false">${p.name}<br><small>${n2(p.area)} m² · ${tl(p.total)}</small></a>`).join(''):'<small>Henüz yok</small>';}
+async function openP(id){P=await api('/api/projects/'+id);adj=P.brief.adjust||{};history.replaceState(null,'','#'+id);render();}
+
+function render(){
+  const V=$('#view');if(!P){return}
+  const c=P.cost,s=P.summary,r=P.report;
+  if(tab==='ozet'){
+    const ch=r.checks?Object.entries(r.checks).filter(([k,x])=>'ok' in x).map(([k,x])=>`<tr><td>${({taks:"TAKS",kaks:"KAKS / Emsal",floors:"Kat sayısı"})[k]||k}</td><td class="n">${x.limit}</td><td class="n">${x.value}</td><td class="${x.ok?'ok':'bad'}">${x.ok?'✓ uygun':'✗ aşım'}</td></tr>`).join(''):'';
+    const w=(r.warnings||[]).map(x=>`<div class="warn">⚠ ${x}</div>`).join('');
+    V.innerHTML=`<div class="kpis">
+      <div class="kpi"><small>Genel toplam (KDV dahil)</small><b>${tl(c.total)}</b></div>
+      <div class="kpi"><small>m² birim fiyat (KDV dahil)</small><b>${tl(c.per_m2)}</b></div>
+      <div class="kpi"><small>Brüt inşaat alanı</small><b>${n2(s.gross_floor_area)} m²</b></div>
+      <div class="kpi"><small>Net kullanım alanı</small><b>${n2(s.net_room_area)} m²</b></div>
+      <div class="kpi"><small>Kat / daire</small><b>${r.floors??'—'} kat · ${r.unit_count||'—'} ${r.unit_type||''}</b></div></div>
+      ${w}${ch?`<h3 style="margin-top:14px">İmar kontrolü</h3><table><tr><th>Kriter</th><th class="n">İzin</th><th class="n">Proje</th><th></th></tr>${ch}</table>`:''}
+      ${r.checks?`<p class="note">Çekmeler: ön ${r.checks.setbacks.front} m · sol ${r.checks.setbacks.side_left} m · sağ ${r.checks.setbacks.side_right} m · arka ${r.checks.setbacks.rear} m</p>`:''}
+      ${P.files.preview_png?`<img src="${P.files.preview_png}" style="width:100%;border-radius:8px;margin-top:10px">`:''}
+      <p class="note">${r.note||''} ${c.note||''}</p>`;
+  }else if(tab==='cizim'){
+    V.innerHTML=`<div class="dl" style="margin-bottom:12px"><a href="${P.files.cizim_pdf}" target="_blank">Tüm çizimler (PDF, A3)</a></div>
+      <div class="sheets">${P.sheets.map(x=>`<div class="sheet"><img src="${x.png}?v=${Date.now()}" onclick="zoom(this.src)"><div><span>${SHEET[x.name.replace(/^\d+_/,'')]||x.name}</span><a href="${x.dxf}">DXF</a></div></div>`).join('')}</div>`;
+  }else if(tab==='metraj'){
+    const rows=[['Brüt inşaat alanı',s.gross_floor_area,'m²'],['Net mahal alanı',s.net_room_area,'m²'],['Duvar aks uzunluğu',s.wall_length,'m'],['Net duvar alanı',s.wall_net_area,'m²'],['Duvar hacmi',s.wall_volume,'m³'],['Pencere',s.window_count,'adet'],['Pencere alanı',s.window_area,'m²'],['Kapı',s.door_count,'adet'],['Çatı alanı',s.roof_area,'m²']];
+    const lv={};P.rooms.forEach(x=>(lv[x.level]=lv[x.level]||[]).push(x));
+    V.innerHTML=`<table><tr><th>Kalem</th><th class="n">Miktar</th><th>Birim</th></tr>${rows.map(x=>`<tr><td>${x[0]}</td><td class="n">${n2(x[1])}</td><td>${x[2]}</td></tr>`).join('')}</table>
+      <h3 style="margin-top:16px">Mahal listesi</h3>${Object.entries(lv).map(([l,rs])=>`<details ${l===Object.keys(lv)[0]?'open':''}><summary>${l} — ${n2(rs.reduce((a,b)=>a+b.area,0))} m²</summary><table>${rs.map(x=>`<tr><td>${x.name.split('/').slice(1).join(' / ')}</td><td class="n">${n2(x.area)} m²</td></tr>`).join('')}</table></details>`).join('')}`;
+  }else if(tab==='maliyet'){
+    V.innerHTML=`<table id="ct"><tr><th></th><th>Poz</th><th>İmalat</th><th class="n">Miktar</th><th>Birim</th><th class="n">Birim fiyat</th><th class="n">Tutar</th></tr>
+      ${c.rows.map(x=>`<tr style="${x.enabled?'':'opacity:.45'}"><td><input type="checkbox" style="width:auto" ${x.enabled?'checked':''} data-dis="${x.code}"></td><td>${x.code}</td>
+      <td>${x.variants.length?`<select data-var="${x.code}">${x.variants.map(v=>`<option value="${v.id}" ${v.id===x.variant?'selected':''}>${x.name.split(' — ')[0]} — ${v.name}</option>`).join('')}</select>`:x.name}</td>
+      <td class="n">${x.auto_quantity==null?n2(x.quantity):`<input class="num" data-qty="${x.code}" value="${x.quantity}" title="Otomatik: ${n2(x.auto_quantity)}">`}</td><td>${x.unit}</td>
+      <td class="n">${x.auto_quantity==null?n2(x.unit_price):`<input class="num" data-up="${x.code}" value="${x.unit_price}">`}</td><td class="n">${tl(x.amount)}</td></tr>`).join('')}</table>
+      <div style="margin-top:8px"><button class="sec" id="addx">+ Ek kalem</button></div>
+      <div class="row" style="margin-top:14px;align-items:start"><div>
+        <div class="row3"><div><label>Genel gider %</label><input data-pct="overhead_pct" type="number" value="${c.overhead_pct}"></div><div><label>Kâr %</label><input data-pct="profit_pct" type="number" value="${c.profit_pct}"></div><div><label>KDV %</label><input data-pct="vat_pct" type="number" value="${c.vat_pct}"></div></div>
+        ${c.approx?`<label>Kontrol: yaklaşık m² maliyet sınıfı</label><select id="apc">${Object.entries(c.approx.classes).map(([k,v])=>`<option ${k===c.approx.class?'selected':''} value="${k}">${k} — ${tl(v)}/m²</option>`).join('')}</select>
+        <p class="note">Yaklaşık yöntem: ${n2(c.approx.area)} m² × ${tl(c.approx.unit_cost)} = <b>${tl(c.approx.amount)}</b> (metraj bazlı ara toplam: ${tl(c.subtotal)})</p>`:''}
+        <p class="note">${c.note||''}</p></div>
+      <table class="totals"><tr><td>Ara toplam</td><td class="n">${tl(c.subtotal)}</td></tr><tr><td>Genel gider (%${c.overhead_pct})</td><td class="n">${tl(c.overhead)}</td></tr>
+        <tr><td>Kâr (%${c.profit_pct})</td><td class="n">${tl(c.profit)}</td></tr><tr><td>KDV hariç</td><td class="n">${tl(c.total_before_vat)}</td></tr><tr><td>KDV (%${c.vat_pct})</td><td class="n">${tl(c.vat)}</td></tr>
+        <tr class="big"><td>GENEL TOPLAM</td><td class="n">${tl(c.total)}</td></tr><tr><td>m² (KDV dahil)</td><td class="n">${tl(c.per_m2)}</td></tr></table></div>`;
+    const set=(k,code,val)=>{adj[k]=adj[k]||{};if(val===null)delete adj[k][code];else adj[k][code]=val;};
+    $$('[data-up]').forEach(i=>i.onchange=()=>{set('overrides',i.dataset.up,parseFloat(i.value));push();});
+    $$('[data-qty]').forEach(i=>i.onchange=()=>{set('qty_overrides',i.dataset.qty,parseFloat(i.value));push();});
+    $$('[data-var]').forEach(i=>i.onchange=()=>{set('variants',i.dataset.var,i.value);if(adj.overrides)delete adj.overrides[i.dataset.var];push();});
+    $$('[data-dis]').forEach(i=>i.onchange=()=>{const d=new Set(adj.disabled||[]);i.checked?d.delete(i.dataset.dis):d.add(i.dataset.dis);adj.disabled=[...d];push();});
+    $$('[data-pct]').forEach(i=>i.onchange=()=>{adj[i.dataset.pct]=parseFloat(i.value);push();});
+    if($('#apc'))$('#apc').onchange=e=>{adj.approx_class=e.target.value;push();};
+    $('#addx').onclick=()=>{const nm=prompt('Kalem adı');if(!nm)return;const q=parseFloat(prompt('Miktar','1'))||1,p=parseFloat(prompt('Birim fiyat (₺)','0'))||0,u=prompt('Birim','götürü')||'götürü';
+      adj.extra_items=[...(adj.extra_items||[]),{name:nm,quantity:q,unit_price:p,unit:u}];push();};
+  }else if(tab==='belge'){
+    V.innerHTML=`<div class="dl"><a href="${P.files.teklif_docx}">Teklif mektubu (.docx)</a><a href="${P.files.metraj_maliyet_xlsx}">Metraj + maliyet (.xlsx, formüllü)</a>
+      <a href="${P.files.sartname_docx}">Teknik şartname (.docx)</a><a href="${P.files.cizim_pdf}" target="_blank">Çizimler (.pdf)</a></div>
+      <p class="note">Maliyet sekmesinde yaptığınız her değişiklik bu belgeleri yeniden üretir.</p>`;
+  }else if(tab==='3d'){
+    V.innerHTML=P.files.model_glb?`<model-viewer src="${P.files.model_glb}" camera-controls auto-rotate shadow-intensity="1" exposure="1.1"></model-viewer>
+      <div class="row" style="margin-top:10px"><img src="${P.files.preview_png}" style="width:100%;border-radius:8px"><img src="${P.files.colormap_png}" style="width:100%;border-radius:8px"></div>
+      <p class="note">Sağdaki renk haritası, AI video modeline (Higgsfield/Seedance) kontrol görüntüsü olarak verilir.</p>`
+      :`<div class="empty">3D model henüz üretilmedi.<br><br><button id="mk3d">Blender ile 3D üret</button></div>`;
+    if($('#mk3d'))$('#mk3d').onclick=async e=>{e.target.disabled=true;e.target.textContent='Üretiliyor…';try{P=await api(`/api/projects/${P.id}/render`,{method:'POST'});render();}catch(x){alert(x.message)}};
+  }
+}
+function push(){clearTimeout(timer);timer=setTimeout(async()=>{try{P=await api(`/api/projects/${P.id}/adjust`,{method:'PUT',headers:{'Content-Type':'application/json'},body:JSON.stringify(adj)});render();recent();}catch(e){alert(e.message)}},300);}
+function zoom(src){$('#zoom img').src=src;$('#zoom').style.display='flex';}
+recent();
+if(location.hash.length>1)openP(location.hash.slice(1)).then(()=>{const t=new URLSearchParams(location.search).get('tab');if(t)$(`#tabs [data-t="${t}"]`).click();});
+</script>
+</body>
+</html>
