@@ -26,6 +26,15 @@ _blender_lock = threading.Lock()  # tek headless Blender süreci — render'lar 
 app = FastAPI(title="ArchAI")
 
 
+@app.middleware("http")
+async def no_stale_frontend(request, call_next):
+    """Arayüz dosyaları her istekte doğrulansın: güncelleme sonrası eski JS çalışmasın."""
+    resp = await call_next(request)
+    if request.url.path == "/" or request.url.path.endswith((".html", ".js")):
+        resp.headers["Cache-Control"] = "no-cache"
+    return resp
+
+
 class Brief(BaseModel):
     name: str = "Yeni Proje"
     parcel: dict | None = None

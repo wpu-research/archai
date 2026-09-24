@@ -321,19 +321,26 @@ export function createInterior(ctx) {
     if (document.pointerLockElement) ndc.set(0, 0);
     else ndc.set(((ev.clientX - rc.left) / rc.width) * 2 - 1, -((ev.clientY - rc.top) / rc.height) * 2 + 1);
     ray.setFromCamera(ndc, V.C);
-    return ray.intersectObjects(targets.filter(t => t.visible && t.parent?.visible !== false), true)[0];
+    return ray.intersectObjects(targets.filter(shown), true).find(h => shown(h.object));
   }
-  const floorTargets = () => S.floorMeshes.filter(m => { let p = m.parent; return p && p.visible; });
+  // three.js Raycaster görünmez objeleri de vurur: zinciri kökten kontrol et
+  const shown = o => { for (let x = o; x; x = x.parent) if (!x.visible) return false; return true; };
+  const floorTargets = () => S.floorMeshes.filter(shown);
+  // zemin seçimi: duvar/döşeme/çatı/nesne engel sayılır; ilk vurulan yüzey oda zemini değilse sonuç yok
+  function pickFloor(ev) {
+    const h = pick(ev, [V.root]);
+    return h && h.object.userData.room ? h : null;
+  }
   function hitToPlan(h) { const p = h.point.clone(); V.root.worldToLocal(p); return {x: p.x, y: -p.z, level: h.object.userData.room.level, room: h.object.userData.room}; }
 
   function armFloor(id) { cancelTool(); S.tool = {type: 'floor', id}; hint(`${FLOORS.find(f => f.id === id).name}: döşemek için bir odaya tıklayın`); }
   async function armItem(kind) {
     cancelTool(); S.tool = {type: 'item', kind, rot: 0};
     S.ghost = await loadItem(kind); S.ghost.traverse(m => { if (m.isMesh) { m.material = m.material.clone(); m.material.transparent = true; m.material.opacity = .55; m.castShadow = false; } });
-    S.ghost.visible = false; V.S.add(S.ghost);
+    S.ghost.visible = false; S.ghost.traverse(m => { m.raycast = () => {}; }); V.S.add(S.ghost);
     hint(`${ITEMS.find(i => i.id === kind).name}: yerleştirmek için tıklayın · R döndür · Esc vazgeç`);
   }
-  function cancelTool() { if (S.ghost) V.S.remove(S.ghost); S.ghost = null; S.tool = null; hint(''); highlight(null); }
+  function cancelTool() { if (S.ghost) V.S.remove(S.ghost); S.ghost = null; S.tool = null; hint(''); highlight(null); if ($('#vp').classList.contains('editing')) editHint(); }
   function highlight(mesh) {
     if (S.hl === mesh) return;
     if (S.hl) S.hl.material = S.hl.userData.baseMat;
@@ -343,7 +350,7 @@ export function createInterior(ctx) {
   function select(obj) {
     if (S.selBox) { V.S.remove(S.selBox); S.selBox = null; }
     S.sel = obj;
-    if (obj) { S.selBox = new THREE.BoxHelper(obj, 0x3ee8ff); V.S.add(S.selBox); }
+    if (obj) { S.selBox = new THREE.BoxHelper(obj, 0x3ee8ff); S.selBox.raycast = () => {}; V.S.add(S.selBox); }
     renderSel();
   }
   function rotateSel(d = Math.PI / 2) {
@@ -358,12 +365,12 @@ export function createInterior(ctx) {
   function onMove(ev) {
     if (!S.real) return;
     if (S.drag && S.sel) {
-      const h = pick(ev, floorTargets()); if (!h) return; const p = hitToPlan(h);
+      const h = pickFloor(ev); if (!h) return; const p = hitToPlan(h);
       if (p.level !== S.sel.userData.item.level) return;
       S.sel.position.set(p.x - S.drag.dx, S.sel.position.y, -(p.y - S.drag.dy)); S.selBox?.update(); return;
     }
     if (!S.tool) return;
-    const h = pick(ev, floorTargets());
+    const h = pickFloor(ev);
     if (S.tool.type === 'floor') { highlight(h?.object || null); return; }
     if (S.ghost) {
       if (!h) { S.ghost.visible = false; return; }
@@ -372,12 +379,12 @@ export function createInterior(ctx) {
   }
   function onDown(ev) {
     if (!S.real || S.tool || ev.button !== 0) return;
-    const h = pick(ev, [...S.objs.values()]);
+    const h = pick(ev, [...S.objs.values()].filter(shown));
     if (h) {
       let o = h.object; while (o && !o.userData.item) o = o.parent;
       if (o) {
         select(o); V.O.enabled = false;
-        const f = pick(ev, floorTargets());
+        const f = pickFloor(ev);
         if (f) { const p = hitToPlan(f); S.drag = {dx: p.x - o.position.x, dy: p.y + o.position.z}; }
         ev.stopPropagation();
       }
@@ -389,7 +396,8 @@ export function createInterior(ctx) {
   }
   async function onClick(ev) {
     if (!S.real || !S.tool) return false;
-    const h = pick(ev, floorTargets()); if (!h) return true;
+    const h = pickFloor(ev);
+    if (!h) { hint('Bir odanın zeminine tıklayın — başka kat için KESİT kaydırıcısını kullanın'); return true; }
     const p = hitToPlan(h);
     if (S.tool.type === 'floor') { setFloor([p.room], S.tool.id); return true; }
     if (S.tool.type === 'item') {
@@ -504,6 +512,7 @@ export function createInterior(ctx) {
 
   // ------------------------------------------------------------------ panel
   let tab = 'zemin';
+  function editHint() { const lv = currentLevel(); if (lv && !isWalking()) hint(`Düzenlenen kat: ${lv.startsWith('Kat ') ? lv.split(' ')[1] + '. normal kat' : lv} — kat değiştirmek için KESİT`); }
   function hint(t) { const h = $('#ihint'); if (h) { h.textContent = t; h.style.display = t ? 'block' : 'none'; } }
   function summary() {
     const el = $('#isum'); if (!el) return;
@@ -550,7 +559,8 @@ export function createInterior(ctx) {
   }
   function openPanel(on) {
     $('#vp').classList.toggle('editing', on);
-    if (on) { ctx.setModeReal(); ctx.focusEdit?.(); ctx.viewOffset?.(true); renderPanel(); } else { ctx.viewOffset?.(false); cancelTool(); select(null); }
+    if (on) { ctx.setModeReal(); ctx.openInterior?.(); ctx.focusEdit?.(); ctx.viewOffset?.(true); renderPanel(); editHint(); }
+    else { ctx.viewOffset?.(false); cancelTool(); select(null); }
   }
 
   // ------------------------------------------------------------------ olaylar
@@ -570,6 +580,7 @@ export function createInterior(ctx) {
 
   return {
     setReal, load, openPanel, resizeAO, autoFurnish,
+    refreshHint() { if ($('#vp').classList.contains('editing') && !S.tool) editHint(); },
     active: () => !!(S.tool || S.sel || S.drag || $('#vp').classList.contains('editing')),
     onBuild() {
       S.floorMeshes = []; S.extras = []; S.objs.clear(); select(null);

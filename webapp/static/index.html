@@ -107,7 +107,7 @@ details.kunye summary{font:500 10.5px var(--mono);letter-spacing:.14em;color:var
 .vp.real .hud .pname,.vp.real .hud .meta,.vp.real .stats b,.vp.real .stats small{text-shadow:0 1px 3px rgba(0,0,0,.85),0 0 14px rgba(0,0,0,.6)}
 .vp.real .hud.tl,.vp.real .hud.bl{background:rgba(4,8,14,.55);padding:8px 12px;border-radius:10px;backdrop-filter:blur(6px)}
 .idrawer{display:none;position:absolute;top:60px;right:12px;bottom:12px;width:310px;padding:0;z-index:3;overflow:hidden;flex-direction:column;pointer-events:auto}
-.vp.editing .idrawer{display:flex}.vp.editing>.hud.bl,.vp.editing>.hud.br{display:none}
+.vp.editing .idrawer{display:flex}.vp.editing>.hud.bl{display:none}.vp.editing>.hud.br{right:auto;left:18px}  /* kesit düzenlerken de erişilebilir */
 .vp.editing.walking .idrawer{top:58px}
 .ihead{display:flex;align-items:center;gap:6px;padding:0 8px 0 0;border-bottom:1px solid var(--line)}.ihead .tabs{border:0;flex:1;margin:0}
 .ibody{overflow:auto;padding:12px;flex:1}
@@ -121,7 +121,7 @@ details.kunye summary{font:500 10.5px var(--mono);letter-spacing:.14em;color:var
 .inote{color:var(--mute);font-size:11px;margin:8px 0 0}
 .isum div{display:flex;justify-content:space-between;font:500 11.5px var(--mono);padding:4px 0;border-bottom:1px dashed var(--line)}.isum b{color:var(--cy);font-weight:600}.isum .muted b{color:var(--mute)}
 .selbar{display:flex;gap:6px;align-items:center;padding:9px 12px;border-bottom:1px solid var(--line);background:rgba(255,181,71,.07)}.selbar b{flex:1;font-size:12.5px}
-.ihint{display:none;position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:4;font:500 11px var(--mono);letter-spacing:.06em;color:#ffd28a;background:rgba(4,8,14,.82);border:1px solid rgba(255,181,71,.45);padding:7px 14px;border-radius:99px;pointer-events:none;white-space:nowrap}
+.ihint{display:none;position:absolute;left:18px;bottom:66px;max-width:calc(100% - 360px);white-space:normal !important;z-index:4;font:500 11px var(--mono);letter-spacing:.06em;color:#ffd28a;background:rgba(4,8,14,.82);border:1px solid rgba(255,181,71,.45);padding:7px 14px;border-radius:99px;pointer-events:none;white-space:nowrap}
 @media (max-width:700px){.idrawer{left:8px;right:8px;width:auto;top:auto;height:52%}}
 .walkbtn{color:var(--ok);border-color:rgba(60,255,166,.45)}.walkbtn:hover{box-shadow:inset 0 0 12px rgba(60,255,166,.25)}
 .whud{display:none;position:absolute;inset:0;pointer-events:none}
@@ -351,7 +351,7 @@ function initViewport(){
   $('#rot').onclick=()=>{O.autoRotate=!O.autoRotate;$('#rot').classList.toggle('on',O.autoRotate);};
   $('#rot').classList.toggle('on',O.autoRotate);
   $('#fit').onclick=()=>fit();
-  $('#lv').oninput=()=>{applyLevels();if(V.mode==='real'||$('#vp').classList.contains('editing'))fitVisible();};
+  $('#lv').oninput=()=>{applyLevels();if(V.mode==='real'||$('#vp').classList.contains('editing')){fitVisible();IN.refreshHint?.();}};
   initWalk();
 }
 
@@ -737,6 +737,9 @@ $('#zoom').onclick=()=>$('#zoom').style.display='none';
 initViewport();
 const IN=window.IN=createInterior({THREE,V,$,$$,n2,api,getProject:()=>P,toWorld,polyArea,centroid,inPoly,
   isWalking:()=>WK.on, walkLevel:()=>WK.lvl, setModeReal:()=>{if(V.mode!=='real')$('[data-vm="real"]').click();},
+  openInterior:()=>{  // çatı/üst katlar kapalıysa en üst kata in: iç mekân görünsün, tıklama gizli kata gitmesin
+    if(WK.on)return; const floors=V.nLv.filter(n=>V.elements.some(e=>e.type==='slab'&&e.role==='floor'&&e.level===n));
+    const cur=V.nLv[+$('#lv').value-1]; if(!floors.includes(cur)){$('#lv').value=V.nLv.indexOf(floors[floors.length-1])+1;applyLevels();}},
   focusEdit:()=>{if(!WK.on){V.O.autoRotate=false;$('#rot').classList.remove('on');fitVisible();}},
   viewOffset:on=>{  // panel açıkken sahneyi sola kaydır: kamera + hedef, kameranın sağ vektörü boyunca
     if(V.shift){V.C.position.sub(V.shift);V.O.target.sub(V.shift);V.shift=null;}
