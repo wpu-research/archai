@@ -30,17 +30,23 @@ export function createInterior(ctx) {
   const ITEMS = [
     {id: 'klozet', name: 'Klozet', cat: 'Banyo'}, {id: 'lavabo', name: 'Lavabo + ayna', cat: 'Banyo'},
     {id: 'dus', name: 'Duş kabini', cat: 'Banyo'}, {id: 'kuvet', name: 'Küvet', cat: 'Banyo'},
-    {id: 'mutfak', name: 'Mutfak tezgâhı 2,4 m', cat: 'Mutfak'}, {id: 'buzdolabi', name: 'Buzdolabı', cat: 'Mutfak'},
+    {id: 'mutfak', name: 'Mutfak tezgâhı 2,4 m', cat: 'Mutfak'}, {id: 'ada', name: 'Mutfak adası', cat: 'Mutfak'},
+    {id: 'buzdolabi', name: 'Buzdolabı', cat: 'Mutfak'}, {id: 'bar_taburesi', name: 'Bar taburesi', cat: 'Mutfak'},
+    {id: 'kanepe_l', name: 'L koltuk', cat: 'Salon'}, {id: 'kanepe', name: '3\'lü kanepe', cat: 'Salon'},
+    {id: 'modern_arm_chair_01', name: 'Berjer', cat: 'Salon', model: true}, {id: 'mid_century_lounge_chair', name: 'Tasarım koltuk', cat: 'Salon', model: true},
+    {id: 'modern_coffee_table_01', name: 'Orta sehpa', cat: 'Salon', model: true}, {id: 'tv_unitesi', name: 'TV ünitesi', cat: 'Salon'},
+    {id: 'tv', name: 'Duvar TV 65"', cat: 'Salon'}, {id: 'hali', name: 'Halı', cat: 'Salon'},
+    {id: 'yemek_masasi', name: 'Yemek masası', cat: 'Salon'}, {id: 'sandalye', name: 'Yemek sandalyesi', cat: 'Salon'},
+    {id: 'dining_chair_02', name: 'Deri sandalye', cat: 'Salon', model: true}, {id: 'Ottoman_01', name: 'Puf', cat: 'Salon', model: true},
+    {id: 'potted_plant_02', name: 'Saksı bitkisi', cat: 'Salon', model: true}, {id: 'potted_plant_04', name: 'Büyük bitki', cat: 'Salon', model: true},
     {id: 'yatak_cift', name: 'Çift kişilik yatak', cat: 'Yatak odası'}, {id: 'yatak_tek', name: 'Tek kişilik yatak', cat: 'Yatak odası'},
-    {id: 'gardirop', name: 'Gardırop', cat: 'Yatak odası'},
-    {id: 'sofa_03', name: 'Kanepe', cat: 'Salon', model: true}, {id: 'ArmChair_01', name: 'Berjer', cat: 'Salon', model: true},
-    {id: 'CoffeeTable_01', name: 'Orta sehpa', cat: 'Salon', model: true}, {id: 'Television_01', name: 'Televizyon', cat: 'Salon', model: true},
-    {id: 'modern_wooden_cabinet', name: 'TV ünitesi / dolap', cat: 'Salon', model: true},
-    {id: 'WoodenTable_01', name: 'Yemek masası', cat: 'Salon', model: true}, {id: 'WoodenChair_01', name: 'Sandalye', cat: 'Salon', model: true},
-    {id: 'side_table_01', name: 'Komodin', cat: 'Yatak odası', model: true}, {id: 'Ottoman_01', name: 'Puf', cat: 'Salon', model: true},
-    {id: 'potted_plant_02', name: 'Saksı bitkisi', cat: 'Salon', model: true},
+    {id: 'gardirop', name: 'Gardırop', cat: 'Yatak odası'}, {id: 'side_table_01', name: 'Komodin', cat: 'Yatak odası', model: true},
+    {id: 'calisma_masasi', name: 'Çalışma masası', cat: 'Çalışma'}, {id: 'kitaplik', name: 'Kitaplık', cat: 'Çalışma'},
+    {id: 'sezlong', name: 'Şezlong', cat: 'Dış mekân'}, {id: 'outdoor_table_chair_set_01', name: 'Bahçe masa takımı', cat: 'Dış mekân', model: true},
   ];
-  const ICON = {klozet: '🚽', lavabo: '🪞', dus: '🚿', kuvet: '🛁', mutfak: '🍳', buzdolabi: '🧊', yatak_cift: '🛏', yatak_tek: '🛏', gardirop: '🚪'};
+  const ICON = {klozet: '🚽', lavabo: '🪞', dus: '🚿', kuvet: '🛁', mutfak: '🍳', ada: '🔲', buzdolabi: '🧊', bar_taburesi: '🪑', kanepe_l: '🛋',
+    kanepe: '🛋', tv_unitesi: '▭', tv: '📺', hali: '▦', yemek_masasi: '🍽', sandalye: '🪑', yatak_cift: '🛏', yatak_tek: '🛏', gardirop: '🚪',
+    calisma_masasi: '🖥', kitaplik: '📚', sezlong: '⛱'};
 
   // ------------------------------------------------------------------ malzemeler
   const texCache = {};
@@ -76,7 +82,17 @@ export function createInterior(ctx) {
     mirror: new THREE.MeshStandardMaterial({color: 0xffffff, metalness: 1, roughness: .02}),
     frame: new THREE.MeshStandardMaterial({color: 0x2e3135, metalness: .6, roughness: .35}),
     ceiling: new THREE.MeshStandardMaterial({color: 0xf7f6f3, roughness: .95}),
+    metal: new THREE.MeshStandardMaterial({color: 0x1f2022, metalness: .6, roughness: .4}),
+    sofa: new THREE.MeshStandardMaterial({color: 0x9a968f, roughness: .96}),
+    cushion: new THREE.MeshStandardMaterial({color: 0xb8b2a7, roughness: .97}),
+    rug: new THREE.MeshStandardMaterial({color: 0xcdbfa6, roughness: 1}),
+    screen: new THREE.MeshPhysicalMaterial({color: 0x050608, roughness: .08, clearcoat: 1}),
+    books: [0x7a4b3a, 0x2f4a5e, 0xb89b5e, 0x5d6b52, 0x8c2f2f, 0xd6cfc2].map(c => new THREE.MeshStandardMaterial({color: c, roughness: .8})),
     ground: new THREE.MeshStandardMaterial({color: 0x6f7a5c, roughness: 1}),
+    water: new THREE.MeshPhysicalMaterial({color: 0x2f9fc0, roughness: .04, clearcoat: 1, transparent: true, opacity: .9, emissive: 0x0b4a5c, emissiveIntensity: .35}),
+    roof: new THREE.MeshStandardMaterial({color: 0xb9b6b0, roughness: .95}),
+    bark: new THREE.MeshStandardMaterial({color: 0x5a4636, roughness: 1}),
+    leaves: [0x4f6b3a, 0x5d7a43, 0x445f33].map(c => new THREE.MeshStandardMaterial({color: c, roughness: .9, flatShading: true})),
     paving: new THREE.MeshStandardMaterial({color: 0xb5b0a6, roughness: .9}),
   };
   const oakTex = texLoader.load(`${A}tex/oak_wood_planks/diff.jpg`); oakTex.colorSpace = THREE.SRGBColorSpace;
@@ -159,6 +175,98 @@ export function createInterior(ctx) {
       part(g, bx(.702, .006, .02), M.black, 0, 1.25, .34);
       part(g, bx(.02, .5, .03), M.chrome, .3, 1.55, .36);
       part(g, bx(.02, .4, .03), M.chrome, .3, .95, .36);
+      return g;
+    },
+    kanepe_l() {
+      const g = G(), W = 2.9;
+      part(g, rb(W, .38, .95, .04), M.sofa, 0, .27, 0);
+      part(g, rb(.95, .38, .9, .04), M.sofa, W / 2 - .475, .27, .92);
+      for (const x of [-W / 2 + .5, -W / 2 + 1.4, -W / 2 + 2.3]) part(g, rb(.88, .14, .82, .06), M.cushion, x + .05, .52, .04);
+      part(g, rb(.88, .14, .88, .06), M.cushion, W / 2 - .475, .52, .92);
+      part(g, rb(W, .45, .2, .06), M.sofa, 0, .66, -.38);
+      part(g, rb(.2, .3, .95, .05), M.sofa, -W / 2 + .1, .55, 0);
+      for (const x of [-W / 2 + .7, 0, W / 2 - .9]) part(g, rb(.55, .42, .14, .06), M.cushion, x, .78, -.25).rotation.x = -.18;
+      for (const [x, z] of [[-W / 2 + .08, -.4], [W / 2 - .08, -.4], [-W / 2 + .08, .4], [W / 2 - .08, 1.3]]) part(g, bx(.05, .08, .05), M.metal, x, .04, z);
+      return g;
+    },
+    kanepe() {
+      const g = G(), W = 2.3;
+      part(g, rb(W, .38, .92, .04), M.sofa, 0, .27, 0);
+      for (const x of [-.72, 0, .72]) part(g, rb(.7, .14, .8, .06), M.cushion, x, .52, .05);
+      part(g, rb(W, .45, .2, .06), M.sofa, 0, .66, -.36);
+      for (const x of [-W / 2 + .1, W / 2 - .1]) part(g, rb(.2, .3, .92, .05), M.sofa, x, .55, 0);
+      for (const [x, z] of [[-1.08, -.38], [1.08, -.38], [-1.08, .38], [1.08, .38]]) part(g, bx(.05, .08, .05), M.metal, x, .04, z);
+      return g;
+    },
+    yemek_masasi() {
+      const g = G();
+      part(g, rb(2.0, .05, 1.0, .01), M.oak, 0, .745, 0);
+      for (const [x, z] of [[-.9, -.4], [.9, -.4], [-.9, .4], [.9, .4]]) part(g, bx(.06, .72, .06), M.metal, x, .36, z);
+      return g;
+    },
+    sandalye() {
+      const g = G();
+      part(g, rb(.46, .06, .46, .02), M.cushion, 0, .47, 0);
+      part(g, rb(.46, .38, .04, .015), M.oak, 0, .72, -.21).rotation.x = -.08;
+      for (const [x, z] of [[-.2, -.2], [.2, -.2], [-.2, .2], [.2, .2]]) part(g, cyl(.015, .015, .45, 10), M.oak, x, .225, z);
+      return g;
+    },
+    tv() {
+      const g = G();
+      part(g, bx(1.46, .84, .03), M.screen, 0, 1.27, -.05);
+      part(g, bx(1.47, .85, .02), M.metal, 0, 1.27, -.07);
+      return g;
+    },
+    tv_unitesi() {
+      const g = G();
+      part(g, bx(2.0, .4, .42), M.anth, 0, .26, 0);
+      part(g, bx(2.02, .03, .44), M.oak, 0, .475, 0);
+      for (const x of [-.5, 0, .5]) part(g, bx(.004, .36, .005), M.black, x, .26, .212);
+      return g;
+    },
+    hali() {
+      const g = G(); const m = part(g, rb(2.4, .012, 1.7, .005), M.rug, 0, .006, 0); m.castShadow = false; return g;
+    },
+    calisma_masasi() {
+      const g = G();
+      part(g, rb(1.4, .04, .7, .01), M.oak, 0, .74, 0);
+      for (const x of [-.66, .66]) { part(g, bx(.04, .72, .04), M.metal, x, .36, -.3); part(g, bx(.04, .72, .04), M.metal, x, .36, .3); }
+      part(g, bx(.5, .02, .3), M.screen, .1, 1.05, -.2);
+      part(g, bx(.04, .28, .04), M.metal, .1, .9, -.24);
+      return g;
+    },
+    kitaplik() {
+      const g = G(), W = 1.2, H = 2.0, D = .35;
+      for (const x of [-W / 2 + .015, W / 2 - .015]) part(g, bx(.03, H, D), M.oak, x, H / 2, 0);
+      for (let i = 0; i < 6; i++) part(g, bx(W, .025, D), M.oak, 0, .04 + i * .38, 0);
+      let n = 0;
+      for (let r = 0; r < 5; r++) for (let x = -W / 2 + .06; x < W / 2 - .1; x += .05 + (n % 3) * .012) {
+        if ((n * 7 + r) % 11 === 0) { x += .12; n++; continue; }
+        const h = .22 + ((n * 13) % 7) * .012;
+        part(g, bx(.035 + (n % 3) * .01, h, .24), M.books[n % M.books.length], x, .06 + r * .38 + h / 2, .02); n++;
+      }
+      return g;
+    },
+    ada() {
+      const g = G();
+      part(g, bx(2.2, .88, .9), M.lacquer, 0, .44, -.05);
+      part(g, bx(2.3, .04, 1.2), M.quartz, 0, .9, .1);
+      return g;
+    },
+    bar_taburesi() {
+      const g = G();
+      part(g, cyl(.19, .19, .06), M.cushion, 0, .76, 0);
+      part(g, cyl(.025, .025, .7, 12), M.chrome, 0, .38, 0);
+      part(g, cyl(.2, .22, .02), M.chrome, 0, .01, 0);
+      part(g, new THREE.TorusGeometry(.17, .01, 8, 24), M.chrome, 0, .3, 0).rotation.x = Math.PI / 2;
+      return g;
+    },
+    sezlong() {
+      const g = G();
+      part(g, bx(.7, .06, 1.95), M.oak, 0, .3, 0);
+      for (const [x, z] of [[-.3, -.85], [.3, -.85], [-.3, .85], [.3, .85]]) part(g, bx(.05, .28, .05), M.oak, x, .14, z);
+      part(g, rb(.64, .07, 1.3, .03), M.linen, 0, .37, .3);
+      const back = part(g, rb(.64, .07, .7, .03), M.linen, 0, .52, -.62); back.rotation.x = .75;
       return g;
     },
     yatak_cift() { return bed(1.6); },
@@ -244,6 +352,41 @@ export function createInterior(ctx) {
       }
     }
   }
+  function surfaceMaterials(on) {
+    const stone = floorMat('large_grey_tiles'), deck = floorMat('oak_wood_planks');
+    V.root.traverse(o => {
+      if (!o.isMesh) return;
+      const sf = o.userData.surf;
+      if (on) {
+        let m = null;
+        if (o.userData.tree) { o.visible = false; return; }
+        if (sf?.tag === 'water') m = M.water;
+        else if (sf?.role === 'paving') m = stone;
+        else if (sf?.role === 'deck') m = deck;
+        else if (sf?.role === 'roof') m = M.roof;
+        else if (sf?.role === 'site') return;
+        else if (sf?.role === 'box' && sf.tag === 'metal') m = M.metal;
+        else if (sf?.role === 'box' && sf.tag === 'wood') m = M.oak;
+        if (m) { o.userData.preReal ??= o.material; o.material = m; }
+      } else {
+        if (o.userData.tree) o.visible = true;
+        if (o.userData.preReal) { o.material = o.userData.preReal; delete o.userData.preReal; }
+      }
+    });
+  }
+  function buildTrees() {
+    const site = V.levels.find(L => L.site)?.group; if (!site) return;
+    for (const t of (V.elements || []).filter(e => e.type === 'tree')) {
+      const [x, y] = t.position, h = t.height || 5, z = t.base_z || 0;
+      const add = (geo, mat, px, py, pz) => { const m = new THREE.Mesh(geo, mat); m.position.set(px, py, pz); m.castShadow = m.receiveShadow = true; site.add(m); S.extras.push(m); return m; };
+      add(cyl(h * .035, h * .05, h * .55, 8), M.bark, x, z + h * .275, -y);
+      const seed = Math.abs(Math.sin(x * 12.9 + y * 78.2)) * 1000;
+      for (let i = 0; i < 5; i++) {
+        const a = seed + i * 2.4, r = h * (.16 + (i % 3) * .04), d = i ? h * .14 : 0;
+        add(new THREE.IcosahedronGeometry(r, 1), M.leaves[i % 3], x + Math.cos(a) * d, z + h * (.62 + (i % 2) * .1), -y + Math.sin(a) * d);
+      }
+    }
+  }
   function clearExtras() {
     for (const m of [...S.floorMeshes, ...S.extras]) m.parent?.remove(m);
     S.floorMeshes = []; S.extras = [];
@@ -274,7 +417,7 @@ export function createInterior(ctx) {
       V.S.add(S.sun, S.sun.target, S.ground, S.fill);
       V.mat.site.opacity = 1; V.mat.site.color.set(0x7d8a66); V.mat.site.depthWrite = true;
       V.root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-      buildExtras();
+      buildExtras(); surfaceMaterials(true); buildTrees();
       if (!S.ao) { S.ao = new GTAOPass(V.S, V.C, 1, 1); S.ao.blendIntensity = .9; V.comp.insertPass(S.ao, 1); }
       S.ao.enabled = true; V.bloom.enabled = false; resizeAO();
       restoreObjects();
@@ -283,7 +426,7 @@ export function createInterior(ctx) {
       V.S.environment = null; V.S.background = null; V.R.shadowMap.enabled = false;
       V.S.remove(S.sun, S.sun?.target, S.ground, S.fill);
       V.mat.site.opacity = .035; V.mat.site.color.set(0x3cffa6); V.mat.site.depthWrite = false;
-      clearExtras(); clearObjects(); cancelTool(); select(null);
+      surfaceMaterials(false); clearExtras(); clearObjects(); cancelTool(); select(null);
       if (S.ao) S.ao.enabled = false; V.bloom.enabled = true;
     }
   }
@@ -328,7 +471,12 @@ export function createInterior(ctx) {
   const floorTargets = () => S.floorMeshes.filter(shown);
   // zemin seçimi: duvar/döşeme/çatı/nesne engel sayılır; ilk vurulan yüzey oda zemini değilse sonuç yok
   function pickFloor(ev) {
-    const h = pick(ev, [V.root]);
+    const rc = V.R.domElement.getBoundingClientRect();
+    if (document.pointerLockElement) ndc.set(0, 0);
+    else ndc.set(((ev.clientX - rc.left) / rc.width) * 2 - 1, -((ev.clientY - rc.top) / rc.height) * 2 + 1);
+    ray.setFromCamera(ndc, V.C);
+    // mobilya/halı zemini örtmesin: nesne yüzeylerini atla, ilk yapı yüzeyi oda zemini olmalı
+    const h = ray.intersectObject(V.root, true).find(x => shown(x.object) && !x.object.userData.owner);
     return h && h.object.userData.room ? h : null;
   }
   function hitToPlan(h) { const p = h.point.clone(); V.root.worldToLocal(p); return {x: p.x, y: -p.z, level: h.object.userData.room.level, room: h.object.userData.room}; }
@@ -451,7 +599,7 @@ export function createInterior(ctx) {
     S.design.objects = S.design.objects.filter(o => o.level !== level);
     const rooms = (V.elements || []).filter(e => e.type === 'room' && e.level === level), doors = doorPoints(level);
     const plan = [], dims = {};
-    for (const k of ['sofa_03', 'modern_wooden_cabinet', 'Television_01', 'CoffeeTable_01', 'potted_plant_02', 'ArmChair_01', 'side_table_01'])
+    for (const k of ['kanepe_l', 'tv_unitesi', 'modern_coffee_table_01', 'potted_plant_02', 'modern_arm_chair_01', 'side_table_01'])
       try { dims[k] = footprint(await loadItem(k)); } catch { /* model yoksa varsayılan derinlik */ }
     const dep = k => dims[k] ? Math.min(dims[k].x, dims[k].z) : .6;
     const add = (kind, p, h = 0) => plan.push({id: uid(), kind, level, x: p.x, y: p.y, rot: p.rot, h});
@@ -462,14 +610,14 @@ export function createInterior(ctx) {
       const pick = (pref) => pref.find(Boolean) || edges[0];
       if (/Salon/.test(n)) {
         const long = pick(solid), opp = edges.find(x => x.e === opposite[long.e]);
-        add('sofa_03', against(b, long.e, .5, dep('sofa_03')));
-        add('modern_wooden_cabinet', against(b, opp.e, .5, dep('modern_wooden_cabinet')));
-        add('Television_01', against(b, opp.e, .5, dep('modern_wooden_cabinet')), dims.modern_wooden_cabinet?.y || .5);
+        add('kanepe_l', against(b, long.e, .5, .95));
+        add('tv_unitesi', against(b, opp.e, .5, .42));
+        add('tv', against(b, opp.e, .5, .1));
         const c = {x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2};
-        add('CoffeeTable_01', {...c, rot: against(b, long.e, .5, 1).rot});
+        add('hali', {...c, rot: against(b, long.e, .5, 1).rot}); add('modern_coffee_table_01', {...c, rot: against(b, long.e, .5, 1).rot});
         add('potted_plant_02', against(b, long.e, .08, dep('potted_plant_02')));
         if (/Açık Mutfak/.test(n)) { const s2 = solid[1] || long; add('mutfak', against(b, s2.e, .5, .62)); }
-        else if (Math.min(W, D) > 3.2) add('ArmChair_01', against(b, solid[1]?.e || opp.e, .8, dep('ArmChair_01')));
+        else if (Math.min(W, D) > 3.2) add('modern_arm_chair_01', against(b, solid[1]?.e || opp.e, .8, dep('modern_arm_chair_01')));
       } else if (/Yatak/.test(n)) {
         const doorE = edges.find(x => x.door)?.e, head = doorE ? opposite[doorE] : pick(solid).e;
         const dbl = Math.min(W, D) >= 2.9;
@@ -580,11 +728,14 @@ export function createInterior(ctx) {
 
   return {
     setReal, load, openPanel, resizeAO, autoFurnish,
+    async measure(kind) { const b = new THREE.Box3().setFromObject(await loadItem(kind)); const r = v => +v.toFixed(3);
+      return {min: [r(b.min.x), r(b.min.y), r(b.min.z)], max: [r(b.max.x), r(b.max.y), r(b.max.z)]}; },
+    items: () => ITEMS.map(i => i.id),
     refreshHint() { if ($('#vp').classList.contains('editing') && !S.tool) editHint(); },
     active: () => !!(S.tool || S.sel || S.drag || $('#vp').classList.contains('editing')),
     onBuild() {
       S.floorMeshes = []; S.extras = []; S.objs.clear(); select(null);
-      if (S.real) { V.root.traverse(o => { if (o.isLine || o.isLineSegments) o.visible = false; if (o.isMesh) o.castShadow = o.receiveShadow = true; }); placeSun(); buildExtras(); restoreObjects(); }
+      if (S.real) { V.root.traverse(o => { if (o.isLine || o.isLineSegments) o.visible = false; if (o.isMesh) o.castShadow = o.receiveShadow = true; }); placeSun(); buildExtras(); surfaceMaterials(true); buildTrees(); restoreObjects(); }
     },
     get real() { return S.real; },
   };

@@ -86,6 +86,19 @@ def create_project(b: Brief):
     return _public(pid, result)
 
 
+@app.post("/api/projects/villa")
+def create_villa(b: Brief | None = None):
+    """Demo: döşenmiş iki katlı villa senaryosu (plan + bahçe/havuz + iç mekân)."""
+    brief = (b.model_dump(exclude_none=True) if b else {})
+    brief.pop("render_3d", None)
+    brief = {k: v for k, v in brief.items() if k in ("name", "company", "customer", "site", "adjust") or k in project.INFO_KEYS}
+    if brief.get("name") in (None, "Yeni Proje", "Yeni Konut Projesi"):
+        brief["name"] = "Villa Demo"
+    pid = _new_id(brief["name"])
+    result, _ = _run(lambda: project.run_villa(PROJECTS / pid, brief))
+    return _public(pid, result)
+
+
 @app.post("/api/projects/dxf")
 def create_from_dxf(file: UploadFile = File(...), name: str = Form("DXF Projesi"), floors: int = Form(1),
                     floor_height: float = Form(3.0), render_3d: bool = Form(False), meta: str = Form("{}")):

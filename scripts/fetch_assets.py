@@ -16,8 +16,8 @@ UA = {"User-Agent": "archai-asset-fetch/1.0"}
 TEXTURES = ["laminate_floor_02", "herringbone_parquet", "oak_wood_planks", "wood_floor", "marble_tiles",
             "large_grey_tiles", "terrazzo_tiles", "painted_plaster_wall", "long_white_tiles"]
 MAPS = {"diff": "Diffuse", "nor_gl": "nor_gl", "rough": "Rough"}
-MODELS = ["sofa_03", "ArmChair_01", "CoffeeTable_01", "WoodenTable_01", "WoodenChair_01", "Television_01",
-          "modern_wooden_cabinet", "side_table_01", "Ottoman_01", "potted_plant_02"]
+MODELS = ["modern_arm_chair_01", "mid_century_lounge_chair", "modern_coffee_table_01", "dining_chair_02",
+          "outdoor_table_chair_set_01", "side_table_01", "Ottoman_01", "potted_plant_02", "potted_plant_04"]
 HDRI = "kloofendal_48d_partly_cloudy_puresky"
 
 

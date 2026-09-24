@@ -80,6 +80,18 @@ def run_dxf(dxf_path, brief, out_dir, render_3d=False):
     return finalize(brief, elements, report, {"dxf": str(dxf_path)}, out_dir, render_3d), elements
 
 
+def run_villa(out_dir, brief=None, render_3d=False):
+    """Demo senaryosu: döşenmiş iki katlı villa (archai/villa.py)."""
+    from . import villa
+    elements, report, design = villa.scenario()
+    brief = {"name": "Villa Demo", **(brief or {})}
+    meta = {"parcel": {"width": villa.PARCEL[0], "depth": villa.PARCEL[1]}, "zoning": villa.ZONING,
+            "program": {"unit_type": "Villa 4+2", "scenario": "villa"}}
+    result = finalize(brief, elements, report, meta, out_dir, render_3d)
+    (Path(out_dir) / "interior.json").write_text(json.dumps(design, ensure_ascii=False))
+    return result, elements
+
+
 def finalize(brief, elements, report, meta, out_dir, render_3d=False):
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)

@@ -66,3 +66,23 @@ def test_formal_plan_is_true_scale_1_100():
                           lambda s: drawings.draw_plan(s, els, "Zemin Kat", 10.0, "ZEMİN KAT PLANI"))
     assert sh.S == 100
     assert sh.doc.dimstyles.get("TR-CM").dxf.dimlfac == 100  # ölçüler cm
+
+
+def test_villa_scenario_valid():
+    from archai import villa
+    from archai.layout_check import check
+    els, rep, design = villa.scenario()
+    c = rep["checks"]
+    assert c["taks"]["ok"] and c["kaks"]["ok"]
+    sb = c["setbacks"]
+    assert sb["front"] >= villa.ZONING["front"] and sb["rear"] >= villa.ZONING["rear"]
+    assert min(sb["side_left"], sb["side_right"]) >= villa.ZONING["side"]
+    # tanımlı her açıklık bir duvar parçasına oturmuş olmalı
+    n = sum(len(e["openings"]) for e in els if e["type"] == "wall")
+    assert n == len(villa.ground_openings()) + len(villa.first_openings())
+    # nesneler odadan taşmıyor, çakışmıyor, kapı önlerini kapatmıyor
+    assert check(els, design) == []
+    kinds = {o["kind"] for o in design["objects"]}
+    assert {"klozet", "lavabo", "dus", "kuvet", "mutfak", "yatak_cift", "kanepe_l", "sezlong"} <= kinds
+    rooms = {e["name"] for e in els if e["type"] == "room"}
+    assert set(design["floors"]) == rooms

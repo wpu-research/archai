@@ -47,3 +47,13 @@ def test_interior_roundtrip():
     assert "evil" not in got["objects"][0]  # yalnız izinli alanlar saklanır
     assert c.put("/api/projects/yok/interior", json=design).status_code == 404
     assert c.put(f"/api/projects/{pid}/interior", json={"objects": "x"}).status_code == 422
+
+
+def test_villa_endpoint():
+    r = c.post("/api/projects/villa", json={})
+    assert r.status_code == 200, r.text
+    p = r.json()
+    assert p["name"] == "Villa Demo" and p["report"]["floors"] == 2 and len(p["sheets"]) >= 4
+    inter = c.get(f"/api/projects/{p['id']}/interior").json()
+    assert len(inter["objects"]) > 50 and inter["floors"]
+    assert any(r["code"] == "HAV-01" and r["quantity"] > 0 for r in p["cost"]["rows"])  # havuz maliyete girdi
