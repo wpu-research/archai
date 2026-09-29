@@ -1,5 +1,6 @@
 from pathlib import Path
 
+import pytest
 from fastapi.testclient import TestClient
 
 from webapp.app import app
@@ -49,6 +50,29 @@ def test_interior_roundtrip():
     assert c.put(f"/api/projects/{pid}/interior", json={"objects": "x"}).status_code == 422
 
 
+def test_cabin_endpoint():
+    r = c.post("/api/projects/cabin", json={})
+    assert r.status_code == 200, r.text
+    p = r.json()
+    assert p["name"] == "Dağ Evi Demo" and p["report"]["floors"] == 2 and len(p["sheets"]) >= 4
+    inter = c.get(f"/api/projects/{p['id']}/interior").json()
+    assert len(inter["objects"]) > 15 and inter["floors"]
+
+
+def test_apartment_endpoint():
+    r = c.post("/api/projects/apartment", json={})
+    assert r.status_code == 200, r.text
+    p = r.json()
+    assert p["name"] == "Apartman Katı" and p["report"]["unit_count"] == 3 and len(p["sheets"]) >= 4
+    inter = c.get(f"/api/projects/{p['id']}/interior").json()
+    assert len(inter["objects"]) == 72
+    # parametrik ölçüler kaydetme sonrası korunur, tür dışı değerler atılır
+    inter["objects"][0].update(w=2.6, kitap=True, side="x", orta=1, decor=True)
+    assert c.put(f"/api/projects/{p['id']}/interior", json=inter).status_code == 200
+    o = c.get(f"/api/projects/{p['id']}/interior").json()["objects"][0]
+    assert o["w"] == 2.6 and o["kitap"] is True and o["decor"] is True and "side" not in o and "orta" not in o
+
+
 def test_villa_endpoint():
     r = c.post("/api/projects/villa", json={})
     assert r.status_code == 200, r.text
@@ -57,3 +81,15 @@ def test_villa_endpoint():
     inter = c.get(f"/api/projects/{p['id']}/interior").json()
     assert len(inter["objects"]) > 50 and inter["floors"]
     assert any(r["code"] == "HAV-01" and r["quantity"] > 0 for r in p["cost"]["rows"])  # havuz maliyete girdi
+
+
+@pytest.mark.skipif(not (ROOT / "tests/data/plan_3daire.jpg").exists(), reason="test planı görseli yerelde yok")
+def test_image_plan_upload():
+    with open("tests/data/plan_3daire.jpg", "rb") as f:
+        r = c.post("/api/projects/dxf", files={"file": ("plan.jpg", f, "image/jpeg")}, data={"name": "Resim Plan"})
+    assert r.status_code == 200, r.text
+    p = r.json()
+    assert p["report"]["source"] == "image" and p["files"]["tanima_onay_png"].endswith("tanima_onay.png")
+    assert c.get(p["files"]["tanima_onay_png"]).status_code == 200
+    bad = c.post("/api/projects/dxf", files={"file": ("plan.pdf", b"%PDF", "application/pdf")}, data={"name": "x"})
+    assert bad.status_code == 422

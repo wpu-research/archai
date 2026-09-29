@@ -98,6 +98,8 @@ def build(elements: list[dict]) -> dict:
       sphere   {center:[x,y,z], radius, scale?}
       tree     {position:[x,y], height=5, base_z=0, crown_scale?}
       stairs   {origin:[x,y,z], width, steps, rise, run, rotation_z?}
+      roof     {x0,y0,x1,y1 (saçak dikdörtgeni), z (saçak kotu), ridge (mahya yüksekliği),
+                ridge_at=0.5 (0/1 tek eğimli), axis="x"|"y" (mahya yönü), thickness=0.2} — eğimli çatı
 
     Hatalı elemanlar atlanır ve "errors" listesinde döner; kalanlar oluşturulur.
     Büyük modelleri kat/bölüm bazında birkaç build çağrısına böl.

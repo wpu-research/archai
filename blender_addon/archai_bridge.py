@@ -305,8 +305,30 @@ def el_room(e):
     return []
 
 
+def el_roof(e):
+    """Eğimli çatı prizması: x0,y0,x1,y1 (saçak dikdörtgeni), z (saçak), ridge (mahya yüksekliği),
+    ridge_at (0..1; 0.5 beşik, 0/1 tek eğimli), axis "x"|"y" (mahya yönü), thickness."""
+    z, r, f, t = e.get("z", 0.0), e.get("ridge", 1.5), e.get("ridge_at", 0.5), e.get("thickness", 0.2)
+    along_x = e.get("axis", "x") == "x"
+    s0, s1 = (e["y0"], e["y1"]) if along_x else (e["x0"], e["x1"])
+    a0, a1 = (e["x0"], e["x1"]) if along_x else (e["y0"], e["y1"])
+    top = [(s0, z), (s0 + (s1 - s0) * f, z + r), (s1, z)]
+    top = [p for i, p in enumerate(top) if i == 0 or abs(p[0] - top[i - 1][0]) > 1e-6]
+    prof = top + [(s, zz + t) for s, zz in reversed(top)]
+    bm = bmesh.new()
+    P = (lambda s, zz, a: (a, s, zz)) if along_x else (lambda s, zz, a: (s, a, zz))
+    vs = [bm.verts.new(P(s, zz, a0)) for s, zz in prof]
+    face = bm.faces.new(vs)
+    ext = bmesh.ops.extrude_face_region(bm, geom=[face])
+    moved = [g for g in ext["geom"] if isinstance(g, bmesh.types.BMVert)]
+    bmesh.ops.translate(bm, vec=(a1 - a0, 0, 0) if along_x else (0, a1 - a0, 0), verts=moved)
+    bmesh.ops.recalc_face_normals(bm, faces=bm.faces)
+    name = e.get("name", "roof")
+    return [_finish(_mesh_obj(name, bm), e.get("tag", "roof"), name)]
+
+
 ELEMENTS = {"room": el_room, "box": el_box, "wall": el_wall, "slab": el_slab, "cylinder": el_cylinder,
-            "sphere": el_sphere, "tree": el_tree, "stairs": el_stairs}
+            "sphere": el_sphere, "tree": el_tree, "stairs": el_stairs, "roof": el_roof}
 
 
 # ---------------------------------------------------------------- komutlar

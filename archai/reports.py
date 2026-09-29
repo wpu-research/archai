@@ -21,6 +21,8 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
+from .notice import AVAN_NOTE, AVAN_SHORT
+
 FONT = "Arial"
 MONEY_XL = '#,##0.00'
 
@@ -136,6 +138,8 @@ def _header_footer(section, left, right):
     fp = section.footer.paragraphs[0]
     fp.text = ""
     fp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    nr = fp.add_run(AVAN_SHORT + " — statik, tesisat ve ruhsat projesi yetkili mimar/mühendis imzası gerektirir\n")
+    nr.font.size, nr.italic = Pt(7), True
     for txt, instr in (("Sayfa ", None), ("", "PAGE"), (" / ", None), ("", "NUMPAGES")):
         run = fp.add_run(txt)
         run.font.size = Pt(8)
@@ -300,6 +304,7 @@ def write_offer_docx(path, project, report, qres, cost, company=None, customer=N
     d.add_heading("3. TEKLİF ŞARTLARI", 1)
     city = co.get("city") or site.get("il") or "[İl]"
     terms = [
+        ("Proje seviyesi", AVAN_NOTE),
         ("Kapsam", "Teklif, Ek-1 cetvelinde yer alan imalatların malzeme, işçilik, nakliye, iskele ve yardımcı "
                    "malzemeler dahil anahtar teslim yapımını kapsar."),
         ("Ödeme", "Bedelin %20'si sözleşme imzasında avans olarak; %30'u kaba inşaat, %30'u ince inşaat "
@@ -444,6 +449,13 @@ def _xl_title(ws, title, info, ncols):
     ws["A3"] = (f"İşin adı: {info.get('project', '')}   ·   Yeri: {yer}   ·   Ada/Parsel: {site.get('ada') or '—'}/"
                 f"{site.get('parsel') or '—'}   ·   Tarih: {info.get('date') or f'{date.today():%d.%m.%Y}'}")
     ws["A3"].font = Font(name=FONT, size=9)
+    ws.merge_cells(f"A4:{last}4")
+    ws["A4"] = AVAN_NOTE
+    ws["A4"].font = Font(name=FONT, size=8, italic=True, color="C00000")
+    ws["A4"].alignment = Alignment(wrap_text=True, vertical="top")
+    ws.row_dimensions[4].height = 24
+    ws.oddFooter.center.text = AVAN_SHORT
+    ws.oddFooter.center.size = 7
 
 
 def _xl_header(ws, row, cols, widths):
@@ -478,9 +490,7 @@ def write_xlsx(path, project_name, qres, cost, info=None):
     ws.title = "Birim Fiyat Cetveli"
     _xl_title(ws, "BİRİM FİYAT TEKLİF CETVELİ", info, 7)
     if cost.get("note"):
-        ws.merge_cells("A4:G4")
-        ws["A4"] = cost["note"]
-        ws["A4"].font = Font(name=FONT, size=8, italic=True, color="C00000")
+        ws["A4"] = f"{AVAN_NOTE}  {cost['note']}"
     _xl_header(ws, 5, ["Sıra No", "Poz No", "İş Kaleminin Adı ve Kısa Açıklaması", "Birimi", "Miktarı", "Birim Fiyat (TL)",
                        "Tutarı (TL)"], [7, 10, 58, 8, 12, 16, 18])
     row, i, first = 6, 0, 6

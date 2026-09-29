@@ -12,14 +12,27 @@ from shapely.geometry import Point, Polygon, box
 from shapely.affinity import rotate, translate
 
 BOUNDS = json.loads((Path(__file__).parent / "data" / "item_bounds.json").read_text())
-LAYERED = {"hali"}                                  # üzerine başka nesne konabilir
+LAYERED = {"hali", "yatak_ortusu"}                  # halı zeminde, örtü yatağın üstünde: çakışma sayılmaz
 STACK = {("tv", "tv_unitesi")}                      # duvar TV'si ünitenin üstünde
+TUCK = {("sandalye", "yemek_masasi"), ("sehpa_yuvarlak", "sehpa_yuvarlak")}  # masa altına giren sandalye, zigon sehpa
 DOOR_CLEAR = 0.7
 
 
-def footprint(o):
+def local_box(o):
+    """Yerel (x0, z0, x1, z1); parametrik nesnede (w genişlik, d derinlik) varsayılan ölçüye göre ölçeklenir."""
     b = BOUNDS[o["kind"]]
     (x0, _, z0), (x1, _, z1) = b["min"], b["max"]
+    par = b.get("param", {})
+    if b.get("round"):
+        sx = sz = o.get("d", par["d"]) / par["d"]
+    else:
+        sx = o["w"] / par["w"] if "w" in o and "w" in par else 1.0
+        sz = o["d"] / par["d"] if "d" in o and "d" in par else 1.0
+    return x0 * sx, z0 * sz, x1 * sx, z1 * sz
+
+
+def footprint(o):
+    x0, z0, x1, z1 = local_box(o)
     th = o.get("rot", 0.0)
     c, s = math.cos(th), math.sin(th)
     pts = [(o["x"] + x * c + z * s, o["y"] + x * s - z * c) for x, z in ((x0, z0), (x1, z0), (x1, z1), (x0, z1))]
@@ -64,7 +77,9 @@ def check(elements, design, tol=0.03):
             if ra != rb or a["level"] != b["level"]:
                 continue
             ka, kb = a["kind"], b["kind"]
-            if ka in LAYERED or kb in LAYERED or (ka, kb) in STACK or (kb, ka) in STACK:
+            if ka in LAYERED or kb in LAYERED or {(ka, kb), (kb, ka)} & (STACK | TUCK):
+                continue
+            if a.get("h", 0) > 0.3 or b.get("h", 0) > 0.3:     # masa/sehpa üstüne konan süs
                 continue
             ov = fa.intersection(fb).area
             if ov > 0.01:

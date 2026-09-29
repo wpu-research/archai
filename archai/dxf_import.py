@@ -252,6 +252,39 @@ def _point_in_poly(pt, poly):
     return inside
 
 
+def build_elements(walls, rooms, outline, floors=1, floor_height=3.0, slab_thickness=0.2, window_sill=0.9,
+                   window_height=1.4, door_height=2.1, add_roof=True):
+    """Aks parçaları (Piece) + mahaller + kontur → kat kat eleman listesi (DXF ve resim planı ortak)."""
+    wall_h = floor_height - slab_thickness
+    elements = []
+    for f in range(floors):
+        z = f * floor_height
+        lvl = f"Kat {f}" if floors > 1 else "Zemin"
+        elements.append({"type": "slab", "name": f"{lvl}/doseme", "tag": "concrete", "role": "floor", "level": lvl,
+                         "points": outline, "z": z, "thickness": slab_thickness})
+        for i, w in enumerate(walls):
+            ax, ay = w.s0 * w.ux - w.n * w.uy, w.s0 * w.uy + w.n * w.ux
+            bx, by = w.s1 * w.ux - w.n * w.uy, w.s1 * w.uy + w.n * w.ux
+            ops = []
+            for s0, s1, kind, _ in w.openings:
+                o = {"offset": round(s0 - w.s0, 3), "width": round(s1 - s0, 3), "kind": kind}
+                if kind == "window":
+                    o.update(sill=window_sill, height=window_height)
+                else:
+                    o.update(height=door_height, leaf=True)
+                ops.append(o)
+            elements.append({"type": "wall", "name": f"{lvl}/D{i + 1:02d}", "tag": "wall", "level": lvl,
+                             "start": [round(ax, 4), round(ay, 4)], "end": [round(bx, 4), round(by, 4)],
+                             "height": wall_h, "thickness": w.t, "base_z": z, "openings": ops})
+        for r in rooms:
+            elements.append({"type": "room", "name": f"{lvl}/{r['name']}", "level": lvl, "points": r["points"],
+                             "z": z, "height": wall_h})
+    if add_roof:
+        elements.append({"type": "slab", "name": "cati", "tag": "roof", "role": "roof", "level": "Çatı",
+                         "points": outline, "z": floors * floor_height, "thickness": slab_thickness})
+    return elements
+
+
 def import_dxf(path, floors=1, floor_height=3.0, slab_thickness=0.2, window_sill=0.9,
                window_height=1.4, door_height=2.1, default_thickness=0.2, wall_t_range=(0.08, 0.5),
                max_opening=3.5, bare_gap=1.2, units=None, add_roof=True):
@@ -306,33 +339,8 @@ def import_dxf(path, floors=1, floor_height=3.0, slab_thickness=0.2, window_sill
     if unclassified:
         warnings.append(f"{unclassified} açıklıkta pencere/kapı çizgisi yok; kapı boşluğu sayıldı")
 
-    wall_h = floor_height - slab_thickness
-    elements = []
-    for f in range(floors):
-        z = f * floor_height
-        lvl = f"Kat {f}" if floors > 1 else "Zemin"
-        elements.append({"type": "slab", "name": f"{lvl}/doseme", "tag": "concrete", "role": "floor", "level": lvl,
-                         "points": outline, "z": z, "thickness": slab_thickness})
-        for i, w in enumerate(walls):
-            ax, ay = w.s0 * w.ux - w.n * w.uy, w.s0 * w.uy + w.n * w.ux
-            bx, by = w.s1 * w.ux - w.n * w.uy, w.s1 * w.uy + w.n * w.ux
-            ops = []
-            for s0, s1, kind, _ in w.openings:
-                o = {"offset": round(s0 - w.s0, 3), "width": round(s1 - s0, 3), "kind": kind}
-                if kind == "window":
-                    o.update(sill=window_sill, height=window_height)
-                else:
-                    o.update(height=door_height, leaf=True)
-                ops.append(o)
-            elements.append({"type": "wall", "name": f"{lvl}/D{i + 1:02d}", "tag": "wall", "level": lvl,
-                             "start": [round(ax, 4), round(ay, 4)], "end": [round(bx, 4), round(by, 4)],
-                             "height": wall_h, "thickness": w.t, "base_z": z, "openings": ops})
-        for r in rooms:
-            elements.append({"type": "room", "name": f"{lvl}/{r['name']}", "level": lvl, "points": r["points"],
-                             "z": z, "height": wall_h})
-    if add_roof:
-        elements.append({"type": "slab", "name": "cati", "tag": "roof", "role": "roof", "level": "Çatı",
-                         "points": outline, "z": floors * floor_height, "thickness": slab_thickness})
+    elements = build_elements(walls, rooms, outline, floors, floor_height, slab_thickness, window_sill, window_height,
+                              door_height, add_roof)
 
     report = {"units_scale": scale, "walls": len(walls), "openings": sum(len(w.openings) for w in walls),
               "rooms": len(rooms), "floors": floors, "outline_area": round(polygon_area([tuple(p) for p in outline]), 2),

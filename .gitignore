@@ -10,3 +10,6 @@ webapp/static/assets/hdri/
 # üçüncü taraf referans görseller (yalnız yerelde)
 references/villa_ref.png
 examples/villa_ref/iter*.jpg
+
+# müşteri / üçüncü taraf plan görseli (yalnız yerelde; testler yoksa atlanır)
+tests/data/plan_3daire.jpg

@@ -16,6 +16,7 @@ uv run pytest -q
 | **Arazi** | parsel cephe × derinlik, TAKS, KAKS, çekmeler, maks. kat, daire tipi | kütle imar sınırına göre boyutlanır, kat planı otomatik yerleşir |
 | **Hızlı teklif** | toplam m², kat sayısı, daire tipi | aynı üretici sanal bir parselle çalışır — teklif gerçek metraja dayanır |
 | **DXF plan** | katmanlı DXF (DUVAR, PENCERE, KAPI, MAHAL, ops. KONTUR) | çift çizgi duvarlar, açıklıklar ve mahaller okunur, katlar tekrarlanır |
+| **Resim plan** | PNG/JPG: CAD ekran görüntüsü, pafta çıktısı, tarama | duvar (çift/tek çizgi, renkli, taralı), kapı, pencere, mahal ve ölçek resimden bulunur; onay görseli (`tanima_onay.png`) üretilir. Anthropic kimliği varsa Claude mahal adlarını ve mobilyayı da okur |
 
 ## Çıktılar (proje başına `out/projects/<id>/`)
 
@@ -33,6 +34,24 @@ uv run pytest -q
   nesne yerleştirme (vitrifiye, mutfak, yatak, gardırop parametrik; salon mobilyası Poly Haven), taşı/döndür/sil,
   **ÖRNEK DÖŞE**; düzen proje başına `interior.json`'a kaydedilir
 - Varlıklar CC0 (Poly Haven), repoda değil: `uv run python scripts/fetch_assets.py` (~29 MB)
+
+## Resimden plan tanıma
+
+`archai/plan_image.py` (yalnız numpy + PIL): çizgi maskesi → çift çizgi eşleştirme (eş seçiminde örtüşme önce),
+kalın/renkli kontur, tek çizgi duvar (uçları duvara dayanan) → mobilya ayıklama (duvar dibi paralel çizgi;
+ham çizimde küçük kapalı kutuya bakan kısa parça) → dış kabuğa bağlı bileşen → kapı boşlukları → pencere
+(boşlukta paralel doğrama çizgileri ya da taralı duvarda taramanın kesildiği yer) → mahal (boş alan doldurma).
+Ölçek: verilen `px_per_m` > `grid_m` > kapı boşluğu medyanı ≈ 0,95 m (ızgara varsa birimi bu tahminle seçilir).
+Pafta ekleri (ölçü zinciri, aks, ölçek çubuğu) taralı dış duvarların sınır kutusuna kırpılarak atılır.
+
+Doğruluk (`archai/plan_eval.py`, testlerde bekçi eşikleri): 3 daireli CAD ekran görüntüsünde ölçek ipucusuz
+%0,1 içinde, duvar isabet/kapsam %98/%98, kapı 15/18; ArchAI'nin kendi 1/100 villa paftasında ölçek %1,
+duvar %94/%99, mahal 10/10, pencere 11/11.
+
+**Hibrit okuma** (`archai/plan_vision.py`): tanınan mahaller numaralanıp Claude'a (claude-opus-5-5,
+yapılandırılmış JSON çıktı) gönderilir; mahal adı ve mobilya sembolleri (tür, kutu, duvara dayanan yüz) döner,
+mobilya parametrik kataloğa yerleşir. Geometri hiçbir zaman görüntü modelinden alınmaz. Kimlik yoksa
+(`ANTHROPIC_API_KEY` veya `ant auth login`) atlanır; tanıma geometriyle devam eder.
 
 ## Modüller
 
@@ -52,6 +71,11 @@ uv run pytest -q
 Blender 4.5 LTS: `~/Applications/blender-4.5.14-linux-x64/` (başka yer için `ARCHAI_BLENDER`).
 
 ## Sınırlar — bilinmesi gerekenler
+
+- Tüm çıktılar **avan proje** seviyesindedir (paftalar, teklif, şartname, Excel bunu yazar): statik, tesisat ve
+  ruhsat projeleri yetkili mimar/mühendis imzası gerektirir.
+- Resim plan: kapı açılış yönü okunmaz; kasası olmayan geçişler (duvar çizilmemiş açıklık) kapı sayılmaz;
+  PDF önce resim olarak dışa aktarılmalı; mahal adı ve mobilya için Claude görsel okuması gerekir.
 
 - Üretilen plan **şematik ön tasarımdır** (avan seviyesi); ruhsat projesi değildir, mimar kontrolü ve imzası gerekir.
   Emsal hesabı yaklaşıktır (emsal dışı alanlar ayrıştırılmıyor). Parsel şimdilik dikdörtgen.

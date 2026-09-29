@@ -80,6 +80,55 @@ def run_dxf(dxf_path, brief, out_dir, render_3d=False):
     return finalize(brief, elements, report, {"dxf": str(dxf_path)}, out_dir, render_3d), elements
 
 
+def _vision(img_path, elements, rep, mode="auto", client=None):
+    """Hibrit okuma (Claude): mahal adları + çizimdeki mobilya. Kimlik yoksa ya da hata olursa geometriyle devam."""
+    from PIL import Image
+
+    from . import plan_vision
+    if mode is False or mode == "off" or (mode == "auto" and client is None and not plan_vision.available()):
+        rep["vision"] = "kapalı"
+        rep["warnings"].append("Claude görsel okuma kapalı (Anthropic kimlik bilgisi yok): mahal adı ve mobilya "
+                               "okunmadı — ANTHROPIC_API_KEY tanımlayın veya `ant auth login`")
+        return None
+    rooms = [e for e in elements if e["type"] == "room"]
+    levels = sorted({e["level"] for e in rooms}, key=lambda n: next(e["z"] for e in rooms if e["level"] == n))
+    first = [e for e in rooms if e["level"] == levels[0]]
+    S, H = rep["px_per_m"], Image.open(img_path).height
+    try:
+        data = plan_vision.ask(img_path, first, S, client=client)
+    except Exception as ex:  # noqa: BLE001 — görsel okuma isteğe bağlı: plan geometrisi yine üretilir
+        rep["vision"] = f"hata: {ex}"
+        rep["warnings"].append(f"Claude görsel okuma başarısız ({ex}); mahal adları ve mobilya okunmadı")
+        return None
+    plan_vision.apply(elements, data)
+    objs = []
+    for lv in levels:  # normal katlar aynı: mobilya her katta tekrarlanır
+        for o in plan_vision.furniture_objects(data.get("furniture", []), lv, S, H):
+            objs.append({**o, "id": f"{o['id']}_{len(objs)}"})
+    rep["vision"] = "claude"
+    rep["furniture"] = len(objs) // max(1, len(levels))
+    return {"floors": {}, "paint": "kirik_beyaz", "objects": objs}
+
+
+def run_image(img_path, brief, out_dir, render_3d=False):
+    """Resim plandan (PNG/JPG ekran görüntüsü, tarama): tanı, onay görselini yaz, sonra tüm çıktılar."""
+    from . import plan_image
+    p = brief.get("image", {})
+    elements, rep = plan_image.recognize(img_path, px_per_m=p.get("px_per_m"), grid_m=p.get("grid_m"),
+                                         floors=int(p.get("floors", 1)), floor_height=float(p.get("floor_height", 3.0)))
+    design = _vision(img_path, elements, rep, p.get("vision", "auto"))
+    s = Q.compute(elements)["summary"]
+    report = {**rep, "gross_total": s["gross_floor_area"], "unit_count": p.get("unit_count", ""),
+              "unit_type": p.get("unit_type", "")}
+    result = finalize(brief, elements, report, {"image": str(img_path)}, out_dir, render_3d)
+    if design:
+        (Path(out_dir) / "interior.json").write_text(json.dumps(design, ensure_ascii=False))
+    ov = plan_image.overlay(img_path, elements, rep, Path(out_dir) / "tanima_onay.png")
+    result["files"]["tanima_onay_png"] = str(ov)
+    (Path(out_dir) / "project.json").write_text(json.dumps(result, ensure_ascii=False, indent=1, default=str))
+    return result, elements
+
+
 def run_villa(out_dir, brief=None, render_3d=False):
     """Demo senaryosu: döşenmiş iki katlı villa (archai/villa.py)."""
     from . import villa
@@ -87,6 +136,30 @@ def run_villa(out_dir, brief=None, render_3d=False):
     brief = {"name": "Villa Demo", **(brief or {})}
     meta = {"parcel": {"width": villa.PARCEL[0], "depth": villa.PARCEL[1]}, "zoning": villa.ZONING,
             "program": {"unit_type": "Villa 4+2", "scenario": "villa"}}
+    result = finalize(brief, elements, report, meta, out_dir, render_3d)
+    (Path(out_dir) / "interior.json").write_text(json.dumps(design, ensure_ascii=False))
+    return result, elements
+
+
+def run_cabin(out_dir, brief=None, render_3d=False):
+    """Demo senaryosu: tomruk dağ evi, zemin + asma kat, veranda (archai/cabin.py)."""
+    from . import cabin
+    elements, report, design = cabin.scenario()
+    brief = {"name": "Dağ Evi Demo", **(brief or {})}
+    meta = {"parcel": {"width": cabin.PARCEL[0], "depth": cabin.PARCEL[1]}, "zoning": cabin.ZONING,
+            "program": {"unit_type": "Dağ Evi 1+1", "scenario": "cabin"}}
+    result = finalize(brief, elements, report, meta, out_dir, render_3d)
+    (Path(out_dir) / "interior.json").write_text(json.dumps(design, ensure_ascii=False))
+    return result, elements
+
+
+def run_apartment(out_dir, brief=None, render_3d=False):
+    """Senaryo: 3 daireli apartman normal katı, CAD kat planından birebir (archai/apartment.py)."""
+    from . import apartment
+    elements, report, design = apartment.scenario()
+    brief = {"name": "Apartman Katı", **(brief or {})}
+    meta = {"parcel": {"width": apartment.PARCEL[0], "depth": apartment.PARCEL[1]}, "zoning": apartment.ZONING,
+            "program": {"unit_type": "3 × 2+1", "scenario": "apartment"}}
     result = finalize(brief, elements, report, meta, out_dir, render_3d)
     (Path(out_dir) / "interior.json").write_text(json.dumps(design, ensure_ascii=False))
     return result, elements
