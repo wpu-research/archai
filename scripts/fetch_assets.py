@@ -14,7 +14,8 @@ API = "https://api.polyhaven.com/files/"
 UA = {"User-Agent": "archai-asset-fetch/1.0"}
 
 TEXTURES = ["laminate_floor_02", "herringbone_parquet", "oak_wood_planks", "wood_floor", "marble_tiles",
-            "large_grey_tiles", "terrazzo_tiles", "painted_plaster_wall", "long_white_tiles"]
+            "large_grey_tiles", "terrazzo_tiles", "painted_plaster_wall", "long_white_tiles",
+            "rough_wood", "weathered_planks"]  # tomruk ev: log duvar, veranda/çatı ahşabı
 MAPS = {"diff": "Diffuse", "nor_gl": "nor_gl", "rough": "Rough"}
 MODELS = ["modern_arm_chair_01", "mid_century_lounge_chair", "modern_coffee_table_01", "dining_chair_02",
           "outdoor_table_chair_set_01", "side_table_01", "Ottoman_01", "potted_plant_02", "potted_plant_04"]

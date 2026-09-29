@@ -4,6 +4,7 @@ version = "0.1.0"
 description = "LLM ajanı → Blender mimari modelleme → colormap → AI video prototipi"
 requires-python = ">=3.11"
 dependencies = [
+    "anthropic>=1.9.0",
     "ezdxf>=1.4.4",
     "fastapi>=0.141.1",
     "matplotlib>=3.11.2",

@@ -103,21 +103,65 @@ def create_villa(b: Brief | None = None):
     return _public(pid, result)
 
 
+@app.post("/api/projects/cabin")
+def create_cabin(b: Brief | None = None):
+    """Demo: tomruk dağ evi senaryosu (zemin + asma kat, veranda, döşenmiş iç mekân)."""
+    brief = (b.model_dump(exclude_none=True) if b else {})
+    brief.pop("render_3d", None)
+    brief = {k: v for k, v in brief.items() if k in ("name", "company", "customer", "site", "adjust") or k in project.INFO_KEYS}
+    if brief.get("name") in (None, "Yeni Proje", "Yeni Konut Projesi"):
+        brief["name"] = "Dağ Evi Demo"
+    pid = _new_id(brief["name"])
+    result, _ = _run(lambda: project.run_cabin(PROJECTS / pid, brief))
+    return _public(pid, result)
+
+
+@app.post("/api/projects/apartment")
+def create_apartment(b: Brief | None = None):
+    """Senaryo: 3 daireli apartman normal katı (CAD kat planından, döşenmiş)."""
+    brief = (b.model_dump(exclude_none=True) if b else {})
+    brief.pop("render_3d", None)
+    brief = {k: v for k, v in brief.items() if k in ("name", "company", "customer", "site", "adjust") or k in project.INFO_KEYS}
+    if brief.get("name") in (None, "Yeni Proje", "Yeni Konut Projesi"):
+        brief["name"] = "Apartman Katı"
+    pid = _new_id(brief["name"])
+    result, _ = _run(lambda: project.run_apartment(PROJECTS / pid, brief))
+    return _public(pid, result)
+
+
+IMAGE_EXT = (".png", ".jpg", ".jpeg", ".webp")
+
+
 @app.post("/api/projects/dxf")
 def create_from_dxf(file: UploadFile = File(...), name: str = Form("DXF Projesi"), floors: int = Form(1),
                     floor_height: float = Form(3.0), render_3d: bool = Form(False), meta: str = Form("{}")):
-    if not file.filename.lower().endswith(".dxf"):
-        raise HTTPException(422, "yalnız .dxf kabul ediliyor (DWG'yi AutoCAD/ODA ile DXF'e çevirin)")
+    ext = Path(file.filename.lower()).suffix
+    if ext not in (".dxf", *IMAGE_EXT):
+        raise HTTPException(422, "yalnız .dxf veya resim plan (.png/.jpg/.webp) kabul ediliyor "
+                                 "(DWG'yi AutoCAD/ODA ile DXF'e çevirin; PDF'i resim olarak dışa aktarın)")
     pid = _new_id(name)
     d = PROJECTS / pid
     d.mkdir(parents=True)
-    src = d / "plan.dxf"
+    src = d / f"plan{ext}"
     with src.open("wb") as f:
         shutil.copyfileobj(file.file, f)
     try:
         extra = {k: v for k, v in json.loads(meta).items() if k in project.INFO_KEYS}
     except ValueError:
         raise HTTPException(422, "meta geçerli JSON değil")
+    if ext in IMAGE_EXT:
+        img = {"floors": floors, "floor_height": floor_height}
+        try:
+            m = json.loads(meta)
+        except ValueError:
+            m = {}
+        for k in ("px_per_m", "grid_m"):
+            if isinstance(m.get(k), (int, float)) and m[k] > 0:
+                img[k] = float(m[k])
+        brief = {"name": name, "image": img, **extra}
+        with _blender_lock if render_3d else _nolock():
+            result, _ = _run(lambda: project.run_image(src, brief, d, render_3d=render_3d))
+        return _public(pid, result)
     brief = {"name": name, "dxf": {"floors": floors, "floor_height": floor_height}, **extra}
     with _blender_lock if render_3d else _nolock():
         result, _ = _run(lambda: project.run_dxf(src, brief, d, render_3d=render_3d))
@@ -160,6 +204,19 @@ def get_interior(pid: str):
     return json.loads(p.read_text()) if p.exists() else {"floors": {}, "paint": "kirik_beyaz", "objects": []}
 
 
+OBJ_KEYS = ("id", "kind", "level", "x", "y", "rot", "h")
+# parametrik nesne ölçüleri (interior.js FACTORY): yalnız sayı / bayrak olarak saklanır
+OBJ_NUM = ("w", "d", "hy", "v", "p", "side", "ocak", "evye", "suluk")
+OBJ_FLAG = ("kitap", "orta", "decor")
+
+
+def _clean_obj(o):
+    c = {k: o[k] for k in OBJ_KEYS if k in o}
+    c.update({k: float(o[k]) for k in OBJ_NUM if isinstance(o.get(k), (int, float)) and not isinstance(o[k], bool)})
+    c.update({k: o[k] for k in OBJ_FLAG if isinstance(o.get(k), bool)})
+    return c
+
+
 @app.put("/api/projects/{pid}/interior")
 def put_interior(pid: str, design: dict):
     if "/" in pid or not (PROJECTS / pid).is_dir():
@@ -169,7 +226,7 @@ def put_interior(pid: str, design: dict):
         raise HTTPException(422, "geçersiz nesne listesi")
     clean = {"floors": {str(k): str(v) for k, v in (design.get("floors") or {}).items()},
              "paint": str(design.get("paint", "kirik_beyaz")),
-             "objects": [{k: o[k] for k in ("id", "kind", "level", "x", "y", "rot", "h") if k in o} for o in objs]}
+             "objects": [_clean_obj(o) for o in objs if isinstance(o, dict)]}
     (PROJECTS / pid / "interior.json").write_text(json.dumps(clean, ensure_ascii=False))
     return {"ok": True, "objects": len(clean["objects"])}
 
@@ -284,7 +341,7 @@ def submit_real(pid: str, scene: UploadFile = File(...), job: str = Form(...)):
         raise HTTPException(413, "sahne çok büyük")
     spec.update(glb=str(jd / "scene.glb"), hdri=str(HDRI), out_dir=str(jd), samples=q["samples"], width=q["width"])
     (jd / "job.json").write_text(json.dumps(spec, ensure_ascii=False))
-    JOBS[jid] = {"id": jid, "pid": pid, "kind": kind, "dir": str(jd), "status": "queued", "done": 0,
+    JOBS[jid] = {"id": jid, "pid": pid, "kind": kind, "preset": str(spec.get("preset", "")), "dir": str(jd), "status": "queued", "done": 0,
                  "total": 1, "results": [], "queued_ahead": _render_q.qsize()}
     _render_q.put(jid)
     return _job_public(JOBS[jid])

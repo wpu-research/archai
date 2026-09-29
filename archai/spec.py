@@ -4,7 +4,10 @@ Metinler şablondur; firma kendi şartname kütüphanesiyle değiştirmeli/geni�
 "Ölçü ve ödeme" bölümü, kalemin metraj kuralıyla aynı yöntemi anlatır.
 """
 
+from .notice import AVAN_NOTE
+
 GENERAL = [
+    AVAN_NOTE,
     "Bu şartname, projede yer alan imalatların malzeme, uygulama, ölçü ve ödeme esaslarını tanımlar.",
     "Tüm imalatlar onaylı uygulama projelerine, yürürlükteki yönetmeliklere ve ilgili TS / TS EN standartlarına uygun yapılacaktır.",
     "Kullanılacak malzemelerin numuneleri ve teknik föyleri uygulamadan önce idare/mal sahibi onayına sunulacaktır.",
@@ -27,6 +30,16 @@ ITEMS = {
         "malzeme": "İç bölme duvarları projede belirtilen kalınlıkta tuğla/gazbeton veya onaylı hafif bölme sistemi ile yapılacaktır.",
         "uygulama": "Duvarlar döşemeye ve tavana rijit bağlanacak, ıslak hacim duvarlarında su yalıtımı için uygun yüzey hazırlanacaktır.",
         "olcum": "Net duvar alanı (m²), boşluklar düşülerek hesaplanır.",
+    },
+    "DUV-03": {
+        "malzeme": "Masif tomruk (log) duvar: fırınlanmış, nem oranı ≤ %18 iğne yapraklı ağaç; profil ve kalınlık projeye göre. Emprenye ve UV koruyucu yüzey işlemi dahildir.",
+        "uygulama": "Tomruklar köşelerde geçmeli (çentikli) birleşim ve kat arası yalıtım bandı ile örülecek; oturma payı bırakılacak, kapı-pencere kasaları kayar profil ile monte edilecektir.",
+        "olcum": "Aks uzunluğu × duvar yüksekliğinden boşluklar düşülerek net duvar alanı (m²) üzerinden ödenir.",
+    },
+    "CAT-02": {
+        "malzeme": "Ahşap makas/mertek sistemi, OSB veya ahşap kaplama, nefes alan su yalıtım örtüsü, çıta ve çatı örtüsü (shingle veya metal); ısı yalıtımı dahildir.",
+        "uygulama": "Eğim projeye göre; mahya ve saçak havalandırması bırakılacak, baca ve tesisat geçişlerinde etek/sızdırmazlık yapılacaktır.",
+        "olcum": "Eğimli çatı yüzey alanı (m²) üzerinden ödenir; saçak çıkmaları dahildir.",
     },
     "YAL-01": {
         "malzeme": "Isı yalıtım levhaları (EPS/XPS/taş yünü) TS 825 hesabına göre belirlenen kalınlıkta olacak; yapıştırıcı, dübel, file ve sıva aynı sistemin bileşenleri olacaktır.",

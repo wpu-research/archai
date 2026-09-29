@@ -68,6 +68,22 @@ def test_formal_plan_is_true_scale_1_100():
     assert sh.doc.dimstyles.get("TR-CM").dxf.dimlfac == 100  # ölçüler cm
 
 
+def test_cabin_scenario_valid():
+    from archai import cabin
+    from archai.layout_check import check
+    els, rep, design = cabin.scenario()
+    c = rep["checks"]
+    assert c["taks"]["ok"] and c["kaks"]["ok"]
+    sb = c["setbacks"]
+    assert min(sb["front"], sb["rear"], sb["side_left"], sb["side_right"]) >= cabin.ZONING["side"]
+    assert 95 <= rep["gross_total"] <= 105
+    n = sum(len(e["openings"]) for e in els if e["type"] == "wall")
+    assert n == len(cabin.ground_openings()) + len(cabin.loft_openings())
+    assert check(els, design) == []
+    assert {"klozet", "dus", "mutfak", "buzdolabi", "yatak_cift", "kanepe"} <= {o["kind"] for o in design["objects"]}
+    assert set(design["floors"]) == {e["name"] for e in els if e["type"] == "room"}
+
+
 def test_villa_scenario_valid():
     from archai import villa
     from archai.layout_check import check
@@ -86,3 +102,28 @@ def test_villa_scenario_valid():
     assert {"klozet", "lavabo", "dus", "kuvet", "mutfak", "yatak_cift", "kanepe_l", "sezlong"} <= kinds
     rooms = {e["name"] for e in els if e["type"] == "room"}
     assert set(design["floors"]) == rooms
+
+
+def test_apartment_scenario_valid():
+    from archai import apartment
+    from archai.layout_check import check
+    els, rep, design = apartment.scenario()
+    assert rep["unit_count"] == 3 and 255 <= rep["gross_total"] <= 275
+    walls = [e for e in els if e["type"] == "wall"]
+    ops = [o for w in walls for o in w["openings"]]
+    assert sum(o["kind"] == "door" for o in ops) == 19
+    # her açıklık kendi duvarının içinde
+    import math
+    for w in walls:
+        L = math.dist(w["start"], w["end"])
+        assert all(0 <= o["offset"] and o["offset"] + o["width"] <= L + 1e-6 for o in w["openings"]), w["name"]
+    # batı ve doğu daire birbirinin aynası: aynı mobilya, x'te simetrik
+    rooms = [e["name"] for e in els if e["type"] == "room"]
+    assert len(rooms) == 21
+    n, objs = len(apartment.WEST_ITEMS), design["objects"]
+    axis2 = 2 * apartment.OX + (apartment.MX - 2 * apartment.PX0) / apartment.S
+    for a, b in zip(objs[:n], objs[n:2 * n]):
+        assert a["kind"] == b["kind"] and abs(a["x"] + b["x"] - axis2) < 0.01 and a["y"] == b["y"]
+    # çizimde lavabo banyo kapısının önünde; başka taşma/çakışma yok
+    assert check(els, design) == ["Normal Kat/Daire 3 Banyo: lavabo bir kapı önünü kapatıyor"]
+    assert set(design["floors"]) == set(rooms)

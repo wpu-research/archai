@@ -15,6 +15,8 @@ export function createInterior(ctx) {
     {id: 'laminate_floor_02', name: 'Laminat parke', tile: 2.0},
     {id: 'herringbone_parquet', name: 'Balıksırtı parke', tile: 1.6},
     {id: 'oak_wood_planks', name: 'Meşe masif', tile: 2.2},
+    {id: 'weathered_planks', name: 'Eskimiş çam (deck)', tile: 2.4},
+    {id: 'rough_wood', name: 'Ham tomruk', tile: 1.6},
     {id: 'wood_floor', name: 'Koyu ahşap', tile: 2.0},
     {id: 'marble_tiles', name: 'Mermer', tile: 1.8},
     {id: 'large_grey_tiles', name: 'Porselen 60×60', tile: 2.4},
@@ -29,23 +31,25 @@ export function createInterior(ctx) {
   ];
   const ITEMS = [
     {id: 'klozet', name: 'Klozet', cat: 'Banyo'}, {id: 'lavabo', name: 'Lavabo + ayna', cat: 'Banyo'},
-    {id: 'dus', name: 'Duş kabini', cat: 'Banyo'}, {id: 'kuvet', name: 'Küvet', cat: 'Banyo'},
+    {id: 'dus', name: 'Duş kabini', cat: 'Banyo'}, {id: 'kuvet', name: 'Küvet', cat: 'Banyo'}, {id: 'havlu', name: 'Havlu askısı', cat: 'Banyo'},
     {id: 'mutfak', name: 'Mutfak tezgâhı 2,4 m', cat: 'Mutfak'}, {id: 'ada', name: 'Mutfak adası', cat: 'Mutfak'},
     {id: 'buzdolabi', name: 'Buzdolabı', cat: 'Mutfak'}, {id: 'bar_taburesi', name: 'Bar taburesi', cat: 'Mutfak'},
     {id: 'kanepe_l', name: 'L koltuk', cat: 'Salon'}, {id: 'kanepe', name: '3\'lü kanepe', cat: 'Salon'},
+    {id: 'kanepe_2li', name: '2\'li kanepe', cat: 'Salon'}, {id: 'sehpa_yuvarlak', name: 'Yuvarlak sehpa', cat: 'Salon'},
     {id: 'modern_arm_chair_01', name: 'Berjer', cat: 'Salon', model: true}, {id: 'mid_century_lounge_chair', name: 'Tasarım koltuk', cat: 'Salon', model: true},
     {id: 'modern_coffee_table_01', name: 'Orta sehpa', cat: 'Salon', model: true}, {id: 'tv_unitesi', name: 'TV ünitesi', cat: 'Salon'},
-    {id: 'tv', name: 'Duvar TV 65"', cat: 'Salon'}, {id: 'hali', name: 'Halı', cat: 'Salon'},
+    {id: 'tv', name: 'Duvar TV 65"', cat: 'Salon'}, {id: 'hali', name: 'Halı', cat: 'Salon'}, {id: 'tablo', name: 'Tablo', cat: 'Salon'},
     {id: 'yemek_masasi', name: 'Yemek masası', cat: 'Salon'}, {id: 'sandalye', name: 'Yemek sandalyesi', cat: 'Salon'},
     {id: 'dining_chair_02', name: 'Deri sandalye', cat: 'Salon', model: true}, {id: 'Ottoman_01', name: 'Puf', cat: 'Salon', model: true},
     {id: 'potted_plant_02', name: 'Saksı bitkisi', cat: 'Salon', model: true}, {id: 'potted_plant_04', name: 'Büyük bitki', cat: 'Salon', model: true},
     {id: 'yatak_cift', name: 'Çift kişilik yatak', cat: 'Yatak odası'}, {id: 'yatak_tek', name: 'Tek kişilik yatak', cat: 'Yatak odası'},
     {id: 'gardirop', name: 'Gardırop', cat: 'Yatak odası'}, {id: 'side_table_01', name: 'Komodin', cat: 'Yatak odası', model: true},
+    {id: 'komodin', name: 'Komodin + abajur', cat: 'Yatak odası'}, {id: 'yatak_ortusu', name: 'Yatak örtüsü', cat: 'Yatak odası'},
     {id: 'calisma_masasi', name: 'Çalışma masası', cat: 'Çalışma'}, {id: 'kitaplik', name: 'Kitaplık', cat: 'Çalışma'},
     {id: 'sezlong', name: 'Şezlong', cat: 'Dış mekân'}, {id: 'outdoor_table_chair_set_01', name: 'Bahçe masa takımı', cat: 'Dış mekân', model: true},
   ];
   const ICON = {klozet: '🚽', lavabo: '🪞', dus: '🚿', kuvet: '🛁', mutfak: '🍳', ada: '🔲', buzdolabi: '🧊', bar_taburesi: '🪑', kanepe_l: '🛋',
-    kanepe: '🛋', tv_unitesi: '▭', tv: '📺', hali: '▦', yemek_masasi: '🍽', sandalye: '🪑', yatak_cift: '🛏', yatak_tek: '🛏', gardirop: '🚪',
+    kanepe: '🛋', tv_unitesi: '▭', tv: '📺', hali: '▦', yemek_masasi: '🍽', sandalye: '🪑', yatak_cift: '🛏', yatak_tek: '🛏', gardirop: '🚪', kanepe_2li: '🛋', sehpa_yuvarlak: '◯', komodin: '💡', yatak_ortusu: '▬', tablo: '🖼', havlu: '🧺',
     calisma_masasi: '🖥', kitaplik: '📚', sezlong: '⛱'};
 
   // ------------------------------------------------------------------ malzemeler
@@ -93,6 +97,8 @@ export function createInterior(ctx) {
     ground: new THREE.MeshStandardMaterial({color: 0x6f7a5c, roughness: 1}),
     water: new THREE.MeshPhysicalMaterial({color: 0x2f9fc0, roughness: .04, clearcoat: 1, transparent: true, opacity: .9, emissive: 0x0b4a5c, emissiveIntensity: .35}),
     roof: new THREE.MeshStandardMaterial({color: 0xb9b6b0, roughness: .95}),
+    shingle: new THREE.MeshStandardMaterial({color: 0x4e4239, roughness: .95}),
+    stone: new THREE.MeshStandardMaterial({color: 0x8c877d, roughness: .95}),
     bark: new THREE.MeshStandardMaterial({color: 0x5a4636, roughness: 1}),
     leaves: [0x4f6b3a, 0x5d7a43, 0x445f33].map(c => new THREE.MeshStandardMaterial({color: c, roughness: .9, flatShading: true})),
     paving: new THREE.MeshStandardMaterial({color: 0xb5b0a6, roughness: .9}),
@@ -101,6 +107,12 @@ export function createInterior(ctx) {
   plaster.name = 'archai_plaster';
   const oakTex = texLoader.load(`${A}tex/oak_wood_planks/diff.jpg`); oakTex.colorSpace = THREE.SRGBColorSpace;
   oakTex.wrapS = oakTex.wrapT = THREE.RepeatWrapping; M.oak.map = oakTex; M.oak.color.set(0xffffff);
+  // tomruk ev ahşabı: UV'leri metre cinsinden ölçeklenmiş kirişler/tomruklar için doku tekrarı 1 birim = 1 m
+  const timberTex = (id, k, srgb) => { const t = texLoader.load(`${A}tex/${id}/${k}.jpg`); t.wrapS = t.wrapT = THREE.RepeatWrapping; if (srgb) t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8; return t; };
+  M.log = new THREE.MeshStandardMaterial({map: timberTex('rough_wood', 'diff', true), normalMap: timberTex('rough_wood', 'nor_gl'), roughnessMap: timberTex('rough_wood', 'rough'), roughness: 1, color: 0xd9c4a6});
+  M.timber = new THREE.MeshStandardMaterial({map: timberTex('weathered_planks', 'diff', true), normalMap: timberTex('weathered_planks', 'nor_gl'), roughnessMap: timberTex('weathered_planks', 'rough'), roughness: 1});
+  M.concrete = new THREE.MeshStandardMaterial({color: 0x9d9a94, roughness: .95});
+  M.log.name = 'archai_log'; M.timber.name = 'archai_timber'; M.concrete.name = 'archai_concrete';
 
   // ------------------------------------------------------------------ parametrik nesneler (yerel: taban merkezde, +z ön)
   const G = () => new THREE.Group();
@@ -131,16 +143,16 @@ export function createInterior(ctx) {
       part(g, bx(.76, .86, .01), M.frame, 0, 1.55, -.243);
       return g;
     },
-    dus() {
-      const g = G();
-      part(g, rb(.9, .05, .9, .01), M.ceramic, 0, .025, 0);
-      part(g, bx(.9, 1.95, .008), M.glass, 0, 1.03, .445);
-      part(g, bx(.008, 1.95, .9), M.glass, .445, 1.03, 0);
-      part(g, bx(.9, .02, .02), M.chrome, 0, 2.0, .445);
-      part(g, bx(.02, .02, .9), M.chrome, .445, 2.0, 0);
-      part(g, cyl(.012, .012, 1.1, 12), M.chrome, -.35, 1.5, -.43);
-      part(g, cyl(.11, .11, .015), M.chrome, -.35, 2.02, -.32);
-      part(g, bx(.02, .2, .02), M.chrome, -.35, 2.03, -.38).rotation.x = Math.PI / 2;
+    dus(o = {}) {
+      const g = G(), W = o.w ?? .9, D = o.d ?? .9, sd = o.side ?? 1, hx = -sd * (W / 2 - .1);
+      part(g, rb(W, .05, D, .01), M.ceramic, 0, .025, 0);
+      part(g, bx(W, 1.95, .008), M.glass, 0, 1.03, D / 2 - .005);
+      part(g, bx(.008, 1.95, D), M.glass, sd * (W / 2 - .005), 1.03, 0);
+      part(g, bx(W, .02, .02), M.chrome, 0, 2.0, D / 2 - .005);
+      part(g, bx(.02, .02, D), M.chrome, sd * (W / 2 - .005), 2.0, 0);
+      part(g, cyl(.012, .012, 1.1, 12), M.chrome, hx, 1.5, -(D / 2 - .02));
+      part(g, cyl(.11, .11, .015), M.chrome, hx, 2.02, -(D / 2 - .13));
+      part(g, bx(.02, .2, .02), M.chrome, hx, 2.03, -(D / 2 - .07)).rotation.x = Math.PI / 2;
       return g;
     },
     kuvet() {
@@ -153,23 +165,26 @@ export function createInterior(ctx) {
       part(g, cyl(.015, .015, .18, 12), M.chrome, -.72, H + .05, -.2);
       return g;
     },
-    mutfak() {
-      const g = G(), L = 2.4, D = .6;
+    mutfak(o = {}) {
+      const g = G(), L = o.w ?? 2.4, D = o.d ?? .6, n = Math.max(1, Math.round(L / .6)), m = L / n;
+      const ev = o.evye ?? -.3, oc = o.ocak ?? .6;
       part(g, bx(L, .1, D - .06), M.black, 0, .05, -.03);
-      for (let i = 0; i < 4; i++) {
-        const x = -L / 2 + .3 + i * .6;
-        part(g, bx(.6, .72, D - .02), M.lacquer, x, .46, -.01);
-        part(g, bx(.594, .7, .02), M.lacquer, x, .47, D / 2 - .01);
+      for (let i = 0; i < n; i++) {
+        const x = -L / 2 + m / 2 + i * m;
+        part(g, bx(m, .72, D - .02), M.lacquer, x, .46, -.01);
+        part(g, bx(m - .006, .7, .02), M.lacquer, x, .47, D / 2 - .01);
         part(g, bx(.4, .015, .015), M.steel, x, .79, D / 2 + .01);
-        part(g, bx(.6, .7, .35), M.lacquer, x, 1.85, -D / 2 + .175);
-        part(g, bx(.594, .68, .02), M.lacquer, x, 1.85, -D / 2 + .36);
-        part(g, bx(.015, .3, .015), M.steel, x + .25, 1.62, -D / 2 + .375);
+        part(g, bx(m, .7, .35), M.lacquer, x, 1.85, -D / 2 + .175);
+        part(g, bx(m - .006, .68, .02), M.lacquer, x, 1.85, -D / 2 + .36);
+        part(g, bx(.015, .3, .015), M.steel, x + m / 2 - .05, 1.62, -D / 2 + .375);
       }
       part(g, bx(L + .02, .04, D + .02), M.quartz, 0, .86, 0);
-      part(g, bx(.5, .005, .4), M.steel, -.3, .882, .02);
-      part(g, bx(.44, .004, .34), M.black, -.3, .885, .02);
-      part(g, cyl(.012, .012, .3, 12), M.chrome, -.3, 1.03, -.22);
-      part(g, bx(.58, .008, .5), M.black, .6, .884, .02);
+      part(g, bx(.5, .005, .4), M.steel, ev, .882, .02);
+      part(g, bx(.44, .004, .34), M.black, ev, .885, .02);
+      if (o.suluk) part(g, bx(.45, .006, .4), M.steel, ev + Math.sign(o.suluk) * .48, .883, .02);  // damlalık
+      part(g, cyl(.012, .012, .3, 12), M.chrome, ev, 1.03, -D / 2 + .08);
+      part(g, bx(.58, .008, .5), M.black, oc, .884, .02);
+      for (const [dx, dz] of [[-.14, -.12], [.14, -.12], [-.14, .14], [.14, .14]]) part(g, cyl(.08, .08, .004, 24), M.steel, oc + dx, .89, .02 + dz);
       part(g, bx(L, .6, .01), M.quartz, 0, 1.18, -D / 2 + .005);
       return g;
     },
@@ -193,19 +208,41 @@ export function createInterior(ctx) {
       for (const [x, z] of [[-W / 2 + .08, -.4], [W / 2 - .08, -.4], [-W / 2 + .08, .4], [W / 2 - .08, 1.3]]) part(g, bx(.05, .08, .05), M.metal, x, .04, z);
       return g;
     },
-    kanepe() {
-      const g = G(), W = 2.3;
+    kanepe(o = {}) {
+      const g = G(), W = o.w ?? 2.3, n = W >= 2.2 ? 3 : 2, st = (W - .14) / n;
       part(g, rb(W, .38, .92, .04), M.sofa, 0, .27, 0);
-      for (const x of [-.72, 0, .72]) part(g, rb(.7, .14, .8, .06), M.cushion, x, .52, .05);
+      for (let i = 0; i < n; i++) part(g, rb(st - .02, .14, .8, .06), M.cushion, (i - (n - 1) / 2) * st, .52, .05);
       part(g, rb(W, .45, .2, .06), M.sofa, 0, .66, -.36);
       for (const x of [-W / 2 + .1, W / 2 - .1]) part(g, rb(.2, .3, .92, .05), M.sofa, x, .55, 0);
-      for (const [x, z] of [[-1.08, -.38], [1.08, -.38], [-1.08, .38], [1.08, .38]]) part(g, bx(.05, .08, .05), M.metal, x, .04, z);
+      for (const [x, z] of [[-1, -.38], [1, -.38], [-1, .38], [1, .38]]) part(g, bx(.05, .08, .05), M.metal, x * (W / 2 - .07), .04, z);
+      if (o.p) { const k = part(g, rb(.42, .42, .12, .06), M.linen, o.p * (W / 2 - .45), .76, -.2); k.rotation.set(-.25, 0, o.p * .5); }  // kırlent
       return g;
     },
-    yemek_masasi() {
+    kanepe_2li(o = {}) { return FACTORY.kanepe({w: 1.8, ...o}); },
+    sehpa_yuvarlak(o = {}) {
+      const g = G(), d = o.d ?? .9, h = d >= .8 ? .42 : .55;
+      part(g, cyl(d / 2, d / 2, .04, 48), M.oak, 0, h - .02, 0);
+      part(g, cyl(.035, .035, h - .04, 16), M.metal, 0, (h - .04) / 2, 0);
+      part(g, cyl(d * .22, d * .25, .02, 32), M.metal, 0, .01, 0);
+      if (o.kitap) part(g, rb(.16, .04, .24, .01), M.linen, .05, h + .02, .02);  // üstteki kitap/tepsi
+      return g;
+    },
+    komodin() {
       const g = G();
-      part(g, rb(2.0, .05, 1.0, .01), M.oak, 0, .745, 0);
-      for (const [x, z] of [[-.9, -.4], [.9, -.4], [-.9, .4], [.9, .4]]) part(g, bx(.06, .72, .06), M.metal, x, .36, z);
+      part(g, rb(.45, .5, .42, .015), M.oak, 0, .25, 0);
+      part(g, bx(.4, .006, .01), M.black, 0, .3, .211);
+      part(g, bx(.1, .012, .012), M.steel, 0, .4, .215);
+      part(g, cyl(.06, .08, .03, 24), M.chrome, 0, .515, 0);
+      part(g, cyl(.012, .012, .2, 10), M.chrome, 0, .63, 0);
+      M.shade ??= Object.assign(M.linen.clone(), {side: THREE.DoubleSide});
+      part(g, new THREE.CylinderGeometry(.1, .14, .18, 32, 1, true), M.shade, 0, .78, 0);
+      return g;
+    },
+    yemek_masasi(o = {}) {
+      const g = G(), W = o.w ?? 2.0, D = o.d ?? 1.0;
+      part(g, rb(W, .05, D, .01), M.oak, 0, .745, 0);
+      for (const [x, z] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) part(g, bx(.06, .72, .06), M.metal, x * (W / 2 - .1), .36, z * (D / 2 - .1));
+      if (o.orta) { part(g, cyl(.3, .3, .006, 48), M.linen, 0, .773, 0); part(g, cyl(.06, .08, .24, 24), M.ceramic, 0, .896, 0); }
       return g;
     },
     sandalye() {
@@ -228,8 +265,38 @@ export function createInterior(ctx) {
       for (const x of [-.5, 0, .5]) part(g, bx(.004, .36, .005), M.black, x, .26, .212);
       return g;
     },
-    hali() {
-      const g = G(); const m = part(g, rb(2.4, .012, 1.7, .005), M.rug, 0, .006, 0); m.castShadow = false; return g;
+    hali(o = {}) {
+      const g = G(), W = o.w ?? 2.4, D = o.d ?? 1.7;
+      const m = part(g, rb(W, .012, D, .005), M.rug, 0, .006, 0); m.castShadow = false;
+      if (o.w) { const b = part(g, rb(W - .16, .004, D - .16, .002), M.rugIn ??= Object.assign(M.rug.clone(), {color: new THREE.Color(0xdcd2c0)}), 0, .014, 0); b.castShadow = false; }
+      return g;
+    },
+    tablo(o = {}) {
+      const g = G(), W = o.w ?? 1.2, H = o.hy ?? .8, seed = o.v ?? 0;
+      part(g, bx(W + .06, H + .06, .035), M.frame, 0, H / 2, -.0125);
+      const c = document.createElement('canvas'); c.width = 256; c.height = Math.round(256 * H / W);
+      const x = c.getContext('2d'), P = [['#e9e2d4', '#b7a58a', '#6f7a63', '#2f3237', '#c98f6b'], ['#efe9df', '#8e9a86', '#d2b48c', '#3b3f45', '#a26b4f']][seed % 2];
+      x.fillStyle = P[0]; x.fillRect(0, 0, c.width, c.height);
+      let r = seed * 9301 + 49297; const rnd = () => (r = (r * 9301 + 49297) % 233280) / 233280;
+      for (let i = 0; i < 5; i++) { x.fillStyle = P[1 + i % 4]; x.globalAlpha = .85; x.beginPath();
+        if (i % 2) x.arc(rnd() * c.width, rnd() * c.height, 20 + rnd() * 60, 0, Math.PI * 2); else x.rect(rnd() * c.width * .7, rnd() * c.height * .7, 40 + rnd() * 90, 20 + rnd() * 70);
+        x.fill(); }
+      const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace;
+      part(g, bx(W, H, .01), new THREE.MeshStandardMaterial({map: t, roughness: .9}), 0, H / 2, .01);
+      return g;
+    },
+    havlu() {  // krom askı + iki katlı havlu (beyaz ve adaçayı)
+      const g = G(), a = M.towelA ??= new THREE.MeshStandardMaterial({color: 0xf1ede6, roughness: 1}), b = M.towelB ??= new THREE.MeshStandardMaterial({color: 0x9aa58c, roughness: 1});
+      part(g, cyl(.01, .01, .62, 12), M.chrome, 0, .55, .04).rotation.z = Math.PI / 2;
+      for (const sx of [-1, 1]) part(g, bx(.02, .02, .05), M.chrome, sx * .3, .55, .015);
+      part(g, rb(.26, .5, .03, .01), a, -.14, .3, .05); part(g, rb(.26, .5, .03, .01), b, .14, .3, .05);
+      return g;
+    },
+    yatak_ortusu(o = {}) {  // ayak ucunda katlı örtü: üstte şerit + iki yanda sarkan kenar (yerel +z ayak tarafı)
+      const g = G(), W = o.w ?? 1.7, mat = M.throw ??= new THREE.MeshStandardMaterial({color: 0x7f8a6c, roughness: .95});
+      part(g, rb(W, .03, .6, .012), mat, 0, .55, 0);
+      for (const x of [-1, 1]) part(g, rb(.02, .28, .6, .008), mat, x * (W / 2 - .01), .42, 0);
+      return g;
     },
     calisma_masasi() {
       const g = G();
@@ -273,35 +340,36 @@ export function createInterior(ctx) {
       const back = part(g, rb(.64, .07, .7, .03), M.linen, 0, .52, -.62); back.rotation.x = .75;
       return g;
     },
-    yatak_cift() { return bed(1.6); },
-    yatak_tek() { return bed(.9); },
-    gardirop() {
-      const g = G(), W = 1.8;
+    yatak_cift(o = {}) { return bed(o.w ?? 1.6, o.d); },
+    yatak_tek(o = {}) { return bed(o.w ?? .9, o.d); },
+    gardirop(o = {}) {
+      const g = G(), W = o.w ?? 1.8, n = Math.max(2, Math.round(W / .6)), dw = W / n;
       part(g, bx(W, 2.4, .6), M.lacquer, 0, 1.2, 0);
-      for (let i = 0; i < 3; i++) {
-        const x = -W / 2 + W / 6 + i * W / 3;
-        part(g, bx(W / 3 - .006, 2.36, .02), M.lacquer, x, 1.2, .31);
-        part(g, bx(.015, .5, .015), M.steel, x + (i === 2 ? -.25 : .25), 1.15, .325);
+      for (let i = 0; i < n; i++) {
+        const x = -W / 2 + dw / 2 + i * dw;
+        part(g, bx(dw - .006, 2.36, .02), M.lacquer, x, 1.2, .31);
+        part(g, bx(.015, .5, .015), M.steel, x + (i === n - 1 ? -1 : 1) * (dw / 2 - .05), 1.15, .325);
       }
       return g;
     },
   };
-  function bed(w) {
-    const g = G();
+  function bed(w, d) {  // d: başlık dahil toplam boy (varsayılan 2,18 m); merkeze göre ölçeklenir (layout_check ile aynı)
+    const g = G(), k = G();
     part(g, rb(w + .1, .3, 2.1, .02), M.oak, 0, .15, 0);
     part(g, rb(w, .22, 2.0, .06), M.linen, 0, .41, 0);
     part(g, rb(w + .04, .06, 1.4, .03), M.duvet, 0, .53, .3);
     for (const x of (w > 1.2 ? [-w / 4, w / 4] : [0])) part(g, rb(.58, .13, .38, .06), M.linen, x, .58, -.72);
     part(g, rb(w + .16, 1.05, .1, .03), M.fabric, 0, .55, -1.08);
-    return g;
+    if (d) g.scale.z = d / 2.18;
+    k.add(g); return k;
   }
 
   // ------------------------------------------------------------------ model yükleme
   const modelCache = {};
-  function loadItem(kind) {
+  function loadItem(kind, params = {}) {
     const it = ITEMS.find(i => i.id === kind);
     if (!it) return Promise.reject(new Error('bilinmeyen nesne ' + kind));
-    if (!it.model) return Promise.resolve(FACTORY[kind]());
+    if (!it.model) return Promise.resolve(FACTORY[kind](params));
     modelCache[kind] ??= new Promise((ok, no) => gltf.load(`${A}models/${kind}/${kind}.gltf`, d => {
       d.scene.traverse(o => { if (o.isMesh) { o.castShadow = o.receiveShadow = true; } });
       const b = new THREE.Box3().setFromObject(d.scene), c = b.getCenter(new THREE.Vector3());
@@ -345,7 +413,14 @@ export function createInterior(ctx) {
       const ux = (x1 - x0) / L, uy = (y1 - y0) / L, ang = Math.atan2(uy, ux), zb = w.base_z || 0, T = w.thickness || .2;
       for (const o of w.openings || []) {
         const a = o.offset, b = a + o.width, door = o.kind === 'door', sill = door ? 0 : (o.sill ?? .9), top = sill + (o.height ?? (door ? 2.1 : 1.4));
-        const fw = door ? .06 : .055, fd = door ? T + .02 : .07, mat = door ? M.lacquer : M.frame;
+        const timber = w.tag === 'wood';
+        const fw = door ? .06 : .055, fd = door ? T + .02 : .07, mat = timber ? M.timber : door ? M.lacquer : M.frame;
+        if (door && timber && o.leaf) {  // ahşap kapı kanadı (üstte küçük cam)
+          const cx = x0 + ux * (a + b) / 2, cy = y0 + uy * (a + b) / 2, lw = o.width - 2 * fw;
+          const leaf = new THREE.Mesh(bx(lw, top - fw, .045), M.timber); leaf.position.set(cx, zb + (top - fw) / 2, -cy); leaf.rotation.y = ang;
+          leaf.castShadow = leaf.receiveShadow = true; g.add(leaf); S.extras.push(leaf);
+          const gl = new THREE.Mesh(bx(lw * .6, .5, .05), M.glass); gl.position.set(cx, zb + top - .55, -cy); gl.rotation.y = ang; g.add(gl); S.extras.push(gl);
+        }
         const put = (s, zc, lw, lh) => {
           const m = new THREE.Mesh(bx(lw, lh, fd), mat), cx = x0 + ux * s, cy = y0 + uy * s;
           m.position.set(cx, zb + zc, -cy); m.rotation.y = ang; m.castShadow = m.receiveShadow = true; g.add(m); S.extras.push(m);
@@ -357,26 +432,98 @@ export function createInterior(ctx) {
     }
   }
   function surfaceMaterials(on) {
-    const stone = floorMat('large_grey_tiles'), deck = floorMat('oak_wood_planks');
+    const stone = floorMat('large_grey_tiles'), deck = floorMat('weathered_planks');
     V.root.traverse(o => {
       if (!o.isMesh) return;
       const sf = o.userData.surf;
       if (on) {
         let m = null;
         if (o.userData.tree) { o.visible = false; return; }
+        // tomruk duvar, açık makaslı çatı ve parmaklıklı korkuluk: kutu yerine buildTimber() gerçek ahşabı kurar
+        if ((sf?.role === 'wall' && sf.tag === 'wood') || (o.userData.roof?.structure === 'open') || sf?.style === 'baluster') { o.userData.hidReal = true; o.visible = false; return; }
         if (sf?.tag === 'water') m = M.water;
         else if (sf?.role === 'paving') m = stone;
         else if (sf?.role === 'deck') m = deck;
-        else if (sf?.role === 'roof') m = M.roof;
+        else if (sf?.role === 'roof') m = sf.tag === 'wood' ? M.timber : o.userData.pitched ? M.shingle : M.roof;
         else if (sf?.role === 'site') return;
+        else if (sf?.role === 'wall') return;
+        else if (sf?.role === 'stairs') m = sf.tag === 'wood' ? M.timber : M.stone;
         else if (sf?.role === 'box' && sf.tag === 'metal') m = M.metal;
-        else if (sf?.role === 'box' && sf.tag === 'wood') m = M.oak;
+        else if (sf?.role === 'box' && sf.tag === 'wood') m = M.timber;
+        else if (sf?.role === 'box' && sf.tag === 'stone') m = M.stone;
+        else if (sf?.role === 'box' && sf.tag === 'concrete') m = M.concrete;
         if (m) { o.userData.preReal ??= o.material; o.material = m; }
       } else {
         if (o.userData.tree) o.visible = true;
+        if (o.userData.hidReal) { o.visible = true; delete o.userData.hidReal; }
         if (o.userData.preReal) { o.material = o.userData.preReal; delete o.userData.preReal; }
       }
     });
+  }
+  // ------------------------------------------------------------------ tomruk ev: gerçek ahşap strüktür
+  function anyGroup(level) { return levelGroup(level) || V.levels.find(L => L.site)?.group; }
+  function scaleUV(geo, u, v) { const a = geo.attributes.uv; for (let i = 0; i < a.count; i++) a.setXY(i, a.getX(i) * u, a.getY(i) * v); return geo; }
+  // p0→p1 (plan x, y, z) arası kiriş: kesit h (yükseklik) × w (genişlik); cyl=true ise tomruk (çap h)
+  function beam(g, p0, p1, h, w, mat, cyl = false) {
+    const a = new THREE.Vector3(p0[0], p0[2], -p0[1]), b = new THREE.Vector3(p1[0], p1[2], -p1[1]), d = b.clone().sub(a), L = d.length(); if (L < 1e-3) return null;
+    const geo = cyl ? scaleUV(new THREE.CylinderGeometry(h / 2, h / 2, L, 14).rotateZ(Math.PI / 2), 1, L) : scaleUV(bx(L, h, w), L, 1);
+    const m = new THREE.Mesh(geo, mat); m.position.copy(a).add(b).multiplyScalar(.5);
+    m.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), d.normalize());
+    m.castShadow = m.receiveShadow = true; g.add(m); S.extras.push(m); return m;
+  }
+  function buildTimber() {
+    const els = V.elements || [];
+    // --- tomruk duvarlar: yatay kütükler, açıklıklar atlanır, dış duvarlarda köşe taşkını
+    for (const w of els.filter(e => e.type === 'wall' && e.tag === 'wood')) {
+      const g = anyGroup(w.level); if (!g) continue;
+      const [x0, y0] = w.start, [x1, y1] = w.end, L = Math.hypot(x1 - x0, y1 - y0); if (L < 1e-3) continue;
+      const ux = (x1 - x0) / L, uy = (y1 - y0) / L, T = w.thickness || .2, H = w.height || 2.8, zb = w.base_z || 0;
+      const d = Math.max(.12, T), n = Math.max(1, Math.round(H / d)), dd = H / n, ext = T >= .2 ? .3 : 0, gable = w.profile === 'gable';
+      const P = (s, z) => [x0 + ux * s, y0 + uy * s, z];
+      for (let k = 0; k < n; k++) {
+        const zc = zb + (k + .5) * dd;
+        let spans = [[-ext, L + ext]];
+        if (gable) { const f = 1 - (k + .5) / n; spans = [[L / 2 - L * f / 2, L / 2 + L * f / 2]]; }
+        for (const o of w.openings || []) {
+          const door = o.kind === 'door', sill = door ? 0 : (o.sill ?? .9), top = sill + (o.height ?? (door ? 2.1 : 1.4));
+          if (zc <= sill || zc >= top) continue;
+          const a = o.offset, b = a + o.width, next = [];
+          for (const [s0, s1] of spans) { if (b <= s0 || a >= s1) { next.push([s0, s1]); continue; } if (a > s0) next.push([s0, a]); if (b < s1) next.push([b, s1]); }
+          spans = next;
+        }
+        for (const [s0, s1] of spans) beam(g, P(s0, zc), P(s1, zc), dd * .98, dd, M.log, true);
+      }
+    }
+    // --- açık çatı makası: taban kirişi, aşıklar, mahya, mertekler, döşeme kirişleri
+    for (const r of els.filter(e => e.type === 'roof' && e.structure === 'open')) {
+      const g = anyGroup(r.level); if (!g) continue;
+      const ax = (r.axis || 'x') === 'x', z = r.z || 0, rh = r.ridge ?? 1.5, f = r.ridge_at ?? .5;
+      const [s0, s1] = ax ? [r.y0, r.y1] : [r.x0, r.x1], [a0, a1] = ax ? [r.x0, r.x1] : [r.y0, r.y1], sm = s0 + (s1 - s0) * f;
+      const Q = (a, s, zz) => ax ? [a, s, zz] : [s, a, zz];
+      const prof = [[s0, z], [sm, z + rh], [s1, z]].filter((p, i, arr) => !i || Math.abs(p[0] - arr[i - 1][0]) > 1e-6);
+      for (const [s, zz] of prof) beam(g, Q(a0, s, zz + .1), Q(a1, s, zz + .1), .2, .2, M.timber);              // taban kirişleri + mahya
+      for (let i = 0; i + 1 < prof.length; i++) {                                                               // aşıklar (her eğimde 2)
+        const [sa, za] = prof[i], [sb, zb] = prof[i + 1];
+        for (const t of [1 / 3, 2 / 3]) beam(g, Q(a0, sa + (sb - sa) * t, za + (zb - za) * t + .12), Q(a1, sa + (sb - sa) * t, za + (zb - za) * t + .12), .14, .14, M.timber);
+      }
+      const nr = Math.max(2, Math.round((a1 - a0) / .6));                                                       // mertekler
+      for (let i = 0; i <= nr; i++) {
+        const a = a0 + (a1 - a0) * i / nr;
+        for (let j = 0; j + 1 < prof.length; j++) beam(g, Q(a, prof[j][0], prof[j][1] + .25), Q(a, prof[j + 1][0], prof[j + 1][1] + .25), .18, .08, M.timber);
+      }
+      const nj = Math.max(1, Math.round((a1 - a0) / 1.2));                                                      // taban (bağ) kirişleri
+      for (let i = 1; i < nj; i++) { const a = a0 + (a1 - a0) * i / nj; beam(g, Q(a, s0, z - .02), Q(a, s1, z - .02), .2, .12, M.timber); }
+    }
+    // --- parmaklıklı korkuluk: üst/alt küpeşte, babalar, parmaklıklar
+    for (const b of els.filter(e => e.type === 'box' && e.style === 'baluster')) {
+      const g = anyGroup(b.level); if (!g) continue;
+      const [ox, oy, oz] = b.origin, [sx, sy, sz] = b.size, alongX = sx >= sy, L = alongX ? sx : sy;
+      const P = (s, zz) => alongX ? [ox + s, oy + sy / 2, oz + zz] : [ox + sx / 2, oy + s, oz + zz];
+      beam(g, P(0, sz - .04), P(L, sz - .04), .08, .1, M.timber); beam(g, P(0, .12), P(L, .12), .06, .06, M.timber);
+      for (const s of [0, L]) beam(g, P(s, 0), P(s, sz + .06), .1, .1, M.timber);
+      const nb = Math.max(1, Math.round(L / .13));
+      for (let i = 1; i < nb; i++) beam(g, P(L * i / nb, .15), P(L * i / nb, sz - .08), .035, .035, M.timber);
+    }
   }
   function buildTrees() {
     const site = V.levels.find(L => L.site)?.group; if (!site) return;
@@ -392,8 +539,48 @@ export function createInterior(ctx) {
     }
   }
   function clearExtras() {
-    for (const m of [...S.floorMeshes, ...S.extras]) m.parent?.remove(m);
-    S.floorMeshes = []; S.extras = [];
+    for (const m of [...S.floorMeshes, ...S.extras, ...(S.leaves || [])]) m.parent?.remove(m);
+    S.floorMeshes = []; S.extras = []; S.leaves = [];
+  }
+  // kapı kanadı: hol/koridor değil oda tarafına açılır (iki taraf da oda ya da hol ise küçük odaya);
+  // menteşe duvar ucuna yakın kasada; kanat mobilyaya çarparsa açı daralır
+  const HALLISH = /Hol|Koridor|Ortak|Giriş|Antre/;
+  function buildLeaves() {
+    for (const m of S.leaves || []) m.parent?.remove(m);
+    S.leaves = [];
+    const els = V.elements || [], byLevel = {};
+    for (const w of els.filter(e => e.type === 'wall' && e.tag !== 'wood')) {
+      const doorsHere = (w.openings || []).filter(o => o.kind === 'door' && o.leaf);
+      if (!doorsHere.length) continue;
+      const g = levelGroup(w.level); if (!g) continue;
+      const boxes = byLevel[w.level] ??= planBoxes(w.level), rooms = els.filter(e => e.type === 'room' && e.level === w.level);
+      const [x0, y0] = w.start, [x1, y1] = w.end, L = Math.hypot(x1 - x0, y1 - y0); if (L < 1e-3) continue;
+      const ux = (x1 - x0) / L, uy = (y1 - y0) / L, nx = -uy, ny = ux, zb = w.base_z || 0, T = w.thickness || .2;
+      for (const o of doorsHere) {
+        const fw = .06, lw = o.width - 2 * fw, top = o.height ?? 2.1, sm = o.offset + o.width / 2, mx_ = x0 + ux * sm, my = y0 + uy * sm;
+        const side = sg => rooms.find(r => inPoly([mx_ + nx * sg * .5, my + ny * sg * .5], r.points));
+        const A = side(1), B = side(-1);
+        let sg = 1;
+        if (A && B) { const ha = HALLISH.test(A.name), hb = HALLISH.test(B.name); sg = ha !== hb ? (ha ? -1 : 1) : (polyArea(A.points) <= polyArea(B.points) ? 1 : -1); }
+        else sg = A ? 1 : -1;
+        const hingeAtStart = o.offset <= L - (o.offset + o.width);             // duvar ucuna yakın kasa
+        const hs = hingeAtStart ? o.offset + fw : o.offset + o.width - fw, dir = hingeAtStart ? 1 : -1;
+        const hx = x0 + ux * hs + nx * sg * T / 2, hy = y0 + uy * hs + ny * sg * T / 2;
+        let ang = THREE.MathUtils.degToRad(80);
+        for (const a of [80, 55, 30].map(d => THREE.MathUtils.degToRad(d))) {
+          ang = a; const ex = hx + (ux * dir * Math.cos(a) + nx * sg * Math.sin(a)) * lw, ey = hy + (uy * dir * Math.cos(a) + ny * sg * Math.sin(a)) * lw;
+          const mxp = (hx + ex) / 2, myp = (hy + ey) / 2;
+          if (!boxes.some(b => [[ex, ey], [mxp, myp]].some(([px, py]) => px > b.x0 - .03 && px < b.x1 + .03 && py > b.y0 - .03 && py < b.y1 + .03))) break;
+        }
+        const piv = new THREE.Group(); piv.position.set(hx, zb, -hy);
+        // kapalı kanat duvar boyunca (dir·u), açılma sg·n yönüne: plan açısı θ = atan2(dir·u + sg·n·tan) → three'de rotation.y = plan açısı
+        const th = Math.atan2(uy * dir * Math.cos(ang) + ny * sg * Math.sin(ang), ux * dir * Math.cos(ang) + nx * sg * Math.sin(ang));
+        piv.rotation.y = th;
+        const leaf = new THREE.Mesh(bx(lw, top - fw - .01, .04), M.oak); leaf.position.set(lw / 2, (top - fw) / 2, 0);
+        const knob = new THREE.Mesh(cyl(.02, .02, .14, 12), M.chrome); knob.rotation.x = Math.PI / 2; knob.position.set(lw - .07, 1.0, 0);
+        leaf.castShadow = leaf.receiveShadow = true; piv.add(leaf, knob); g.add(piv); S.leaves.push(piv);
+      }
+    }
   }
   function applyPaint() { plaster.color.set((PAINTS.find(p => p.id === S.design.paint) || PAINTS[0]).c); }
 
@@ -421,7 +608,7 @@ export function createInterior(ctx) {
       V.S.add(S.sun, S.sun.target, S.ground, S.fill);
       V.mat.site.opacity = 1; V.mat.site.color.set(0x7d8a66); V.mat.site.depthWrite = true;
       V.root.traverse(o => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-      buildExtras(); surfaceMaterials(true); buildTrees();
+      buildExtras(); surfaceMaterials(true); buildTrees(); buildTimber();
       if (!S.ao) { S.ao = new GTAOPass(V.S, V.C, 1, 1); S.ao.blendIntensity = .9; V.comp.insertPass(S.ao, 1); }
       S.ao.enabled = true; V.bloom.enabled = false; resizeAO();
       restoreObjects();
@@ -451,7 +638,7 @@ export function createInterior(ctx) {
   async function spawnObject(o) {
     const g = levelGroup(o.level); if (!g) return null;
     let obj;
-    try { obj = await loadItem(o.kind); } catch (e) { console.warn('nesne yüklenemedi', o.kind, e); return null; }
+    try { obj = await loadItem(o.kind, o); } catch (e) { console.warn('nesne yüklenemedi', o.kind, e); return null; }
     obj.position.set(o.x, levelZ(o.level) + (o.h || 0), -o.y); obj.rotation.y = o.rot || 0;
     obj.userData.item = o; obj.traverse(m => { if (m.isMesh) { m.castShadow = m.receiveShadow = true; m.userData.owner = obj; } });
     g.add(obj); S.objs.set(o.id, obj); return obj;
@@ -465,7 +652,7 @@ export function createInterior(ctx) {
     S.restoring = Promise.all(S.design.objects.map(async o => {
       const obj = await spawnObject(o);
       if (obj && S.restoreToken !== token) { obj.parent?.remove(obj); S.objs.delete(o.id); }  // daha yeni bir yükleme başladıysa at
-    }));
+    })).then(() => { if (S.restoreToken === token && S.real) buildLeaves(); });
     return S.restoring;
   }
   const uid = () => Math.random().toString(36).slice(2, 10);
@@ -607,6 +794,135 @@ export function createInterior(ctx) {
     return {x: b.x1 - depth / 2 - m, y: b.y0 + (b.y1 - b.y0) * t, rot: ROT.E + rot0};
   }
   const opposite = {S: 'N', N: 'S', W: 'E', E: 'W'};
+  // ------------------------------------------------------------------ otomatik dekor: planı değiştirmez, ayrı katman (decor: true)
+  const SOFA_W = {kanepe: 2.3, kanepe_2li: 1.8, kanepe_l: 2.9}, TABLE_H = {sehpa_yuvarlak: .42, modern_coffee_table_01: .39};
+  const front = o => [Math.sin(o.rot || 0), -Math.cos(o.rot || 0)];  // nesnenin önü (plan)
+  function planBoxes(level) {  // yerleşik nesnelerin plan sınır kutuları (seviye grubunun yerel x, −z)
+    const out = [];
+    for (const o of S.design.objects.filter(o => o.level === level && !o.decor && o.kind !== 'hali')) {
+      const obj = S.objs.get(o.id); if (!obj?.parent) continue;
+      const b = new THREE.Box3().setFromObject(obj), a = obj.parent.worldToLocal(b.min.clone()), c = obj.parent.worldToLocal(b.max.clone());
+      out.push({x0: Math.min(a.x, c.x), x1: Math.max(a.x, c.x), y0: Math.min(-a.z, -c.z), y1: Math.max(-a.z, -c.z), top: Math.max(a.y, c.y) - levelZ(level)});
+    }
+    return out;
+  }
+  async function autoDecor(level) {
+    level = level || currentLevel(); if (!level) return;
+    S.design.objects = S.design.objects.filter(o => !(o.decor && o.level === level));
+    await restoreObjects();
+    const rooms = (V.elements || []).filter(e => e.type === 'room' && e.level === level), doors = doorPoints(level), boxes = planBoxes(level);
+    const objs = S.design.objects.filter(o => o.level === level), plan = [];
+    const add = (kind, x, y, rot = 0, h = 0, extra = {}) => plan.push({id: uid(), kind, level, x: +x.toFixed(3), y: +y.toFixed(3), rot: +rot.toFixed(4), h, decor: true, ...extra});
+    const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+    for (const r of rooms) {
+      const n = r.name.split('/').pop(), mine = objs.filter(o => inPoly([o.x, o.y], r.points));
+      // oturma grubu: halı sehpanın altında, ana kanepeye paralel; sehpaya küçük bitki
+      const sofas = mine.filter(o => SOFA_W[o.kind]).sort((a, b) => (b.w ?? SOFA_W[b.kind]) - (a.w ?? SOFA_W[a.kind]));
+      const table = mine.find(o => TABLE_H[o.kind] && (o.kind !== 'sehpa_yuvarlak' || (o.d ?? .9) >= .8));
+      if (sofas.length) {
+        const s = sofas[0], [fx, fy] = front(s), sw = s.w ?? SOFA_W[s.kind];
+        const c = table ? [table.x, table.y] : [s.x + fx * 1.2, s.y + fy * 1.2];
+        const dist = Math.abs((c[0] - s.x) * fx + (c[1] - s.y) * fy);
+        add('hali', c[0], c[1], s.rot || 0, 0, {w: +clamp(sw + .6, 2, 3.4).toFixed(2), d: +clamp(dist * 2 + .2, 1.6, 3.2).toFixed(2)});
+        if (table) add('potted_plant_04', table.x + .12, table.y - .1, 0, TABLE_H[table.kind]);
+      }
+      // yemek masası: ortada süs yoksa küçük bitki
+      for (const t of mine.filter(o => o.kind === 'yemek_masasi' && !o.orta)) add('potted_plant_04', t.x, t.y, 0, .77);
+      // yatak: altında halı (ayak tarafına kaydırılmış), ayak ucunda örtü
+      for (const b of mine.filter(o => o.kind === 'yatak_cift' || o.kind === 'yatak_tek')) {
+        const [fx, fy] = front(b), bw = (b.w ?? (b.kind === 'yatak_cift' ? 1.6 : .9)) + .1, L = (b.d ?? 2.18);
+        add('hali', b.x + fx * .35, b.y + fy * .35, b.rot || 0, 0, {w: +(bw + 1.2).toFixed(2), d: b.kind === 'yatak_cift' ? 2.2 : 1.8});
+        add('yatak_ortusu', b.x + fx * (L / 2 - .45), b.y + fy * (L / 2 - .45), b.rot || 0, 0, {w: +(bw + .04).toFixed(2)});
+      }
+      // boş köşeye saksı bitkisi (salon 2, yatak odası 1): köşe nesnesiz, kapıdan uzak, oda içinde
+      const want = /Salon/.test(n) ? 2 : /Yatak|Oda/.test(n) ? 1 : 0;
+      if (want) {
+        const xs = r.points.map(p => p[0]), ys = r.points.map(p => p[1]), m = .38;
+        const corners = [[Math.min(...xs) + m, Math.min(...ys) + m], [Math.max(...xs) - m, Math.min(...ys) + m], [Math.max(...xs) - m, Math.max(...ys) - m], [Math.min(...xs) + m, Math.max(...ys) - m]];
+        let placed = 0;
+        for (const [x, y] of corners) {
+          if (placed >= want || !inPoly([x, y], r.points)) continue;
+          if (doors.some(([dx, dy]) => Math.hypot(dx - x, dy - y) < 1.1)) continue;
+          if (boxes.some(b => x > b.x0 - .32 && x < b.x1 + .32 && y > b.y0 - .32 && y < b.y1 + .32)) continue;
+          add('potted_plant_02', x, y, (placed * 1.7) % 6.28); placed++;
+          boxes.push({x0: x - .35, x1: x + .35, y0: y - .35, y1: y + .35});  // TV ünitesi vb. sonraki dekor buna çarpmasın
+        }
+      }
+    }
+    for (const r of rooms) wallDecor(r, level, boxes, doors, add);
+    S.design.objects.push(...plan);
+    await restoreObjects(); save(); summary();
+    return plan.length;
+  }
+  // duvardaki açıklıklar: bir noktanın etrafında [s−hw, s+hw] aralığı kapı/pencereyle kesişiyor mu (duvar ekseni 0,25 m içinde)
+  function wallBlocked(level, x, y, hw, windows = true) {
+    for (const w of (V.elements || []).filter(e => e.type === 'wall' && e.level === level)) {
+      const [x0, y0] = w.start, [x1, y1] = w.end, L = Math.hypot(x1 - x0, y1 - y0) || 1, ux = (x1 - x0) / L, uy = (y1 - y0) / L;
+      const s = (x - x0) * ux + (y - y0) * uy, n = -(x - x0) * uy + (y - y0) * ux;
+      if (Math.abs(n) > (w.thickness || .2) / 2 + .25 || s < -hw || s > L + hw) continue;
+      if ((w.openings || []).some(o => (windows || o.kind === 'door') && o.offset < s + hw + .1 && o.offset + o.width > s - hw - .1)) return true;
+    }
+    return false;
+  }
+  // (x,y)'den (dx,dy) yönünde oda poligonunun ilk kenarı
+  function rayWall(r, x, y, dx, dy) {
+    let best = null;
+    const P = r.points;
+    for (let i = 0; i < P.length; i++) {
+      const [ax, ay] = P[i], [bx_, by] = P[(i + 1) % P.length], ex = bx_ - ax, ey = by - ay, den = dx * ey - dy * ex;
+      if (Math.abs(den) < 1e-9) continue;
+      const t = ((ax - x) * ey - (ay - y) * ex) / den, u = ((ax - x) * dy - (ay - y) * dx) / den;
+      if (t > .05 && u >= 0 && u <= 1 && (!best || t < best.t)) { const L = Math.hypot(ex, ey); best = {t, x: x + dx * t, y: y + dy * t, ux: ex / L, uy: ey / L}; }
+    }
+    return best;
+  }
+  function wallDecor(r, level, boxes, doors, add) {
+    const n = r.name.split('/').pop(), mine = S.design.objects.filter(o => o.level === level && !o.decor && inPoly([o.x, o.y], r.points));
+    const hit = (x, y, hw, hd, above = 0) => boxes.some(b => (b.top ?? 9) > above && x + hw > b.x0 && x - hw < b.x1 && y + hd > b.y0 && y - hd < b.y1);
+    const sofa = mine.filter(o => SOFA_W[o.kind]).sort((a, b) => (b.w ?? SOFA_W[b.kind]) - (a.w ?? SOFA_W[a.kind]))[0];
+    let art = 0;
+    if (sofa) {
+      const [fx, fy] = front(sofa), table = mine.find(o => TABLE_H[o.kind]) || {x: sofa.x + fx * 1.2, y: sofa.y + fy * 1.2};
+      // TV: kanepenin karşı duvarı, sehpa hizasında; kapı/pencereye denk gelirse duvar boyunca kaydır
+      const wl = rayWall(r, table.x, table.y, fx, fy);
+      if (wl) for (const off of [0, .3, -.3, .6, -.6, .9, -.9, 1.2, -1.2]) {
+        const cx = wl.x + wl.ux * off, cy = wl.y + wl.uy * off, rot = (sofa.rot || 0) + Math.PI;
+        const px = cx - fx * .24, py = cy - fy * .24, alongX = Math.abs(wl.ux) > .5, hw = alongX ? 1.01 : .24, hd = alongX ? .24 : 1.01;
+        if (!inPoly([px, py], r.points) || wallBlocked(level, cx, cy, .75)) continue;
+        const unit = !wallBlocked(level, cx, cy, 1.05, false) && !hit(px, py, hw, hd) && !doors.some(([dx, dy]) => Math.hypot(dx - px, dy - py) < 1.5);
+        if (unit) add('tv_unitesi', px, py, rot);
+        add('tv', cx - fx * .08, cy - fy * .08, rot, unit ? 0 : .1);
+        break;
+      }
+      // tablo: kanepenin sırtındaki duvara
+      const back = .46 + .02, wx = sofa.x - fx * back, wy = sofa.y - fy * back;
+      if (!wallBlocked(level, wx, wy, .7)) { add('tablo', wx + fx * .015, wy + fy * .015, sofa.rot || 0, 1.25, {w: 1.2, hy: .75, v: art++}); }
+    }
+    for (const b of mine.filter(o => o.kind === 'yatak_cift' || o.kind === 'yatak_tek')) {
+      const [fx, fy] = front(b), back = 1.13 * (b.d ?? 2.18) / 2.18 + .02, wx = b.x - fx * back, wy = b.y - fy * back;
+      const w = b.kind === 'yatak_cift' ? 1.0 : .6;
+      if (!wallBlocked(level, wx, wy, w / 2 + .05)) add('tablo', wx + fx * .015, wy + fy * .015, b.rot || 0, 1.3, {w, hy: .6, v: art++});
+    }
+    if (/Banyo/.test(n)) {
+      // havlu askısı lavabonun yanında aynı duvarda; duşun önüne paspas
+      const lav = mine.find(o => o.kind === 'lavabo');
+      if (lav) {
+        const [fx, fy] = front(lav), ux = -fy, uy = fx, wx = lav.x - fx * .24, wy = lav.y - fy * .24;
+        for (const [side, d] of [[1, .8], [-1, .8], [1, .65], [-1, .65]]) {  // askı 0,8–1,3 m: altındaki klozet engel değil
+          const cx = wx + ux * side * d, cy = wy + uy * side * d;
+          if (!inPoly([cx + fx * .1, cy + fy * .1], r.points) || wallBlocked(level, cx, cy, .35) || hit(cx + fx * .06, cy + fy * .06, .3, .1, .85)) continue;
+          add('havlu', cx, cy, lav.rot || 0, .75); break;
+        }
+      }
+      const dus = mine.find(o => o.kind === 'dus');
+      if (dus) { const [fx, fy] = front(dus), d = (dus.d ?? .9) / 2 + .32; add('hali', dus.x + fx * d, dus.y + fy * d, dus.rot || 0, 0, {w: .8, d: .5}); }
+    }
+  }
+  async function clearDecor(level) {
+    level = level || currentLevel();
+    S.design.objects = S.design.objects.filter(o => !(o.decor && o.level === level));
+    await restoreObjects(); select(null); save(); summary();
+  }
   async function autoFurnish(level) {
     level = level || currentLevel(); if (!level) return;
     S.design.objects = S.design.objects.filter(o => o.level !== level);
@@ -710,11 +1026,15 @@ export function createInterior(ctx) {
     } else {
       const cats = [...new Set(ITEMS.map(i => i.cat))];
       body.innerHTML = `<div class="irow"><button class="vbtn walkbtn" id="iauto">✦ ÖRNEK DÖŞE (BU KAT)</button><button class="vbtn" id="iclr">TEMİZLE</button></div>
+        <div class="irow"><button class="vbtn walkbtn" id="idecor">❀ DEKOR EKLE (BU KAT)</button><button class="vbtn" id="idclr">DEKORU KALDIR</button></div>
+        <p class="inote">Dekor planı değiştirmez: halı, bitki, TV, tablo, havlu, yatak örtüsü, masa/sehpa süsü ayrı katmandır.</p>
         ${cats.map(c => `<p class="sec-t" style="margin:12px 0 6px">${c.toUpperCase()}</p><div class="sw obj">${ITEMS.filter(i => i.cat === c).map(i =>
           `<button data-i="${i.id}" class="${S.tool?.kind === i.id ? 'on' : ''}">${i.model ? `<img src="${A}models/${i.id}/thumb.png" alt="">` : `<em>${ICON[i.id] || '◻'}</em>`}<span>${i.name}</span></button>`).join('')}</div>`).join('')}
         <p class="inote">Seç → zemine tıkla. Shift+tık art arda yerleştirir. Nesneyi seçip sürükle; R döndür, Del sil.</p>`;
       $$('[data-i]').forEach(b => b.onclick = () => { armItem(b.dataset.i); renderPanel(); });
       $('#iauto').onclick = async e => { e.target.disabled = true; e.target.textContent = 'DÖŞENİYOR…'; await autoFurnish(); renderPanel(); };
+      $('#idecor').onclick = async e => { e.target.disabled = true; e.target.textContent = 'EKLENİYOR…'; const k = await autoDecor(); hint(`${k} dekor nesnesi eklendi`); renderPanel(); };
+      $('#idclr').onclick = async () => { await clearDecor(); renderPanel(); };
       $('#iclr').onclick = () => { const lv = currentLevel(); S.design.objects = S.design.objects.filter(o => o.level !== lv); restoreObjects(); select(null); save(); summary(); };
     }
   }
@@ -740,12 +1060,42 @@ export function createInterior(ctx) {
   $('#iclose').onclick = () => openPanel(false);
 
   // ------------------------------------------------------------------ Cycles'a gönderim: sahne GLB + iş tanımı
-  async function exportForRender(kind) {
+  // maket: seçili kat ve altı, çatısız; duvar başında koyu kesit kapağı, bej taş zemin, binaya oturan ~66° eğik kuşbakışı kamera
+  function maketStage() {
+    const lv = currentLevel(), names = V.nLv || [], keep = names.slice(0, names.indexOf(lv) + 1);
+    const cut = V.levels.filter(L => !L.site && !keep.includes(L.name)).map(L => ({L, par: L.group.parent}));
+    cut.forEach(({L, par}) => par?.remove(L.group));
+    const capMat = new THREE.MeshStandardMaterial({color: 0x34373b, roughness: .85}), caps = [];
+    for (const w of (V.elements || []).filter(e => e.type === 'wall' && keep.includes(e.level))) {
+      const g = levelGroup(w.level); if (!g) continue;
+      const [x0, y0] = w.start, [x1, y1] = w.end, L = Math.hypot(x1 - x0, y1 - y0), t = w.thickness || .2; if (L < 1e-3) continue;
+      const m = new THREE.Mesh(bx(L + t, .025, t + .004), capMat);
+      m.position.set((x0 + x1) / 2, (w.base_z || 0) + (w.height || 2.8) + .0125, -(y0 + y1) / 2); m.rotation.y = Math.atan2(y1 - y0, x1 - x0);
+      g.add(m); caps.push(m);
+    }
+    const stone = new THREE.MeshStandardMaterial({color: 0xcdbba0, roughness: .9}), gMat = S.ground?.material, siteC = V.mat.site.color.getHex();
+    if (S.ground) S.ground.material = stone;
+    V.mat.site.color.set(0xcdbba0);
+    // kamera: kalan katların sınır kutusuna güneyden ~60° eğimle, 16:9 kadraja sığdır
+    const box = new THREE.Box3(); V.levels.filter(L => !L.site && keep.includes(L.name)).forEach(L => box.expandByObject(L.group));
+    const c = box.getCenter(new THREE.Vector3()), sz = box.getSize(new THREE.Vector3()), el = THREE.MathUtils.degToRad(66), fov = 35, asp = 16 / 9;
+    const tv = Math.tan(THREE.MathUtils.degToRad(fov / 2)), halfV = (sz.z * Math.sin(el) + sz.y * Math.cos(el)) / 2 * 1.12, halfH = sz.x / 2 * 1.1;
+    const dist = Math.max(halfV / tv, halfH / (tv * asp)) + sz.y;
+    const cam = new THREE.PerspectiveCamera(fov, asp, .1, 1000); c.y = box.min.y;
+    cam.position.set(c.x, c.y + dist * Math.sin(el), c.z + dist * Math.cos(el)); cam.lookAt(c); cam.updateMatrixWorld();
+    const R = Math.max(sz.x, sz.z) * 1.5 + 10;
+    const job = {camera: {matrix: cam.matrixWorld.elements.slice(), fov, aspect: asp}, lights: [], sun_energy: 2.8, exposure: .85, hq: true, preset: 'maket',
+      sun: {pos: [c.x - R * .8, c.y + R * 1.2, c.z - R * .5], target: [c.x, c.y, c.z]}};
+    const undo = () => { caps.forEach(m => m.parent?.remove(m)); cut.forEach(({L, par}) => par?.add(L.group)); if (S.ground) S.ground.material = gMat; V.mat.site.color.set(siteC); };
+    return {job, undo};
+  }
+  async function exportForRender(kind, opts = {}) {
     if (!S.real) await setReal(true);
     await S.restoring;  // tüm mobilya yüklenmeden sahne gönderme
     const {GLTFExporter} = await import('three/addons/exporters/GLTFExporter.js');
     const vis = V.levels.map(L => L.group.visible);
     V.levels.forEach(L => { L.group.visible = true; L.group.position.y = 0; L.group.scale.y = 1; });  // tavanlar dahil tüm katlar
+    const stage = opts.maket ? maketStage() : null;
     const aux = [S.selBox, S.ghost, S.hl].filter(Boolean); const auxVis = aux.map(o => o.visible);
     if (S.hl) highlight(null);
     aux.forEach(o => o.visible = false);
@@ -754,7 +1104,7 @@ export function createInterior(ctx) {
     const ud = []; [V.root, S.ground].forEach(r => r.traverse(o => { ud.push([o, o.userData]); o.userData = {}; }));
     let glb;
     try { glb = await new GLTFExporter().parseAsync([V.root, S.ground], {binary: true, onlyVisible: true, maxTextureSize: 2048}); }
-    finally { ud.forEach(([o, d]) => o.userData = d); V.levels.forEach((L, i) => L.group.visible = vis[i]); aux.forEach((o, i) => o.visible = auxVis[i]); }
+    finally { ud.forEach(([o, d]) => o.userData = d); stage?.undo(); V.levels.forEach((L, i) => L.group.visible = vis[i]); aux.forEach((o, i) => o.visible = auxVis[i]); }
     const rooms = (V.elements || []).filter(e => e.type === 'room');
     const W3 = (x, y, z) => toWorld(x, y, z).toArray().map(v => +v.toFixed(4));
     const lights = rooms.filter(r => !/Merdiven|Şaft|Asansör/.test(r.name)).map(r => {
@@ -763,18 +1113,19 @@ export function createInterior(ctx) {
     });
     const job = {kind, sun: S.sun ? {pos: S.sun.position.toArray(), target: S.sun.target.position.toArray()} : null, lights};
     if (kind === 'still') { V.C.updateMatrixWorld(); job.camera = {matrix: V.C.matrixWorld.elements.slice(), fov: V.C.fov, aspect: V.C.aspect}; }
+    if (stage) Object.assign(job, stage.job);
     return {glb, job};
   }
 
   return {
-    setReal, load, openPanel, resizeAO, autoFurnish, exportForRender,
+    setReal, load, openPanel, resizeAO, autoFurnish, autoDecor, clearDecor, exportForRender,
     async measure(kind) { const b = new THREE.Box3().setFromObject(await loadItem(kind)); const r = v => +v.toFixed(3);
       return {min: [r(b.min.x), r(b.min.y), r(b.min.z)], max: [r(b.max.x), r(b.max.y), r(b.max.z)]}; },
     items: () => ITEMS.map(i => i.id),
     refreshHint() { if ($('#vp').classList.contains('editing') && !S.tool) editHint(); },
     active: () => !!(S.tool || S.sel || S.drag || $('#vp').classList.contains('editing')),
     onBuild() {
-      S.floorMeshes = []; S.extras = []; S.objs.clear(); select(null);
+      S.floorMeshes = []; S.extras = []; S.leaves = []; S.objs.clear(); select(null);
       if (S.real) { V.root.traverse(o => { if (o.isLine || o.isLineSegments) o.visible = false; if (o.isMesh) o.castShadow = o.receiveShadow = true; }); placeSun(); buildExtras(); surfaceMaterials(true); buildTrees(); restoreObjects(); }
     },
     get real() { return S.real; },

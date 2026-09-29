@@ -224,8 +224,10 @@ summary{cursor:pointer;padding:9px 0;font:500 12px var(--mono);letter-spacing:.0
 <aside style="display:grid;gap:18px;align-content:start">
   <div class="glass pad">
     <button class="villa" id="villa">✦ VİLLA SENARYOSU İLE BAŞLA<small>2 katlı villa · havuz · döşenmiş 18 mahal</small></button>
+    <button class="villa" id="cabin">✦ DAĞ EVİ SENARYOSU İLE BAŞLA<small>tomruk ev ~100 m² · asma kat · veranda · şömine</small></button>
+    <button class="villa" id="apartment">✦ APARTMAN KATI (CAD PLANDAN)<small>3 daire · U merdiven + asansör · döşenmiş 21 mahal</small></button>
     <p class="sec-t">GİRDİ</p>
-    <div class="seg" id="mode"><button data-m="land" class="on">ARAZİ</button><button data-m="quick">HIZLI m²</button><button data-m="dxf">DXF PLAN</button></div>
+    <div class="seg" id="mode"><button data-m="land" class="on">ARAZİ</button><button data-m="quick">HIZLI m²</button><button data-m="dxf">DXF / RESİM</button></div>
     <label for="name">Proje adı</label><input id="name" value="Yeni Konut Projesi">
     <div data-show="land">
       <div class="r2"><div><label for="pw">Parsel cephe · m</label><input id="pw" type="number" value="30"></div><div><label for="pd">Parsel derinlik · m</label><input id="pd" type="number" value="28"></div></div>
@@ -241,7 +243,7 @@ summary{cursor:pointer;padding:9px 0;font:500 12px var(--mono);letter-spacing:.0
       <div><label for="upf">Kat başına daire</label><select id="upf"><option value="auto">Otomatik</option><option value="1">1</option><option value="2">2</option></select></div></div>
     </div>
     <div data-show="dxf" hidden>
-      <label for="file">Plan · .dxf (DUVAR · PENCERE · KAPI · MAHAL)</label><input id="file" type="file" accept=".dxf">
+      <label for="file">Plan · .dxf (DUVAR · PENCERE · KAPI · MAHAL) veya resim (.png/.jpg — CAD ekran görüntüsü, tarama)</label><input id="file" type="file" accept=".dxf,.png,.jpg,.jpeg,.webp">
       <div class="r2"><div><label for="df">Kat sayısı</label><input id="df" type="number" value="1"></div><div><label for="dfh">Kat yüksekliği · m</label><input id="dfh" type="number" step="0.1" value="3.0"></div></div>
     </div>
     <details class="kunye"><summary>PROJE KÜNYESİ · YER · İMZALAR</summary>
@@ -275,6 +277,7 @@ summary{cursor:pointer;padding:9px 0;font:500 12px var(--mono);letter-spacing:.0
     <div class="hud tr">
       <button class="vbtn walkbtn" id="walk" title="Projenin içinde birinci şahıs gezin">◉ YÜRÜ</button>
       <button class="vbtn truebtn" data-real="still" title="Bu kadrajı Blender Cycles ile fotogerçekçi render et">📷 FOTO</button>
+      <button class="vbtn truebtn" data-real="maket" title="Seçili kat, çatısız maket kuşbakışı — Cycles yüksek kalite (2560 px)">⌂ MAKET</button>
       <button class="vbtn realbtn" id="edit" title="Zemin, boya ve nesne düzenleyici">✎ DÜZENLE</button>
       <button class="vbtn on" data-vm="wire">TEL</button><button class="vbtn" data-vm="xray">X-RAY</button><button class="vbtn" data-vm="solid">KATI</button><button class="vbtn realbtn" data-vm="real">◈ GERÇEKÇİ</button>
       <button class="vbtn on" id="rot" title="Otomatik döndür" aria-label="Otomatik döndür">⟳</button><button class="vbtn" id="fit" title="Kadrajı sıfırla" aria-label="Kadrajı sıfırla">⌖</button>
@@ -285,7 +288,7 @@ summary{cursor:pointer;padding:9px 0;font:500 12px var(--mono);letter-spacing:.0
       <div class="cross"></div>
       <div class="hud tl"><div class="meta" id="wlvl">—</div><div class="pname" id="wroom">—</div><div class="meta" id="warea"></div></div>
       <div class="hud tr"><button class="vbtn truebtn" data-real="still">📷 FOTO</button><button class="vbtn realbtn" id="wedit">✎ DÜZENLE</button><button class="vbtn" id="wdn" title="Alt kat (Q)">▼ KAT</button><button class="vbtn" id="wup" title="Üst kat (E)">▲ KAT</button><button class="vbtn on" id="wexit">✕ ÇIK</button></div>
-      <div class="whelp" id="whelp"><b>TIKLA</b> VE GEZ · WASD / OKLAR HAREKET · FARE BAKIŞ · SHIFT KOŞ · Q / E KAT · ESC</div>
+      <div class="whelp" id="whelp">WASD / OKLAR HAREKET · FARE BAKIŞ · SHIFT KOŞ · Q / E KAT · <b>ESC</b> ÇIKIŞ</div>
     </div>
     <aside class="idrawer glass" id="idrawer">
       <div class="ihead"><div class="tabs" id="itabs"><button data-it="zemin" class="on">ZEMİN</button><button data-it="duvar">DUVAR</button><button data-it="nesne">NESNE</button></div>
@@ -400,7 +403,13 @@ function buildWall(g,w){
   const ux=(x1-x0)/L, uy=(y1-y0)/L, ang=Math.atan2(uy,ux), T=w.thickness||.2, H=w.height||2.8, zb=w.base_z||0;
   const at=s=>[x0+ux*s,y0+uy*s];
   const em=T>=.2?V.mat.edge:V.mat.edgeIn;  // iç bölme duvarları sönük: yoğun planda parlama sisi olmasın
-  const seg=(a,b,za,zt)=>{if(b-a<1e-3||zt-za<1e-3)return;const [cx,cy]=at((a+b)/2);addBox(g,cx,cy,zb+za,b-a,T,zt-za,ang,V.mat.face,em);};
+  const seg=(a,b,za,zt)=>{if(b-a<1e-3||zt-za<1e-3)return;const [cx,cy]=at((a+b)/2);addBox(g,cx,cy,zb+za,b-a,T,zt-za,ang,V.mat.face,em);
+    g.children[g.children.length-1].children[0].userData.surf={role:'wall',tag:w.tag};};
+  if(w.profile==='gable'){  // alınlık üçgeni: daralan kademeli kutular
+    const n=8; for(let k=0;k<n;k++){const f=1-(k+.5)/n,[cx,cy]=at(L/2);addBox(g,cx,cy,zb+k*H/n,L*f,T,H/n,ang,V.mat.face,em);
+      g.children[g.children.length-1].children[0].userData.surf={role:'wall',tag:w.tag};}
+    return;
+  }
   let cur=0; const ops=[...(w.openings||[])].sort((a,b)=>a.offset-b.offset);
   for(const o of ops){
     const a=o.offset,b=a+o.width,door=o.kind==='door',sill=door?0:(o.sill??.9),top=sill+(o.height??(door?2.1:1.4));
@@ -411,6 +420,18 @@ function buildWall(g,w){
   seg(cur,L,0,H);
 }
 function shapeOf(pts){const s=new THREE.Shape();pts.forEach(([x,y],i)=>i?s.lineTo(x,y):s.moveTo(x,y));s.closePath();return s;}
+// eğimli çatı: mahyaya dik kesit profili, mahya ekseni boyunca ekstrüzyon
+function buildRoof(g,e){
+  const ax=(e.axis||'x')==='x', t=e.thickness||.2, z=e.z||0, r=e.ridge??1.5, f=e.ridge_at??.5;
+  const [s0,s1]=ax?[e.y0,e.y1]:[e.x0,e.x1], [a0,a1]=ax?[e.x0,e.x1]:[e.y0,e.y1];
+  let top=[[s0,z],[s0+(s1-s0)*f,z+r],[s1,z]]; top=top.filter((p,i)=>!i||Math.abs(p[0]-top[i-1][0])>1e-6);
+  const prof=[...top,...[...top].reverse().map(([s,zz])=>[s,zz+t])];
+  // profil (u,v) düzlemi +z'ye ekstrüde; ax: u=s, rotY=+90° → dünya Z=-s, derinlik → X. değilse u=-s, rotY=180° → X=s, derinlik → -Z
+  const geo=new THREE.ExtrudeGeometry(shapeOf(prof.map(([s,zz])=>[ax?s:-s,zz])),{depth:a1-a0,bevelEnabled:false});
+  const m=new THREE.Mesh(geo,V.mat.slab), ed=edgesOf(geo,V.mat.edge);
+  for(const o of [m,ed]){ if(ax){o.rotation.y=Math.PI/2;o.position.set(a0,0,0);} else {o.rotation.y=Math.PI;o.position.set(0,0,-a0);} }
+  m.userData.surf={role:'roof',tag:e.tag}; m.userData.pitched=true; m.userData.roof=e; g.add(m,ed);
+}
 function buildSlab(g,e){
   const t=e.thickness||.2, pts=e.points, role=e.role;
   if(role==='site'){
@@ -432,7 +453,7 @@ function build(elements,zoning){
   for(const e of elements){
     if(!byLevel.has(lvlOf(e)))byLevel.set(lvlOf(e),{name:lvlOf(e),z:1e9,items:[]});
     const L=byLevel.get(lvlOf(e)); L.items.push(e);
-    const z=e.type==='slab'?(e.z||0):e.type==='wall'?(e.base_z||0):(e.z??(e.origin?e.origin[2]:1e9));
+    const z=e.type==='slab'||e.type==='roof'?(e.z||0):e.type==='wall'?(e.base_z||0):(e.z??(e.origin?e.origin[2]:1e9));
     L.z=Math.min(L.z,z);
   }
   const site=byLevel.get('Arsa'); byLevel.delete('Arsa');
@@ -440,10 +461,12 @@ function build(elements,zoning){
   const mk=L=>{const group=new THREE.Group();for(const e of L.items){
     if(e.type==='wall')buildWall(group,e);
     else if(e.type==='slab')buildSlab(group,e);
+    else if(e.type==='roof')buildRoof(group,e);
     else if(e.type==='box'){const [ox,oy,oz]=e.origin,[sx,sy,sz]=e.size;addBox(group,ox+sx/2,oy+sy/2,oz,sx,sy,sz,0,V.mat.face,V.mat.edge);
-      group.children[group.children.length-1].children[0].userData.surf={role:'box',tag:e.tag};}
+      group.children[group.children.length-1].children[0].userData.surf={role:'box',tag:e.tag,style:e.style};}
     else if(e.type==='stairs'){const [ox,oy,oz]=e.origin,r=(e.rotation_z||0)*Math.PI/180,run=e.run||.28,w=e.width||1.2;
-      for(let i=0;i<(e.steps||10);i++){const d=(i+.5)*run,cx=ox+Math.cos(r)*d-Math.sin(r)*w/2,cy=oy+Math.sin(r)*d+Math.cos(r)*w/2;addBox(group,cx,cy,oz,run,w,(i+1)*(e.rise||.17),r,V.mat.face,V.mat.edgeDim);}}
+      for(let i=0;i<(e.steps||10);i++){const d=(i+.5)*run,cx=ox+Math.cos(r)*d-Math.sin(r)*w/2,cy=oy+Math.sin(r)*d+Math.cos(r)*w/2;addBox(group,cx,cy,oz,run,w,(i+1)*(e.rise||.17),r,V.mat.face,V.mat.edgeDim);
+        group.children[group.children.length-1].children[0].userData.surf={role:'stairs',tag:e.tag};}}
     else if(e.type==='tree'){const [x,y]=e.position,h=e.height||5;const m=new THREE.Mesh(new THREE.IcosahedronGeometry(h*.28,1),V.mat.tree);m.position.set(x,(e.base_z||0)+h*.65,-y);m.userData.tree=e;group.add(m);}
   }
   V.root.add(group);return {name:L.name,group,show:true,site:false};};
@@ -567,9 +590,16 @@ function enterWalk(){
   if(matchMedia('(pointer:coarse)').matches)$('#whelp').innerHTML='<b>SOL</b> YARI: YÜRÜ · <b>SAĞ</b> YARI: BAK · ▲▼ KAT';
   spawn(floorLevels().includes(V.nLv[+$('#lv').value-1])?V.nLv[+$('#lv').value-1]:L[0]);
 }
+// fare kilidi: YÜRÜ'ye girince hemen alınır; kullanıcı ESC ile bırakınca gezinti de biter.
+// Bilerek bırakılan kilit (DÜZENLE, FOTO, çıkış) gezintiyi bitirmesin diye releaseLock() kullanılır.
+function lockPointer(){
+  if(!WK.on||document.pointerLockElement||!matchMedia('(pointer:fine)').matches)return;
+  try{const p=$('#cv').requestPointerLock?.();p?.catch?.(()=>{});}catch{}
+}
+function releaseLock(){if(document.pointerLockElement){WK.keepWalk=true;document.exitPointerLock();}}
 function exitWalk(){
   if(!WK.on)return; WK.on=false;
-  if(document.pointerLockElement)document.exitPointerLock();
+  releaseLock();
   V.S.remove(WK.lamp,WK.hemi); if(WK.labels){V.S.remove(WK.labels);WK.labels=null;}
   if(!WK.real){V.mat.face.color.set(0x14222f); V.mat.slab.color.set(0x10202d); V.S.fog.density=.0065; V.S.fog.color.set(0x04070c);
     V.mat.glass.opacity=.16; V.S.background=null;}
@@ -599,10 +629,15 @@ function walkStep(dt,now){
 }
 function initWalk(){
   const cv=$('#cv'), look=(dx,dy,s)=>{WK.yaw-=dx*s;WK.pitch=Math.max(-1.35,Math.min(1.35,WK.pitch-dy*s));};
-  $('#walk').onclick=enterWalk; $('#wexit').onclick=exitWalk;
+  $('#walk').onclick=()=>{enterWalk();lockPointer();}; $('#wexit').onclick=exitWalk;
   $('#wup').onclick=()=>changeLevel(1); $('#wdn').onclick=()=>changeLevel(-1);
-  cv.addEventListener('click',()=>{if(WK.on&&!document.pointerLockElement&&!IN.active()&&matchMedia('(pointer:fine)').matches)cv.requestPointerLock?.();});
-  document.addEventListener('pointerlockchange',()=>{$('#whelp').style.opacity=document.pointerLockElement?'.35':'1';});
+  cv.addEventListener('click',()=>{if(!IN.active())lockPointer();});  // DÜZENLE/FOTO sonrası yeniden kilitle
+  document.addEventListener('pointerlockchange',()=>{
+    $('#whelp').style.opacity=document.pointerLockElement?'.35':'1';
+    if(document.pointerLockElement)return;
+    const kept=WK.keepWalk; WK.keepWalk=false;
+    if(WK.on&&!kept&&document.hasFocus()&&!IN.active())exitWalk();  // ESC (sekme değişince odak gider: çıkma)
+  });
   document.addEventListener('mousemove',e=>{if(!WK.on)return;
     if(document.pointerLockElement===cv)look(e.movementX,e.movementY,.0022);
     else if(WK.drag){look(e.clientX-WK.drag[0],e.clientY-WK.drag[1],.004);WK.drag=[e.clientX,e.clientY];}});
@@ -660,7 +695,7 @@ $('#go').onclick=async()=>{
   const program={unit_type:$('#ut').value,units_per_floor:$('#upf').value==='auto'?'auto':+$('#upf').value};
   try{
     if(mode==='dxf'){
-      const f=$('#file').files[0];if(!f)throw new Error('DXF dosyası seçin');
+      const f=$('#file').files[0];if(!f)throw new Error('DXF veya resim plan seçin');
       const fd=new FormData();fd.append('file',f);fd.append('name',extra.name);fd.append('floors',$('#df').value);fd.append('floor_height',$('#dfh').value);fd.append('render_3d',extra.render_3d);fd.append('meta',JSON.stringify(kunye()));
       P=await api('/api/projects/dxf',{method:'POST',body:fd});
     }else{
@@ -684,13 +719,27 @@ $('#villa').onclick=async()=>{
     await loaded(); showcase();
   }catch(e){fail(e)}finally{busy(false);$('#villa').disabled=false;}
 };
+$('#cabin').onclick=async()=>{
+  $('#err').style.display='none'; busy(true); $('#cabin').disabled=true;
+  try{
+    P=await api('/api/projects/cabin',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...kunye(),name:'Dağ Evi Demo'})});
+    await loaded(); showcase(true);
+  }catch(e){fail(e)}finally{busy(false);$('#cabin').disabled=false;}
+};
+$('#apartment').onclick=async()=>{
+  $('#err').style.display='none'; busy(true); $('#apartment').disabled=true;
+  try{
+    P=await api('/api/projects/apartment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({...kunye(),name:'Apartman Katı'})});
+    await loaded(); showcase();
+  }catch(e){fail(e)}finally{busy(false);$('#apartment').disabled=false;}
+};
 /* ================================================================ GERÇEK render (Blender Cycles) */
 const TR={jobs:{}};
 async function submitReal(kind){
   if(!P){fail(new Error('Önce bir proje açın'));return;}
   $$('[data-real]').forEach(b=>b.disabled=true);
   try{
-    const {glb,job}=await IN.exportForRender(kind);
+    const {glb,job}=await IN.exportForRender('still',{maket:kind==='maket'});
     const fd=new FormData(); fd.append('scene',new Blob([glb],{type:'model/gltf-binary'}),'scene.glb'); fd.append('job',JSON.stringify(job));
     const j=await api(`/api/projects/${P.id}/real`,{method:'POST',body:fd});
     TR.jobs[j.id]=j; drawJobs(); pollJob(j.id);
@@ -705,7 +754,7 @@ async function pollJob(id){
 function drawJobs(){
   $('#jobs').innerHTML=Object.values(TR.jobs).filter(j=>!j.dismissed).map(j=>{
     const pct=j.status==='done'?100:Math.round(100*(j.done||0)/(j.total||1));
-    const head='📷 GERÇEK FOTO';
+    const head=j.preset==='maket'?'⌂ MAKET FOTO':'📷 GERÇEK FOTO';
     const st={queued:`sırada${j.queued_ahead?` (önünde ${j.queued_ahead})`:''}`,running:'Cycles ışık hesaplıyor…',
       done:`hazır · ${j.elapsed}s · ${j.device||''}`,error:'hata: '+(j.error||'')}[j.status]||j.status;
     return `<div class="job"><b>${head}</b><small>${st}</small><div class="bar"><i style="width:${pct}%"></i></div>
@@ -717,12 +766,12 @@ function drawJobs(){
 function openJob(j){ openPhoto(j.urls[0]); }
 function openPhoto(url){ $('#photo img').src=url; $('#pdl').href=url; $('#photo').classList.add('on'); }
 $('#pclose').onclick=()=>$('#photo').classList.remove('on');
-$$('[data-real]').forEach(b=>b.onclick=()=>{if(document.pointerLockElement)document.exitPointerLock();submitReal(b.dataset.real);});
+$$('[data-real]').forEach(b=>b.onclick=()=>{releaseLock();submitReal(b.dataset.real);});
 
 addEventListener('keydown',e=>{if(e.code==='Escape')$('#photo').classList.remove('on');});
 
 // vitrin: gerçekçi mod + zemin kat maket görünümü
-function showcase(){ if(V.mode!=='real')$('[data-vm="real"]').click(); $('#lv').value=1; applyLevels(); V.O.autoRotate=false; $('#rot').classList.remove('on'); fitVisible(); }
+function showcase(all){ if(V.mode!=='real')$('[data-vm="real"]').click(); $('#lv').value=all?$('#lv').max:1; applyLevels(); V.O.autoRotate=false; $('#rot').classList.remove('on'); all?fit():fitVisible(); }
 async function loaded(){
   adj=P.brief.adjust||{}; history.replaceState(null,'',location.search+'#'+P.id);
   build(await api(`/api/projects/${P.id}/elements`),P.zoning); await IN.load(P.id); hud(); render(); recent();
@@ -736,7 +785,7 @@ async function recent(){
 function hud(){
   const c=P.cost,s=P.summary,r=P.report;
   $('#hname').textContent=P.name;
-  $('#hmeta').textContent=[r.floors?`${r.floors} KAT`:null,r.unit_count?`${r.unit_count} × ${r.unit_type}`:null,r.source==='dxf'?'DXF':'ŞEMATİK ÖN TASARIM'].filter(Boolean).join(' · ');
+  $('#hmeta').textContent=[r.floors?`${r.floors} KAT`:null,r.unit_count?`${r.unit_count} × ${r.unit_type}`:null,r.source==='dxf'?'DXF':r.source==='image'?'RESİMDEN':null,'AVAN PROJE · RUHSAT PROJESİ DEĞİLDİR'].filter(Boolean).join(' · ');
   $('#hstats').innerHTML=`<div><small>GENEL TOPLAM</small><b class="hl">${tl(c.total)}</b></div><div><small>m² BİRİM</small><b>${tl(c.per_m2)}</b></div><div><small>BRÜT ALAN</small><b>${n2(s.gross_floor_area)} m²</b></div>`;
 }
 
@@ -746,7 +795,10 @@ function render(){
   if(tab==='ozet'){
     const lab={taks:'TAKS',kaks:'KAKS / EMSAL',floors:'KAT SAYISI'};
     const ch=r.checks?Object.entries(r.checks).filter(([k,x])=>'ok' in x).map(([k,x])=>`<tr><td class="mono">${lab[k]||k}</td><td class="n">${x.limit}</td><td class="n">${x.value}</td><td class="n"><span class="flag ${x.ok?'ok':'bad'}">${x.ok?'UYGUN':'AŞIM'}</span></td></tr>`).join(''):'';
-    out.innerHTML=`${(r.warnings||[]).map(x=>`<div class="warnbox">⚠ ${x}</div>`).join('')}
+    const onay=r.source==='image'&&P.files.tanima_onay_png?`<p class="sec-t">RESİMDEN TANINAN PLAN · ONAY</p>
+      <p class="note mono">ÖLÇEK ${n2(r.px_per_m)} px/m (${r.scale_method}) · ${r.walls} DUVAR · ${r.openings} AÇIKLIK (${r.windows||0} PENCERE) · ${r.rooms} MAHAL · CLAUDE GÖRSEL OKUMA: ${r.vision==='claude'?`AÇIK (${r.furniture||0} MOBİLYA)`:(r.vision||'kapalı').toUpperCase()} — sarı duvar, kırmızı kapı, camgöbeği pencere, mavi mahal; hatalıysa ölçek/ızgara verip yeniden yükleyin</p>
+      <img class="onay" src="${P.files.tanima_onay_png}" alt="Tanınan plan" data-z="${P.files.tanima_onay_png}" style="width:100%;border-radius:8px;margin:6px 0 14px">`:'';
+    out.innerHTML=`${(r.warnings||[]).map(x=>`<div class="warnbox">⚠ ${x}</div>`).join('')}${onay}
       <div class="kpis">
         <div class="kpi hl"><small>Genel toplam · KDV dahil</small><b>${tl(c.total)}</b></div>
         <div class="kpi"><small>m² birim · KDV dahil</small><b>${tl(c.per_m2)}</b></div>
@@ -824,10 +876,10 @@ const IN=window.IN=createInterior({THREE,V,$,$$,n2,api,getProject:()=>P,toWorld,
     const d=V.C.position.distanceTo(V.O.target), vw=2*d*Math.tan(THREE.MathUtils.degToRad(V.C.fov/2))*V.C.aspect;
     V.shift=new THREE.Vector3().setFromMatrixColumn(V.C.matrixWorld,0).multiplyScalar(vw*.16);
     V.C.position.add(V.shift);V.O.target.add(V.shift);}});
-window.ARCHAI={V,toWorld};  // hata ayıklama / uçtan uca test tutamacı
+window.ARCHAI={V,toWorld,THREE};  // hata ayıklama / uçtan uca test tutamacı
 window.WALK_SET=(x,y,yaw)=>{WK.px=x;WK.py=y;WK.yaw=yaw;WK.pitch=-.08;WK.room=undefined;};
 $('#edit').onclick=()=>IN.openPanel(!$('#vp').classList.contains('editing'));
-$('#wedit').onclick=()=>{if(document.pointerLockElement)document.exitPointerLock();IN.openPanel(!$('#vp').classList.contains('editing'));};
+$('#wedit').onclick=()=>{releaseLock();IN.openPanel(!$('#vp').classList.contains('editing'));};
 recent(); loadSettings();
 const Q_=new URLSearchParams(location.search), tabQ=Q_.get('tab'), vmQ=Q_.get('vm');
 if(tabQ)$(`#tabs [data-t="${tabQ}"]`)?.click();

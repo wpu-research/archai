@@ -48,7 +48,7 @@ def _wall(e):
                            {"count": 1, "width": o["width"], "height": h, "area": a,
                             "perimeter": 2 * (o["width"] + h), "reveal_area": 2 * (o["width"] + h) * T},
                            kind=kind))
-    gross = L * H
+    gross = L * H / (2 if e.get("profile") == "gable" else 1)
     net = max(gross - open_area, 0.0)
     lines.insert(0, _line(e, "wall", {"length": L, "height": H, "thickness": T, "gross_area": gross,
                                       "opening_area": open_area, "net_area": net,
@@ -75,6 +75,25 @@ def _room(e):
                    "wall_finish_area": P * h, "count": 1})]
 
 
+def roof_profile(e):
+    """Eğimli çatı kesiti (mahya eksenine dik düzlemde): [(s, z), ...] saçaktan saçağa, üst yüz."""
+    s0, s1 = (e["y0"], e["y1"]) if e.get("axis", "x") == "x" else (e["x0"], e["x1"])
+    z, r, f = e.get("z", 0.0), e.get("ridge", 1.5), e.get("ridge_at", 0.5)
+    pts = [(s0, z), (s0 + (s1 - s0) * f, z + r), (s1, z)]
+    return [p for i, p in enumerate(pts) if i == 0 or abs(p[0] - pts[i - 1][0]) > 1e-6]
+
+
+def _roof(e):
+    L = (e["x1"] - e["x0"]) if e.get("axis", "x") == "x" else (e["y1"] - e["y0"])
+    prof = roof_profile(e)
+    slope_len = sum(math.dist(a, b) for a, b in zip(prof, prof[1:]))
+    area = slope_len * L
+    fp = (e["x1"] - e["x0"]) * (e["y1"] - e["y0"])
+    t = e.get("thickness", 0.2)
+    return [_line({**e, "role": "roof"}, "roof", {"area": area, "footprint": fp, "thickness": t, "volume": area * t,
+                                                  "ridge": e.get("ridge", 1.5), "count": 1})]
+
+
 def _box(e):
     sx, sy, sz = e["size"]
     return [_line(e, "box", {"count": 1, "footprint": sx * sy, "volume": sx * sy * sz, "height": sz})]
@@ -98,7 +117,7 @@ def _count(e):
 
 
 HANDLERS = {"wall": _wall, "slab": _slab, "room": _room, "box": _box, "cylinder": _cyl,
-            "stairs": _stairs, "tree": _count, "sphere": _count}
+            "stairs": _stairs, "tree": _count, "sphere": _count, "roof": _roof}
 
 
 def compute(elements):
@@ -133,7 +152,7 @@ def compute(elements):
         "window_area": total("area", type="opening", kind="window"),
         "door_count": total("count", type="opening", kind="door"),
         "door_area": total("area", type="opening", kind="door"),
-        "roof_area": total("area", type="slab", role="roof"),
+        "roof_area": total("area", type=["slab", "roof"], role="roof"),
         "pool_area": total("area", type="slab", role="pool"),
         "paving_area": total("area", type="slab", role="paving"),
         "levels": levels,

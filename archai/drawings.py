@@ -22,6 +22,7 @@ from ezdxf.enums import TextEntityAlignment as TA
 from shapely.geometry import Polygon
 from shapely.ops import unary_union
 
+from .notice import AVAN_SHORT
 from .quantities import polygon_area
 
 logging.getLogger("ezdxf").setLevel(logging.WARNING)
@@ -195,7 +196,8 @@ class Sheet:
         val(97, ty - 35.5, info.get("owner") or "—", 2.3)
         lab(217, ty - 2, "PAFTA ADI")
         val(257.5, ty - 18, self.title, 4.0 if len(self.title) < 26 else 3.2, TA.MIDDLE_CENTER)
-        val(257.5, ty - 31, "ŞEMATİK ÖN TASARIM — UYGULAMAYA ESAS DEĞİLDİR", 1.8, TA.MIDDLE_CENTER)
+        val(257.5, ty - 30, AVAN_SHORT, 1.8, TA.MIDDLE_CENTER)
+        val(257.5, ty - 34, "Statik, tesisat ve ruhsat projesi yetkili mimar/mühendis imzası gerektirir", 1.3, TA.MIDDLE_CENTER)
         for i, (k, v) in enumerate([("ÖLÇEK", f"1/{self.S}"), ("TARİH", info.get("date") or f"{date.today():%d.%m.%Y}"),
                                     ("PAFTA NO", self.number), ("REVİZYON", info.get("rev", "00"))]):
             yy = ty - i * TB_H / 4
@@ -480,14 +482,39 @@ def _levels(elements):
     return fl, roof
 
 
+def _pitched(elements):
+    """Ana eğimli çatı (en büyük tabanlı 'roof' elemanı) veya None."""
+    rs = [e for e in elements if e["type"] == "roof"]
+    return max(rs, key=lambda e: (e["x1"] - e["x0"]) * (e["y1"] - e["y0"])) if rs else None
+
+
+def _roof_top(roof, pitched, fl):
+    if pitched:
+        return pitched["z"] + pitched.get("ridge", 1.5) + pitched.get("thickness", 0.2)
+    return (roof["z"] + 0.9) if roof else fl[-1][0] + 3
+
+
 def draw_section(sh, elements, cut_x):
     fl, roof = _levels(elements)
+    pitched = _pitched(elements)
     floor = next(e for e in elements if e["type"] == "slab" and e.get("role") == "floor")
     ys = [p[1] for p in floor["points"]]
     y0, y1 = min(ys), max(ys)
     X = lambda y: y - y0
     t = floor.get("thickness", 0.2)
-    top = (roof["z"] + 0.9) if roof else fl[-1][0] + 3
+    top = _roof_top(roof, pitched, fl)
+    if pitched:
+        from .quantities import roof_profile
+        rt = pitched.get("thickness", 0.2)
+        if pitched.get("axis", "x") == "x":
+            prof = roof_profile(pitched)
+        else:  # mahya kesit düzlemine paralel: kesitte saçak-mahya bandı görünür
+            z = pitched["z"]
+            prof = [(pitched["y0"], z + pitched.get("ridge", 1.5)), (pitched["y1"], z + pitched.get("ridge", 1.5))]
+        lo = [(X(s), z) for s, z in prof]
+        hi = [(X(s), z + rt) for s, z in reversed(prof)]
+        sh.poly(lo + hi, "A-KESIT")
+        sh.hatch([lo + hi], "A-KESIT", solid=True)
     gl, gr = X(y0) - sh.mm(15), X(y1) + sh.mm(15)
     sh.line((gl, -t), (gr, -t), "A-ZEMIN")
     sh.hatch([[(gl, -t), (gr, -t), (gr, -t - sh.mm(5)), (gl, -t - sh.mm(5))]], "A-DUVAR-TARAMA", "EARTH", scale_mm=0.5)
@@ -537,13 +564,26 @@ def draw_section(sh, elements, cut_x):
 
 def draw_elevation(sh, elements):
     fl, roof = _levels(elements)
+    pitched = _pitched(elements)
     floor = next(e for e in elements if e["type"] == "slab" and e.get("role") == "floor")
     xs = [p[0] for p in floor["points"]]
     x0, x1 = min(xs), max(xs)
     X = lambda x: x - x0
-    top = (roof["z"] + 0.9) if roof else fl[-1][0] + 3
+    top = _roof_top(roof, pitched, fl)
     t = floor.get("thickness", 0.2)
-    sh.poly([(X(x0), -t), (X(x1), -t), (X(x1), top), (X(x0), top)], "A-GORUNUS")
+    if pitched:
+        from .quantities import roof_profile
+        ez, rt = pitched["z"], pitched.get("thickness", 0.2)
+        sh.poly([(X(x0), -t), (X(x1), -t), (X(x1), ez), (X(x0), ez)], "A-GORUNUS")
+        if pitched.get("axis", "x") == "x":  # mahya cepheye paralel: saçak ve mahya çizgileri
+            rx0, rx1 = X(pitched["x0"]), X(pitched["x1"])
+            sh.poly([(rx0, ez), (rx1, ez), (rx1, ez + rt), (rx0, ez + rt)], "A-GORUNUS")
+            sh.line((rx0, top), (rx1, top), "A-GORUNUS")
+        else:  # alınlık üçgeni cepheden görünür
+            prof = roof_profile(pitched)
+            sh.poly([(X(s), z) for s, z in prof] + [(X(s), z + rt) for s, z in reversed(prof)], "A-GORUNUS")
+    else:
+        sh.poly([(X(x0), -t), (X(x1), -t), (X(x1), top), (X(x0), top)], "A-GORUNUS")
     gl, gr = X(x0) - sh.mm(15), X(x1) + sh.mm(15)
     sh.line((gl, -t), (gr, -t), "A-ZEMIN")
     sh.hatch([[(gl, -t), (gr, -t), (gr, -t - sh.mm(4)), (gl, -t - sh.mm(4))]], "A-DUVAR-TARAMA", "EARTH", scale_mm=0.5)
