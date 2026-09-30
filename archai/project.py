@@ -8,12 +8,13 @@ Ortak: {"name", "adjust": {...fiyat ayarları}, "company", "customer"}
 
 import json
 import math
+import os
 from pathlib import Path
 
 from . import costing, drawings, quantities as Q, reports, spec
 from .dxf_import import import_dxf
 
-SETTINGS = Path(__file__).resolve().parents[1] / "out" / "settings.json"
+SETTINGS = Path(os.environ.get("ARCHAI_OUT") or Path(__file__).resolve().parents[1] / "out") / "settings.json"
 INFO_KEYS = ("company", "customer", "site", "owner", "architect", "drawn_by", "checked_by", "approved_by", "rev")
 
 

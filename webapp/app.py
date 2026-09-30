@@ -23,7 +23,8 @@ from pydantic import BaseModel
 from archai import costing, project
 
 ROOT = Path(__file__).resolve().parents[1]
-PROJECTS = ROOT / "out" / "projects"
+OUT = Path(os.environ.get("ARCHAI_OUT") or ROOT / "out")      # testler ve ortak makineler için çıktı kökü
+PROJECTS = OUT / "projects"
 PROJECTS.mkdir(parents=True, exist_ok=True)
 _blender_lock = threading.Lock()  # tek headless Blender süreci — render'lar sıraya girer
 
