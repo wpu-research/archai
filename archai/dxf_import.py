@@ -273,7 +273,7 @@ def build_elements(walls, rooms, outline, floors=1, floor_height=3.0, slab_thick
                 else:
                     o.update(height=door_height, leaf=True)
                 ops.append(o)
-            elements.append({"type": "wall", "name": f"{lvl}/D{i + 1:02d}", "tag": "wall", "level": lvl,
+            elements.append({"type": "wall", "name": f"{lvl}/D{i + 1:02d}", "tag": "wall", "level": lvl, "structural": w.t >= 0.18,
                              "start": [round(ax, 4), round(ay, 4)], "end": [round(bx, 4), round(by, 4)],
                              "height": wall_h, "thickness": w.t, "base_z": z, "openings": ops})
         for r in rooms:

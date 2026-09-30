@@ -94,6 +94,11 @@ details.kunye summary{font:500 10.5px var(--mono);letter-spacing:.14em;color:var
 .hud{position:absolute;pointer-events:none;font-family:var(--mono)}
 .hud *{pointer-events:auto}
 .hud.tl{top:16px;left:18px}.hud.tr{top:14px;right:14px;display:flex;gap:6px}.hud.bl{left:18px;bottom:16px}.hud.br{right:16px;bottom:14px}
+.hud.bc{left:50%;bottom:14px;transform:translateX(-50%);display:none;align-items:center;gap:8px;pointer-events:auto;background:rgba(4,8,14,.55);
+  padding:6px 10px;border-radius:10px;backdrop-filter:blur(6px);color:#e6f1f8;font-size:11px}
+.vp.real:not(.editing) .hud.bc{display:flex}.hud.bc input{width:130px;accent-color:#ffb547}.hud.bc b{min-width:38px;font-weight:600}
+.hud.bc .vbtn.on{background:#1d2c55;border-color:#8fa8ff;color:#dfe6ff}
+@media (max-width:700px){.hud.bc{bottom:112px}.hud.bc input{width:90px}}
 .hud .pname{font:600 20px var(--sans);letter-spacing:.01em;text-shadow:0 0 24px rgba(62,232,255,.35)}
 .hud .meta{font-size:10.5px;letter-spacing:.14em;color:var(--mute);margin-top:3px}
 .vbtn{font:500 10.5px var(--mono);letter-spacing:.12em;padding:7px 10px;border:1px solid var(--line-hi);background:rgba(4,8,14,.6);color:var(--mute);border-radius:7px;backdrop-filter:blur(6px)}
@@ -283,12 +288,13 @@ summary{cursor:pointer;padding:9px 0;font:500 12px var(--mono);letter-spacing:.0
       <button class="vbtn on" id="rot" title="Otomatik döndür" aria-label="Otomatik döndür">⟳</button><button class="vbtn" id="fit" title="Kadrajı sıfırla" aria-label="Kadrajı sıfırla">⌖</button>
     </div>
     <div class="hud bl"><div class="stats" id="hstats"></div></div>
+    <div class="hud bc sunbar" id="sunbar"><span>☀</span><input id="sunh" type="range" min="6" max="20" step=".25" value="11" aria-label="Güneş saati"><b id="sunt">11:00</b><button class="vbtn" id="night" title="Gece: güneş kapanır, oda lambaları yanar">☾ GECE</button></div>
     <div class="hud br"><div class="slider"><span>KESİT</span><input id="lv" type="range" min="1" max="1" value="1" aria-label="Gösterilen kat"><b id="lvt">—</b></div></div>
     <div class="whud" id="whud">
       <div class="cross"></div>
       <div class="hud tl"><div class="meta" id="wlvl">—</div><div class="pname" id="wroom">—</div><div class="meta" id="warea"></div></div>
       <div class="hud tr"><button class="vbtn truebtn" data-real="still">📷 FOTO</button><button class="vbtn realbtn" id="wedit">✎ DÜZENLE</button><button class="vbtn" id="wdn" title="Alt kat (Q)">▼ KAT</button><button class="vbtn" id="wup" title="Üst kat (E)">▲ KAT</button><button class="vbtn on" id="wexit">✕ ÇIK</button></div>
-      <div class="whelp" id="whelp">WASD / OKLAR HAREKET · FARE BAKIŞ · SHIFT KOŞ · Q / E KAT · <b>ESC</b> ÇIKIŞ</div>
+      <div class="whelp" id="whelp">WASD / OKLAR HAREKET · FARE BAKIŞ · SHIFT KOŞ · <b>F</b> / TIK KAPI · Q / E KAT · <b>ESC</b> ÇIKIŞ</div>
     </div>
     <aside class="idrawer glass" id="idrawer">
       <div class="ihead"><div class="tabs" id="itabs"><button data-it="zemin" class="on">ZEMİN</button><button data-it="duvar">DUVAR</button><button data-it="nesne">NESNE</button></div>
@@ -364,8 +370,16 @@ function initViewport(){
   const loop=()=>{
     requestAnimationFrame(loop);
     const now=performance.now(), dt=Math.min(.05,(now-last)/1000); last=now;
-    if(WK.on)walkStep(dt,now); else O.update();
-    V.levels.forEach((L,i)=>{
+    if(WK.on)walkStep(dt,now); else if(!V.intro)O.update();
+    window.IN?.tick(dt);
+    if(V.intro){  // 2D plan → 3D: kamera tepeden eğik açıya süzülür, duvarlar yerden büyür, ardından mobilya
+      const I=V.intro, t=(now-I.t0)/1000, ez=x=>{x=Math.min(1,Math.max(0,x));return x<.5?4*x*x*x:1-Math.pow(-2*x+2,3)/2;};
+      const kc=ez(t/1.9), kw=ez((t-.25)/1.0), kf=ez((t-1.0)/.8);
+      C.position.lerpVectors(I.p0,I.p1,kc); O.target.lerpVectors(I.t0v,I.t1,kc); C.lookAt(O.target);
+      V.levels.forEach(L=>{L.group.position.y=0; L.group.scale.y=L.site?1:Math.max(.002,kw); L.group.visible=L.show;});
+      window.IN?.grow(kf);
+      if(t>2.1){V.intro=null; O.enabled=true; window.IN?.grow(1);}
+    }else V.levels.forEach((L,i)=>{
       const k=Math.min(1,Math.max(0,(now-V.t0-i*140)/650)), e=1-Math.pow(1-k,3);
       L.group.position.y=(1-e)*-5; L.group.scale.y=.2+.8*e; L.group.visible=L.show&&k>0;
     });
@@ -376,6 +390,8 @@ function initViewport(){
   $('#rot').onclick=()=>{O.autoRotate=!O.autoRotate;$('#rot').classList.toggle('on',O.autoRotate);};
   $('#rot').classList.toggle('on',O.autoRotate);
   $('#fit').onclick=()=>fit();
+  const sunUI=()=>{const h=+$('#sunh').value,n=$('#night').classList.contains('on');$('#sunt').textContent=`${String(Math.floor(h)).padStart(2,'0')}:${String(Math.round((h%1)*60)).padStart(2,'0')}`;IN.setSun(h,n);};
+  $('#sunh').oninput=sunUI; $('#night').onclick=()=>{$('#night').classList.toggle('on');sunUI();};
   $('#lv').oninput=()=>{applyLevels();if(V.mode==='real'||$('#vp').classList.contains('editing')){fitVisible();IN.refreshHint?.();}};
   initWalk();
 }
@@ -404,7 +420,7 @@ function buildWall(g,w){
   const at=s=>[x0+ux*s,y0+uy*s];
   const em=T>=.2?V.mat.edge:V.mat.edgeIn;  // iç bölme duvarları sönük: yoğun planda parlama sisi olmasın
   const seg=(a,b,za,zt)=>{if(b-a<1e-3||zt-za<1e-3)return;const [cx,cy]=at((a+b)/2);addBox(g,cx,cy,zb+za,b-a,T,zt-za,ang,V.mat.face,em);
-    g.children[g.children.length-1].children[0].userData.surf={role:'wall',tag:w.tag};};
+    const grp=g.children[g.children.length-1]; grp.userData.wall=w.name; grp.children[0].userData.surf={role:'wall',tag:w.tag}; grp.children[0].userData.wall=w;};
   if(w.profile==='gable'){  // alınlık üçgeni: daralan kademeli kutular
     const n=8; for(let k=0;k<n;k++){const f=1-(k+.5)/n,[cx,cy]=at(L/2);addBox(g,cx,cy,zb+k*H/n,L*f,T,H/n,ang,V.mat.face,em);
       g.children[g.children.length-1].children[0].userData.surf={role:'wall',tag:w.tag};}
@@ -492,6 +508,14 @@ function build(elements,zoning){
   setMode(V.mode); applyLevels(); fit(); V.t0=performance.now();
   IN.onBuild();
 }
+// proje açılışında plan görünümünden 3D'ye geçiş: hedef kadraj fit()/fitVisible() pozu
+function intro(){
+  if(!V.box||WK.on)return;
+  const p1=V.C.position.clone(), t1=V.O.target.clone(), s=V.box.getSize(new THREE.Vector3()), c=V.box.getCenter(new THREE.Vector3());
+  const d=Math.max(s.x,s.z)/2/Math.tan(THREE.MathUtils.degToRad(V.C.fov/2))*1.15+2;
+  V.intro={t0:performance.now(),p0:new THREE.Vector3(c.x,d,c.z+.01),t0v:new THREE.Vector3(c.x,0,c.z),p1,t1};
+  V.O.enabled=false; window.IN?.grow(0); V.introAt=performance.now();
+}
 function applyLevels(){
   const n=+$('#lv').value; let i=0;
   V.levels.forEach(L=>{if(L.site){L.show=true;return;}i++;L.show=i<=n;});
@@ -535,7 +559,7 @@ function labelSprite(title,sub){
 function prepLevel(n){
   WK.lvl=n; WK.z=levelZ(n); WK.segs=[];
   for(const w of V.elements){
-    if(w.type!=='wall'||w.level!==n)continue;
+    if(w.type!=='wall'||w.level!==n||IN.isDemolished(w))continue;
     const [x0,y0]=w.start,[x1,y1]=w.end,L=Math.hypot(x1-x0,y1-y0); if(L<1e-4)continue;
     const ux=(x1-x0)/L,uy=(y1-y0)/L,t=(w.thickness||.2)/2;
     const push=(a,b)=>{if(b-a>1e-3)WK.segs.push([x0+ux*a,y0+uy*a,x0+ux*b,y0+uy*b,t]);};
@@ -556,7 +580,8 @@ function prepLevel(n){
 }
 const kotTxt=z=>Math.abs(z)<1e-6?'±0.00':(z>0?'+':'')+z.toFixed(2);
 function collide(){
-  for(let it=0;it<3;it++)for(const [ax,ay,bx,by,t] of WK.segs){
+  const segs=WK.segs.concat(IN.doorSegs(WK.lvl));   // kapalı kapı kanatları da engel
+  for(let it=0;it<3;it++)for(const [ax,ay,bx,by,t] of segs){
     const dx=bx-ax,dy=by-ay,l2=dx*dx+dy*dy; let k=((WK.px-ax)*dx+(WK.py-ay)*dy)/l2; k=Math.max(0,Math.min(1,k));
     const cx=ax+dx*k,cy=ay+dy*k,ex=WK.px-cx,ey=WK.py-cy,d=Math.hypot(ex,ey),m=RAD+t;
     if(d<m){if(d<1e-6){WK.px+=-dy/Math.sqrt(l2)*m;WK.py+=dx/Math.sqrt(l2)*m;}else{WK.px=cx+ex/d*m;WK.py=cy+ey/d*m;}}
@@ -631,7 +656,7 @@ function initWalk(){
   const cv=$('#cv'), look=(dx,dy,s)=>{WK.yaw-=dx*s;WK.pitch=Math.max(-1.35,Math.min(1.35,WK.pitch-dy*s));};
   $('#walk').onclick=()=>{enterWalk();lockPointer();}; $('#wexit').onclick=exitWalk;
   $('#wup').onclick=()=>changeLevel(1); $('#wdn').onclick=()=>changeLevel(-1);
-  cv.addEventListener('click',()=>{if(!IN.active())lockPointer();});  // DÜZENLE/FOTO sonrası yeniden kilitle
+  cv.addEventListener('click',()=>{if(IN.active())return; if(document.pointerLockElement){IN.toggleDoor();return;} lockPointer();});  // kilitliyken tık = kapı aç/kapa
   document.addEventListener('pointerlockchange',()=>{
     $('#whelp').style.opacity=document.pointerLockElement?'.35':'1';
     if(document.pointerLockElement)return;
@@ -647,6 +672,7 @@ function initWalk(){
   document.addEventListener('keydown',e=>{if(!WK.on||typing())return;
     if(e.code==='Escape'&&!document.pointerLockElement){if(!IN.active())exitWalk();return;}
     if(e.code==='KeyE'||e.code==='PageUp')changeLevel(1); if(e.code==='KeyQ'||e.code==='PageDown')changeLevel(-1);
+    if(e.code==='KeyF'&&IN.toggleDoor())e.preventDefault();
     WK.keys[e.code]=true; if(e.code.startsWith('Arrow')||e.code==='Space')e.preventDefault();});
   document.addEventListener('keyup',e=>{WK.keys[e.code]=false;});
   window.addEventListener('blur',()=>WK.keys={});
@@ -771,10 +797,12 @@ $$('[data-real]').forEach(b=>b.onclick=()=>{releaseLock();submitReal(b.dataset.r
 addEventListener('keydown',e=>{if(e.code==='Escape')$('#photo').classList.remove('on');});
 
 // vitrin: gerçekçi mod + zemin kat maket görünümü
-function showcase(all){ if(V.mode!=='real')$('[data-vm="real"]').click(); $('#lv').value=all?$('#lv').max:1; applyLevels(); V.O.autoRotate=false; $('#rot').classList.remove('on'); all?fit():fitVisible(); }
+function showcase(all){ if(V.mode!=='real')$('[data-vm="real"]').click(); $('#lv').value=all?$('#lv').max:1; applyLevels(); V.O.autoRotate=false; $('#rot').classList.remove('on'); all?fit():fitVisible();
+  if(V.intro){V.intro.p1=V.C.position.clone();V.intro.t1=V.O.target.clone();} }
 async function loaded(){
   adj=P.brief.adjust||{}; history.replaceState(null,'',location.search+'#'+P.id);
   build(await api(`/api/projects/${P.id}/elements`),P.zoning); await IN.load(P.id); hud(); render(); recent();
+  if(!Q_.get('walk')&&!Q_.get('nointro'))intro();
 }
 async function openP(id){P=await api('/api/projects/'+id);await loaded();}
 async function recent(){

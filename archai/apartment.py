@@ -112,7 +112,7 @@ def _wall(i, w):
             op.update(height=2.1, leaf=True)
         out.append(op)
     return {"type": "wall", "name": f"{LV}/D{i:02d}", "tag": "wall", "level": LV, "start": a, "end": b,
-            "thickness": t, "height": WH, "base_z": 0.0, "openings": out}
+            "thickness": t, "height": WH, "base_z": 0.0, "openings": out, "structural": t >= 0.2}
 
 
 def walls():

@@ -226,7 +226,8 @@ def put_interior(pid: str, design: dict):
         raise HTTPException(422, "geçersiz nesne listesi")
     clean = {"floors": {str(k): str(v) for k, v in (design.get("floors") or {}).items()},
              "paint": str(design.get("paint", "kirik_beyaz")),
-             "objects": [_clean_obj(o) for o in objs if isinstance(o, dict)]}
+             "objects": [_clean_obj(o) for o in objs if isinstance(o, dict)],
+             "demolished": [str(n) for n in (design.get("demolished") or []) if isinstance(n, str)][:500]}
     (PROJECTS / pid / "interior.json").write_text(json.dumps(clean, ensure_ascii=False))
     return {"ok": True, "objects": len(clean["objects"])}
 
