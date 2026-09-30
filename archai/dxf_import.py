@@ -72,12 +72,48 @@ def _proj(p, ux, uy):
     return p[0] * ux + p[1] * uy, -p[0] * uy + p[1] * ux  # (s, n)
 
 
-def _segments(msp, role_of, scale):
+MAX_BLOCK_DEPTH = 5
+MAX_WALL_SEGMENTS = 30_000
+
+
+def _entities(msp, warnings):
+    """Model alanı varlıkları (varlık, etkin katman); INSERT blokları ezdxf virtual_entities() ile açılır
+    (ölçek/döndürme/konum uygulanmış kopyalar). İç içe blok en çok MAX_BLOCK_DEPTH derinlik; kendini içeren blok
+    döngüsü kesilir. Blok içindeki varlığın katmanı "0" ise INSERT'ün katmanını alır (CAD kuralı)."""
+    skipped = []
+
+    def walk(ents, parent_layer, stack):
+        for e in ents:
+            layer = e.dxf.get("layer", "0")
+            if parent_layer is not None and (layer == "0" or layer.upper() == "BYLAYER"):
+                layer = parent_layer
+            if e.dxftype() != "INSERT":
+                yield e, layer
+                continue
+            name = e.dxf.get("name", "")
+            if name in stack or len(stack) >= MAX_BLOCK_DEPTH:
+                skipped.append(name)
+                continue
+            try:
+                children = list(e.virtual_entities())
+            except Exception as ex:  # noqa: BLE001 — açılamayan blok (bozuk tanım, desteklenmeyen dönüşüm) atlanır
+                skipped.append(f"{name} ({ex})")
+                continue
+            yield from walk(children, layer, stack + (name,))
+
+    yield from walk(msp, None, ())
+    if skipped:
+        warnings.append(f"{len(skipped)} blok açılamadı/atlandı (döngü, > {MAX_BLOCK_DEPTH} derinlik ya da hata): "
+                        + ", ".join(sorted(set(skipped))[:5]))
+
+
+def _segments(ents, role_of, scale):
+    """ents: (varlık, etkin katman) çiftleri (bkz. _entities)."""
     segs = {"wall": [], "window": [], "door": []}
     polys = {"room": [], "outline": []}
     texts = []
-    for e in msp:
-        role = role_of(e.dxf.layer)
+    for e, layer in ents:
+        role = role_of(layer)
         t = e.dxftype()
         if t in ("TEXT", "MTEXT"):
             txt = e.plain_text() if t == "MTEXT" else e.dxf.text
@@ -127,12 +163,22 @@ def _pair_walls(wall_segs, t_min, t_max, default_t):
                      "used": False})
     pieces = []
     order = sorted(range(len(info)), key=lambda i: -(info[i]["s1"] - info[i]["s0"]))
+    rank = {i: r for r, i in enumerate(order)}
+    # kovalar: (açı 1°, dik ofset t_max) — eş adayı yalnız komşu kovalarda (≈ doğrusal; sonuç kaba taramayla aynı)
+    na = 180
+    cell = max(t_max, 1e-9)
+    buckets = {}
+    for i, x in enumerate(info):
+        x["ab"], x["nb"] = int(math.degrees(x["ang"])) % na, math.floor(x["n"] / cell)
+        buckets.setdefault((x["ab"], x["nb"]), []).append(i)
     for i in order:
         A = info[i]
         if A["used"]:
             continue
         best, best_d = None, None
-        for j in order:
+        near = [j for da in (-1, 0, 1) for dn in (-1, 0, 1)
+                for j in buckets.get(((A["ab"] + da) % na, A["nb"] + dn), ())]
+        for j in sorted(set(near), key=rank.__getitem__):
             B = info[j]
             if j == i or B["used"]:
                 continue
@@ -167,7 +213,7 @@ def _merge_collinear(pieces, win_segs, door_segs, max_gap, bare_gap):
     def crossed(cur, s_mid):
         """Boşluktan dik bir duvar geçiyorsa bu bir T/artı birleşimidir, açıklık değil."""
         pt = (s_mid * cur.ux - cur.n * cur.uy, s_mid * cur.uy + cur.n * cur.ux)
-        for q in pieces:
+        for q in index.get((math.floor(pt[0] / cell), math.floor(pt[1] / cell)), ()):
             if abs(q.ux * cur.uy - q.uy * cur.ux) < 0.2:
                 continue
             sq, nq = _proj(pt, q.ux, q.uy)
@@ -183,6 +229,18 @@ def _merge_collinear(pieces, win_segs, door_segs, max_gap, bare_gap):
                 break
         else:
             groups.append([p])
+    # ızgara dizini (crossed için): parça, birleşirken grubunun en uç s1'ine kadar uzayabilir → kutu o uca kadar
+    T = max((p.t for p in pieces), default=0.0)
+    M, cell = T + 0.1, max(1.0, 2 * T)
+    index = {}
+    for g in groups:
+        g_end = max(q.s1 for q in g)
+        for q in g:
+            xs = [q.s0 * q.ux - q.n * q.uy, g_end * q.ux - q.n * q.uy]
+            ys = [q.s0 * q.uy + q.n * q.ux, g_end * q.uy + q.n * q.ux]
+            for gx in range(math.floor((min(xs) - M) / cell), math.floor((max(xs) + M) / cell) + 1):
+                for gy in range(math.floor((min(ys) - M) / cell), math.floor((max(ys) + M) / cell) + 1):
+                    index.setdefault((gx, gy), []).append(q)
     out = []
     for g in groups:
         g.sort(key=lambda p: p.s0)
@@ -216,12 +274,25 @@ def _merge_collinear(pieces, win_segs, door_segs, max_gap, bare_gap):
 
 def _snap_ends(pieces):
     """Aks uçlarını dik komşu duvarın aksına uzat/kısalt (aks-aks metraj)."""
+    if not pieces:
+        return pieces
+    # ızgara dizini: q yalnız uç noktasına ≤ R (= en kalın duvar + 5 cm) uzaklıktaysa aday olur; uçlar tur boyunca
+    # en çok R kayar → başlangıç kutusu 3R genişletilir. Sonuç kaba taramayla aynı (aday sırası korunur).
+    R = max(p.t for p in pieces) + 0.05
+    M, cell = 3 * R + 0.1, max(1.0, 3 * R + 0.1)
+    grid = {}
+    for idx, q in enumerate(pieces):
+        xs = [q.s0 * q.ux - q.n * q.uy, q.s1 * q.ux - q.n * q.uy]
+        ys = [q.s0 * q.uy + q.n * q.ux, q.s1 * q.uy + q.n * q.ux]
+        for gx in range(math.floor((min(xs) - M) / cell), math.floor((max(xs) + M) / cell) + 1):
+            for gy in range(math.floor((min(ys) - M) / cell), math.floor((max(ys) + M) / cell) + 1):
+                grid.setdefault((gx, gy), []).append(idx)
     for p in pieces:
         for end in ("s0", "s1"):
             s = getattr(p, end)
             pt = (s * p.ux - p.n * p.uy, s * p.uy + p.n * p.ux)
             best = None
-            for q in pieces:
+            for q in (pieces[i] for i in grid.get((math.floor(pt[0] / cell), math.floor(pt[1] / cell)), ())):
                 if q is p or abs(p.ux * q.uy - p.uy * q.ux) < 0.2:
                     continue
                 sq, nq = _proj(pt, q.ux, q.uy)
@@ -285,25 +356,73 @@ def build_elements(walls, rooms, outline, floors=1, floor_height=3.0, slab_thick
     return elements
 
 
+UNIT_NAMES = {0.001: "mm", 0.01: "cm", 1.0: "m"}
+UNITS_HINT = "units=0.001 (mm) / 0.01 (cm) / 1 (m) verin"
+
+
+def _guess_scale(wall_segs, wall_arcs, t_range):
+    """$INSUNITS yokken birim: DUVAR katmanındaki tüm varlıkların (çizgi, polyline, yay, blok içeriği) kapsamı
+    makul bina boyutu (3–1000 m) veren adaylar arasından, duvar çizgilerinin en büyük kısmını t_range kalınlığında
+    çift yapan birim seçilir (mm'de 200 birim aralık = 0,2 m duvar; cm'de 20 birim). Eşitlikte kapsam kuralı:
+    > 500 birim → mm, değilse m. → (ölçek, uyarı metni)."""
+    xs = [c for s in wall_segs for c in (s.a[0], s.b[0])]
+    ys = [c for s in wall_segs for c in (s.a[1], s.b[1])]
+    for e in wall_arcs:
+        c, r = e.dxf.center, e.dxf.radius
+        xs += [c.x - r, c.x + r]
+        ys += [c.y - r, c.y + r]
+    span = max(max(xs) - min(xs), max(ys) - min(ys))
+    sample = sorted(wall_segs, key=lambda s: -s.length)[:4000]
+    cands = []
+    for k, name in UNIT_NAMES.items():
+        if not 3 <= span * k <= 1000:
+            continue
+        segs = [Seg((s.a[0] * k, s.a[1] * k), (s.b[0] * k, s.b[1] * k)) for s in sample]
+        pieces, _ = _pair_walls(segs, *t_range, 0.2)
+        total = sum(s.length for s in segs if s.length >= 0.05)
+        frac = sum(2 * (p.s1 - p.s0) for p in pieces) / total if total else 0.0
+        cands.append((frac, k, name))
+    if not cands:
+        raise ValueError(f"birim doğrulanamadı (çizim kapsamı {span:g} birim hiçbir birimde makul bina boyutu değil); "
+                         + UNITS_HINT)
+    prior = 0.001 if span > 500 else 1.0
+    frac, k, name = max(cands, key=lambda c: (round(c[0], 1), c[1] == prior))
+    note = (f"$INSUNITS yok; birim {name} varsayıldı (çizim kapsamı {span:.0f} birim = {span * k:.1f} m, duvar "
+            f"çizgilerinin %{frac * 100:.0f}'i {t_range[0]}–{t_range[1]} m kalınlıkta çift) — yanlışsa {UNITS_HINT}")
+    rivals = [c[2] for c in cands if c[1] != k and c[0] >= frac - 0.1]
+    if rivals:
+        note += f"; DİKKAT: birim belirsiz, {'/'.join(rivals)} de olası"
+    return k, note
+
+
 def import_dxf(path, floors=1, floor_height=3.0, slab_thickness=0.2, window_sill=0.9,
                window_height=1.4, door_height=2.1, default_thickness=0.2, wall_t_range=(0.08, 0.5),
                max_opening=3.5, bare_gap=1.2, units=None, add_roof=True):
-    doc = ezdxf.readfile(str(path))
-    msp = doc.modelspace()
-    warnings = []
+    try:
+        doc = ezdxf.readfile(str(path))
+        msp = doc.modelspace()
+        warnings = []
+        ents = list(_entities(msp, warnings))
+        raw = _segments(ents, _role, 1.0)[0]["wall"]          # çizim biriminde (birim sezgisi için)
+    except (OSError, UnicodeDecodeError, ezdxf.DXFError) as ex:
+        raise ValueError(f"geçersiz DXF: {ex}") from ex
+    except (ValueError, TypeError, AttributeError) as ex:   # bozuk grup kodu / koordinat değeri
+        raise ValueError(f"geçersiz DXF: {ex}") from ex
+    if not raw:
+        raise ValueError("DUVAR/WALL katmanında çizgi bulunamadı")
+    if len(raw) > MAX_WALL_SEGMENTS:
+        raise ValueError(f"DUVAR katmanında {len(raw)} çizgi var (> {MAX_WALL_SEGMENTS}); planı sadeleştirin")
     ins = doc.header.get("$INSUNITS", 0)
+    guessed = units is None and ins not in INSUNITS_TO_M
     if units is not None:
-        scale = units
+        scale = float(units)
     elif ins in INSUNITS_TO_M:
         scale = INSUNITS_TO_M[ins]
     else:
-        ext = [abs(v) for e in msp.query("LINE") for v in (e.dxf.start.x, e.dxf.end.x)]
-        scale = 0.001 if ext and max(ext) > 500 else 1.0
-        warnings.append(f"$INSUNITS yok; birim {'mm' if scale == 0.001 else 'm'} varsayıldı")
-
-    segs, polys, texts = _segments(msp, _role, scale)
-    if not segs["wall"]:
-        raise ValueError("DUVAR/WALL katmanında çizgi bulunamadı")
+        scale, note = _guess_scale(raw, [e for e, lay in ents if e.dxftype() == "ARC" and _role(lay) == "wall"],
+                                   wall_t_range)
+        warnings.append(note)
+    segs, polys, texts = _segments(ents, _role, scale)
 
     pieces, singles = _pair_walls(segs["wall"], *wall_t_range, default_thickness)
     if singles:
@@ -334,6 +453,11 @@ def import_dxf(path, floors=1, floor_height=3.0, slab_thickness=0.2, window_sill
         outline = [(min(xs), min(ys)), (max(xs), min(ys)), (max(xs), max(ys)), (min(xs), max(ys))]
         warnings.append("KONTUR katmanı yok; brüt alan duvarların dış sınır kutusundan hesaplandı")
     outline = [[round(x, 4), round(y, 4)] for x, y in outline]
+    area = polygon_area([tuple(p) for p in outline])
+    if units is None and not 4 <= area <= 100_000:   # birim yanlış: 10×8 m plan mm'yi m sanınca 80 milyon m²
+        src = "sezgi" if guessed else f"$INSUNITS={ins}"
+        raise ValueError(f"birim doğrulanamadı; brüt alan {area:.4g} m² (birim {UNIT_NAMES.get(scale, scale)}, {src}) "
+                         f"makul değil — {UNITS_HINT}")
 
     unclassified = sum(1 for w in walls for o in w.openings if not o[3])
     if unclassified:
@@ -343,6 +467,6 @@ def import_dxf(path, floors=1, floor_height=3.0, slab_thickness=0.2, window_sill
                               door_height, add_roof)
 
     report = {"units_scale": scale, "walls": len(walls), "openings": sum(len(w.openings) for w in walls),
-              "rooms": len(rooms), "floors": floors, "outline_area": round(polygon_area([tuple(p) for p in outline]), 2),
+              "rooms": len(rooms), "floors": floors, "outline_area": round(area, 2),
               "warnings": warnings}
     return elements, report

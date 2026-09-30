@@ -13,14 +13,15 @@ Doğu dairesi batıdakinin x = 884 px eksenine göre aynası.
 
 import math
 
+from .generate import setback_checks, setback_warnings
 from .layout_check import local_box
 from .quantities import polygon_area
 
 S = 46.2                               # px / m
 PX0, PY0 = 2.0, 724.0                  # bina dış yüzü (sol, alt) px
 MX = 884.0                             # batı ↔ doğu daire ayna ekseni (px)
-PARCEL = (29.0, 26.0)
-OX, OY = 5.0, 5.0                      # binanın parseldeki yeri (m)
+PARCEL = (29.2, 26.0)
+OX, OY = 5.05, 5.05                    # binanın parseldeki yeri (m): dış yüz 5 m çekmenin içinde (dış yüzden ölçülür)
 FH, SLAB = 3.0, 0.2
 WH = FH - SLAB
 EXT, INT = 0.25, 0.10
@@ -112,7 +113,8 @@ def _wall(i, w):
             op.update(height=2.1, leaf=True)
         out.append(op)
     return {"type": "wall", "name": f"{LV}/D{i:02d}", "tag": "wall", "level": LV, "start": a, "end": b,
-            "thickness": t, "height": WH, "base_z": 0.0, "openings": out, "structural": t >= 0.2}
+            "thickness": t, "height": WH, "base_z": 0.0, "openings": out, "structural": t >= 0.2,
+            "exterior": t == EXT}   # ışıklığa bakan 15 cm çekirdek duvarı iç sayılır (mantolanmaz)
 
 
 def walls():
@@ -314,13 +316,14 @@ def report(els):
         if e["type"] == "room" and e.get("role") == "room":
             u = " ".join(e["name"].split("/")[1].split()[:2])
             units[u] = round(units.get(u, 0) + polygon_area([tuple(p) for p in e["points"]]), 2)
-    sb = {"front": round(min(ys), 3), "side_left": round(min(xs), 3), "side_right": round(PW - max(xs), 3), "rear": round(PD - max(ys), 3)}
+    sb, sb_detail, sb_ok = setback_checks(PW, PD, (min(xs), min(ys), max(xs), max(ys)), ZONING)
     checks = {"taks": {"value": round(area / A, 3), "limit": z["taks"], "ok": area / A <= z["taks"] + 1e-3},
               "kaks": {"value": round(area / A, 3), "limit": z["kaks"], "ok": area / A <= z["kaks"] + 1e-3},
-              "floors": {"value": 1, "limit": z["max_floors"], "ok": True}, "setbacks": sb}
+              "floors": {"value": 1, "limit": z["max_floors"], "ok": True}, "setbacks": sb,
+              "setbacks_detail": sb_detail, "setback_ok": sb_ok}
     return {"parcel_area": A, "footprint": (round(max(xs) - min(xs), 2), round(max(ys) - min(ys), 2)), "origin": (OX, OY),
             "floors": 1, "unit_type": "2+1", "unit_count": 3, "footprint_gross": round(area, 2), "gross_total": round(area, 2),
-            "unit_net_area": units, "checks": checks, "warnings": [], "layout": "apartment", "units_per_floor": 3,
+            "unit_net_area": units, "checks": checks, "warnings": setback_warnings(sb_detail), "layout": "apartment", "units_per_floor": 3,
             "note": "CAD kat planından birebir 3D — 3 daireli normal kat (2 × ayna 2+1 + güney 2+1), U merdiven + asansör "
                     "çekirdeği; pencereler ve kat yüksekliği varsayım. Şematik, mimar kontrolü gerekir."}
 

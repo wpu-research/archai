@@ -4,7 +4,8 @@ Akış: tanınan mahaller orijinal resmin üstüne numaralanır → Claude'a gö
 çizimdeki mobilya sembolleri (tür, piksel kutusu, duvara dayanan yüz) yapılandırılmış JSON olarak döner →
 mahal adları eleman listesine, mobilya parametrik iç mekân kataloğuna (interior.json) yerleşir.
 
-Anthropic kimlik bilgisi yoksa (ANTHROPIC_API_KEY / `ant auth login`) çağrı yapılmaz; tanıma geometriyle devam
+Görsel yalnız kullanıcı onayıyla gönderilir (brief image.vision = true; project._vision). Anthropic kimlik bilgisi
+yoksa (ANTHROPIC_API_KEY / `ant auth login`) çağrı yapılmaz; tanıma geometriyle devam
 eder. Model yalnız anlam verir: duvar/kapı konumları hiçbir zaman görüntü modelinden alınmaz (plan kaymaz).
 """
 
@@ -77,7 +78,11 @@ def available():
     """Kimlik bilgisi var mı (API anahtarı, OAuth jetonu ya da `ant auth login` profili)."""
     if os.environ.get("ANTHROPIC_API_KEY") or os.environ.get("ANTHROPIC_AUTH_TOKEN"):
         return True
-    return (Path.home() / ".config" / "anthropic").exists()
+    d = Path.home() / ".config" / "anthropic"          # boş dizin kimlik değildir: en az bir dosya olmalı
+    try:
+        return d.is_dir() and any(f.is_file() for f in d.rglob("*"))
+    except OSError:
+        return False
 
 
 def _room_labels(img, rooms, S, H, k):
@@ -109,7 +114,7 @@ def ask(img_path, rooms, S, client=None, model=MODEL):
     _room_labels(img, rooms, S, H, k)
     buf = io.BytesIO()
     img.save(buf, "PNG")
-    client = client or anthropic.Anthropic()
+    client = client or anthropic.Anthropic(timeout=90.0, max_retries=1)   # takılan istek sunucuyu bekletmesin
     resp = client.beta.messages.create(
         model=model, max_tokens=16000,
         betas=["server-side-fallback-2026-07-01"], fallbacks="default",
@@ -191,6 +196,18 @@ def furniture_objects(items, level, S, H):
     return objs
 
 
+LABEL_MAX = 40
+_LABEL_BAD = str.maketrans({c: " " for c in "/\\<>\"'`&"})
+
+
+def sanitize_label(label, kind=None):
+    """Model çıktısı mahal adı → güvenli kısa metin: kontrol karakterleri atılır, / \\ < > " ' ` & boşluk olur,
+    boşluklar sıkıştırılır, ≤ LABEL_MAX karakter; boş kalırsa türün adı (ROOM_TYPES) ya da "Mahal"."""
+    t = "".join(ch if ch.isprintable() else " " if ch.isspace() else "" for ch in str(label or ""))
+    t = " ".join(t.translate(_LABEL_BAD).split())[:LABEL_MAX].strip()
+    return t or ROOM_TYPES.get(kind, "Mahal")
+
+
 def apply(elements, data):
     """Mahal adlarını eleman listesine yaz. Numaralama = ilk kattaki mahal sırası; üst katlar aynı sırayla
     tekrarlanır. Aynı ad birden çok mahalde geçerse hepsi numaralanır (Banyo 1, Banyo 2)."""
@@ -198,11 +215,11 @@ def apply(elements, data):
     if not rooms:
         return elements
     first = [e for e in rooms if e["level"] == rooms[0]["level"]]
-    by_id = {r["id"]: r for r in data.get("rooms", [])}
+    by_id = {r.get("id"): r for r in data.get("rooms", []) if isinstance(r, dict)}
     names = []
     for i in range(1, len(first) + 1):
         v = by_id.get(i)
-        names.append(((v.get("label") or ROOM_TYPES.get(v.get("type"), "Mahal")).strip() or "Mahal") if v else f"Mahal {i}")
+        names.append(sanitize_label(v.get("label"), v.get("type")) if isinstance(v, dict) else f"Mahal {i}")
     total = {n: names.count(n) for n in names}
     seen = {}
     for i, n in enumerate(names):

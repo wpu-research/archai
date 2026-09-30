@@ -247,6 +247,80 @@ def _signature(d, co, label="YÜKLENİCİ"):
 
 # ================================================================== teklif
 
+DRAFT = " [taslak — firma tarafından düzenlenmeli]"
+DEFAULT_PAYMENT = [{"pct": 20, "desc": "sözleşme imzasında avans olarak"}, {"pct": 30, "desc": "kaba inşaat tamamlandığında"},
+                   {"pct": 30, "desc": "ince inşaat tamamlandığında"}, {"pct": 20, "desc": "geçici kabulde"}]
+
+
+def _pct(v):
+    return f"{v:g}".replace(".", ",")
+
+
+_POSS = {"bir": "i", "iki": "si", "üç": "ü", "dört": "ü", "beş": "i", "altı": "sı", "yedi": "si", "sekiz": "i",
+         "dokuz": "u", "on": "u", "yirmi": "si", "otuz": "u", "kırk": "ı", "elli": "si", "altmış": "ı", "yetmiş": "i",
+         "seksen": "i", "doksan": "ı", "yüz": "ü", "bin": "i", "sıfır": "ı"}
+
+
+def pct_poss(v):
+    """%20'si, %30'u, %25'i … (yüzde değerinin iyelik eki, okunuşun son kelimesine göre)."""
+    last = words_tr(int(round(v)) if abs(v - round(v)) < 1e-9 else int(str(v).split(".")[-1])).split()[-1]
+    return f"%{_pct(v)}'{_POSS.get(last, 'i')}"
+
+
+def _has(cost, *codes):
+    return any(r["enabled"] and r["quantity"] and r["code"] in codes for r in cost["rows"])
+
+
+def offer_terms(info, gfa, cost, city):
+    """Teklif şartları. Firma değerleri info["offer"] sözlüğünden okunur:
+      months, payment [{pct, desc}], court, validity_days, price_diff_pct.
+    Verilmeyen maddede varsayılan kullanılır ve metne DRAFT işareti düşer."""
+    of = info.get("offer") or {}
+    mark = lambda key: "" if of.get(key) not in (None, "", []) else DRAFT
+
+    months = int(of.get("months") or round(6 + gfa / 250))
+    pay = of.get("payment") or DEFAULT_PAYMENT
+    parts = []
+    for p in pay:
+        pct, desc = (p.get("pct"), p.get("desc", "")) if isinstance(p, dict) else (p[0], p[1] if len(p) > 1 else "")
+        parts.append(f"{pct_poss(float(pct))} {desc}".strip())
+    tot = sum(float(p.get("pct") if isinstance(p, dict) else p[0]) for p in pay)
+    pay_txt = ("Bedelin " + "; ".join(parts) + " ödenir. Avans, hakedişlerden oransal olarak mahsup edilir."
+               + ("" if abs(tot - 100) < 1e-6 else f" [ödeme oranları toplamı %{_pct(tot)} — kontrol edin]") + mark("payment"))
+    validity = int(of.get("validity_days") or 30)
+    diff = float(of.get("price_diff_pct") or 10)
+    court = of.get("court") or f"{city} Mahkemeleri ve İcra Daireleri"
+
+    structural = _has(cost, "KOL-01", "DUV-03") and _has(cost, "TEM-01", "TEM-02")
+    if structural:
+        scope = ("Teklif, Ek-1 cetvelinde yer alan imalatların malzeme, işçilik, nakliye, iskele ve yardımcı malzemeler "
+                 "dahil anahtar teslim yapımını kapsar. Temel, kazı, taşıyıcı sistem, merdiven ve asansör kalemleri "
+                 "(cetvelde 'AVAN yaklaşık' işaretli) şematik tasarımdan oran yöntemiyle hesaplanmıştır; miktarları kesin "
+                 "statik ve temel projesine göre kesinleşir.")
+    else:
+        scope = ("Teklif yalnız Ek-1 cetvelinde yer alan imalatların malzeme, işçilik, nakliye, iskele ve yardımcı "
+                 "malzemeler dahil yapımını kapsar; cetvelde yer almayan imalatlar (taşıyıcı sistem, temel vb.) teklif "
+                 "kapsamı dışındadır ve anahtar teslim değildir.")
+    return [
+        ("Kapsam", scope),
+        ("Ödeme", pay_txt),
+        ("Süre", f"İşin süresi, yapı ruhsatının alınması ve yer tesliminden itibaren {months} ({words_tr(months)}) aydır. "
+                 "Mücbir sebepler ve yapı sahibinden kaynaklanan gecikmeler süreye eklenir." + mark("months")),
+        ("Geçerlilik", f"Teklif, düzenlenme tarihinden itibaren {validity} ({words_tr(validity)}) gün geçerlidir."
+                       + mark("validity_days")),
+        ("Fiyat farkı", "Birim fiyatlar teklif tarihindeki piyasa fiyatlarına göredir. Sözleşme süresince ana "
+                        f"malzeme fiyatlarında {pct_poss(diff)} aşan değişimler, taraflarca belgelenerek fiyat farkı olarak "
+                        "değerlendirilir." + mark("price_diff_pct")),
+        ("Miktarlar", "Miktarlar şematik ön tasarım üzerinden hesaplanmış ön metrajdır. Kesin bedel, onaylı uygulama "
+                      "projeleri üzerinden yapılacak kesin metraj ile teklif birim fiyatları çarpılarak belirlenir."),
+        ("Hariç tutulanlar", "Ruhsat, iskân ve belediye harçları; zemin etüdü; proje müellifliği ve yapı denetim hizmet "
+                             "bedelleri; altyapı abonelik ve bağlantı bedelleri; mobilya, beyaz eşya ve dekorasyon; imar "
+                             "durumu veya zemin koşullarından doğabilecek ek imalatlar; kesin statik/temel projesine göre "
+                             "kesinleşen imalatlardaki miktar farkları."),
+        ("Uyuşmazlık", f"Doğabilecek uyuşmazlıklarda {court} yetkilidir." + mark("court")),
+    ]
+
+
 def write_offer_docx(path, project, report, qres, cost, company=None, customer=None, offer_no=None, info=None):
     info = info or {}
     co = {**(info.get("company") or {}), **(company or {})}
@@ -256,7 +330,6 @@ def write_offer_docx(path, project, report, qres, cost, company=None, customer=N
     no = offer_no or info.get("doc_no") or f"TKL-{date.today():%Y%m%d}-01"
     s = qres["summary"]
     gfa = s["gross_floor_area"]
-    months = round(6 + gfa / 250)
 
     d = _doc()
     _header_footer(d.sections[0], _ph(co.get("name"), "[Firma Unvanı]"), f"Teklif No: {no}")
@@ -279,7 +352,7 @@ def write_offer_docx(path, project, report, qres, cost, company=None, customer=N
 
     d.add_heading("1. YAPI BİLGİLERİ", 1)
     rows = [("Yapı yeri", yer or "—"), ("Ada / Parsel", ap)]
-    if report.get("parcel_area"):
+    if report.get("parcel_area") and not report.get("virtual_parcel"):   # hızlı modun sanal parseli basılmaz
         rows.append(("Parsel alanı", f"{num(report['parcel_area'])} m²"))
     rows += [("Toplam inşaat alanı (brüt)", f"{num(gfa)} m²"), ("Net kullanım alanı", f"{num(s['net_room_area'])} m²")]
     if report.get("floors"):
@@ -303,24 +376,7 @@ def write_offer_docx(path, project, report, qres, cost, company=None, customer=N
 
     d.add_heading("3. TEKLİF ŞARTLARI", 1)
     city = co.get("city") or site.get("il") or "[İl]"
-    terms = [
-        ("Proje seviyesi", AVAN_NOTE),
-        ("Kapsam", "Teklif, Ek-1 cetvelinde yer alan imalatların malzeme, işçilik, nakliye, iskele ve yardımcı "
-                   "malzemeler dahil anahtar teslim yapımını kapsar."),
-        ("Ödeme", "Bedelin %20'si sözleşme imzasında avans olarak; %30'u kaba inşaat, %30'u ince inşaat "
-                  "tamamlandığında; %20'si geçici kabulde ödenir. Avans, hakedişlerden oransal olarak mahsup edilir."),
-        ("Süre", f"İşin süresi, yapı ruhsatının alınması ve yer tesliminden itibaren {months} ({words_tr(months)}) aydır. "
-                 "Mücbir sebepler ve yapı sahibinden kaynaklanan gecikmeler süreye eklenir."),
-        ("Geçerlilik", "Teklif, düzenlenme tarihinden itibaren 30 (otuz) gün geçerlidir."),
-        ("Fiyat farkı", "Birim fiyatlar teklif tarihindeki piyasa fiyatlarına göredir. Sözleşme süresince ana "
-                        "malzeme fiyatlarında %10'u aşan değişimler, taraflarca belgelenerek fiyat farkı olarak değerlendirilir."),
-        ("Miktarlar", "Miktarlar şematik ön tasarım üzerinden hesaplanmış ön metrajdır. Kesin bedel, onaylı uygulama "
-                      "projeleri üzerinden yapılacak kesin metraj ile teklif birim fiyatları çarpılarak belirlenir."),
-        ("Hariç tutulanlar", "Ruhsat, iskân ve belediye harçları; zemin etüdü; proje müellifliği ve yapı denetim hizmet "
-                             "bedelleri; altyapı abonelik ve bağlantı bedelleri; mobilya, beyaz eşya ve dekorasyon; imar "
-                             "durumu veya zemin koşullarından doğabilecek ek imalatlar."),
-        ("Uyuşmazlık", f"Doğabilecek uyuşmazlıklarda {city} Mahkemeleri ve İcra Daireleri yetkilidir."),
-    ]
+    terms = [("Proje seviyesi", AVAN_NOTE), *offer_terms(info, gfa, cost, city)]
     for i, (h, txt) in enumerate(terms, 1):
         _numbered(d, f"3.{i}", txt, h)
     _para(d, "", space_after=0)
@@ -348,7 +404,8 @@ def write_offer_docx(path, project, report, qres, cost, company=None, customer=N
             rows.append(("", "", cur.upper(), "", "", "", ""))
             bold.append(len(rows) - 1)
         i += 1
-        rows.append((str(i), r["code"], r["name"], r["unit"], num(r["quantity"]), tl(r["unit_price"]), tl(r["amount"])))
+        rows.append((str(i), r["code"] + (" *" if r.get("approx") else ""), r["name"], r["unit"], num(r["quantity"]),
+                     tl(r["unit_price"]), tl(r["amount"])))
     for lab, v, b in [("TOPLAM", cost["subtotal"], True), (f"Genel giderler (%{cost['overhead_pct']:g})", cost["overhead"], False),
                       (f"Yüklenici kârı (%{cost['profit_pct']:g})", cost["profit"], False),
                       ("TOPLAM (KDV HARİÇ)", cost["total_before_vat"], True), (f"KDV (%{cost['vat_pct']:g})", cost["vat"], False),
@@ -359,6 +416,9 @@ def write_offer_docx(path, project, report, qres, cost, company=None, customer=N
     _table(d, rows, (1.3, 1.9, 10.8, 1.5, 2.4, 3.0, 3.4), align=("c", "c", "l", "c", "r", "r", "r"), bold_rows=bold, size=8.5)
     _para(d, "", space_after=0)
     _para(d, amount_in_words(cost["total"]), bold=True, size=9)
+    if any(r.get("approx") and r["enabled"] and r["quantity"] for r in cost["rows"]):
+        _para(d, "* AVAN yaklaşık kalem: miktar şematik tasarımdan oran yöntemiyle hesaplanmıştır (temel, taşıyıcı sistem, "
+                 "merdiven, asansör); kesin statik ve temel projesi sonrası kesinleşir.", size=8, italic=True)
     if cost.get("note"):
         _para(d, cost["note"], size=8, italic=True)
     _signature(d, co)
@@ -434,12 +494,20 @@ def write_docx(path, spec, cost=None, info=None):
 THIN = Side(style="thin", color="000000")
 BOX = Border(left=THIN, right=THIN, top=THIN, bottom=THIN)
 HEAD = PatternFill("solid", fgColor="D9D9D9")
+_XL_DANGER = ("=", "+", "-", "@", "\t", "\r")
+
+
+def _xl_safe(v):
+    """Kullanıcı / dosya kaynaklı metin hücreleri formül olarak yorumlanmasın (CSV/Excel enjeksiyonu)."""
+    if isinstance(v, str) and v.startswith(_XL_DANGER):
+        return "'" + v
+    return v
 
 
 def _xl_title(ws, title, info, ncols):
     co, site = info.get("company") or {}, info.get("site") or {}
     last = get_column_letter(ncols)
-    for r, val, font, al in [(1, _ph(co.get("name"), "[FİRMA UNVANI]").upper(), Font(name=FONT, bold=True, size=12), "left"),
+    for r, val, font, al in [(1, _xl_safe(_ph(co.get("name"), "[FİRMA UNVANI]").upper()), Font(name=FONT, bold=True, size=12), "left"),
                              (2, title, Font(name=FONT, bold=True, size=12), "center")]:
         ws.merge_cells(f"A{r}:{last}{r}")
         ws[f"A{r}"] = val
@@ -499,7 +567,7 @@ def write_xlsx(path, project_name, qres, cost, info=None):
             continue
         i += 1
         for j, v in enumerate([i, r["code"], r["name"], r["unit"], r["quantity"], r["unit_price"], f"=E{row}*F{row}"], 1):
-            c = ws.cell(row=row, column=j, value=v)
+            c = ws.cell(row=row, column=j, value=_xl_safe(v) if j < 7 else v)  # 7: bilinçli formül
             c.font, c.border = F(), BOX
             if j >= 5:
                 c.number_format = MONEY_XL
@@ -536,7 +604,7 @@ def write_xlsx(path, project_name, qres, cost, info=None):
     for col, lab, name in [(3, "HAZIRLAYAN", info.get("drawn_by")), (5, "KONTROL EDEN", info.get("checked_by")),
                            (7, "ONAYLAYAN", co.get("signatory") or info.get("approved_by"))]:
         for dr, v, b in ((0, lab, True), (1, name or "", False), (3, "İmza", False)):
-            c = ws.cell(row=row + dr, column=col, value=v)
+            c = ws.cell(row=row + dr, column=col, value=_xl_safe(v))
             c.font, c.alignment = F(bold=b), Alignment(horizontal="center")
     _xl_print(ws)
 
@@ -552,7 +620,7 @@ def write_xlsx(path, project_name, qres, cost, info=None):
                 m.get("length", m.get("width")), m.get("thickness"), m.get("gross_area", m.get("area")), m.get("opening_area"),
                 m.get("net_area"), m.get("volume"), m.get("count")]
         for j, v in enumerate(vals, 1):
-            c = ws.cell(row=row, column=j, value=v)
+            c = ws.cell(row=row, column=j, value=_xl_safe(v))
             c.font, c.border = F(), BOX
             if 5 <= j <= 10 and v is not None:
                 c.number_format = MONEY_XL
@@ -566,7 +634,7 @@ def write_xlsx(path, project_name, qres, cost, info=None):
     row = 6
     for r in qres["rooms"]:
         for j, v in enumerate([r["level"], " / ".join(r["name"].split("/")[1:]), r["area"], r["perimeter"]], 1):
-            c = ws.cell(row=row, column=j, value=v)
+            c = ws.cell(row=row, column=j, value=_xl_safe(v))
             c.font, c.border = F(), BOX
             if j > 2:
                 c.number_format = MONEY_XL

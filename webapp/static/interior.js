@@ -6,6 +6,8 @@ import {RoundedBoxGeometry} from 'three/addons/geometries/RoundedBoxGeometry.js'
 import {GTAOPass} from 'three/addons/postprocessing/GTAOPass.js';
 
 export function createInterior(ctx) {
+  // innerHTML'e giren kayıt kaynaklı değerler için HTML kaçışı (XSS)
+  const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
   const {THREE, V, $, $$, n2, api, getProject, toWorld, polyArea, centroid, inPoly, isWalking} = ctx;
   const A = 'assets/';
   const texLoader = new THREE.TextureLoader(), gltf = new GLTFLoader();
@@ -1119,14 +1121,14 @@ export function createInterior(ctx) {
     for (const r of (V.elements || []).filter(e => e.type === 'room')) {
       const id = S.design.floors[r.name] || defaultFloor(r.name); tot[id] = (tot[id] || 0) + polyArea(r.points);
     }
-    el.innerHTML = Object.entries(tot).sort((a, b) => b[1] - a[1]).map(([id, a]) => `<div><span>${FLOORS.find(f => f.id === id)?.name || id}</span><b>${n2(a)} m²</b></div>`).join('')
+    el.innerHTML = Object.entries(tot).sort((a, b) => b[1] - a[1]).map(([id, a]) => `<div><span>${esc(FLOORS.find(f => f.id === id)?.name || id)}</span><b>${n2(a)} m²</b></div>`).join('')
       + `<div class="muted"><span>Yerleştirilen nesne</span><b>${S.design.objects.length}</b></div>`;
   }
   function renderSel() {
     const el = $('#isel'); if (!el) return;
     if (!S.sel) { el.innerHTML = ''; return; }
     const it = ITEMS.find(i => i.id === S.sel.userData.item.kind);
-    el.innerHTML = `<div class="selbar"><b>${it?.name || ''}</b><button class="vbtn" id="irot">⟳ 90°</button><button class="vbtn" id="idel">✕ SİL</button></div>`;
+    el.innerHTML = `<div class="selbar"><b>${esc(it?.name || '')}</b><button class="vbtn" id="irot">⟳ 90°</button><button class="vbtn" id="idel">✕ SİL</button></div>`;
     $('#irot').onclick = () => rotateSel(); $('#idel').onclick = deleteSel;
   }
   function renderPanel() {

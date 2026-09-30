@@ -4,6 +4,7 @@ Ayarlar (adjust) sözlüğü:
   overrides   {code: unit_price}      — kalemin birim fiyatını değiştir
   variants    {code: variant_id}      — varyantlı kalemde seçim (ör. ZEM-01: "seramik")
   disabled    [code, ...]             — kalemi hesaptan çıkar
+  enabled     [code, ...]             — disabled listesinde olsa da kalemi dahil et
   qty_overrides {code: miktar}        — metrajı elle düzelt
   extra_items [{code, group, name, unit, unit_price, quantity}]  — elle kalem
   overhead_pct / profit_pct / vat_pct — oranlar
@@ -27,10 +28,81 @@ def _filters(rule):
     return {k: v for k, v in rule.items() if k not in ("metric", "factor")}
 
 
+def _num(v, what, lo=0.0, hi=None):
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or v != v or v in (float("inf"), float("-inf")):
+        raise ValueError(f"{what} sayı olmalı (verilen: {v!r})")
+    if v < lo or (hi is not None and v > hi):
+        raise ValueError(f"{what} {lo:g}–{hi:g} aralığında olmalı (verilen: {v:g})" if hi is not None
+                         else f"{what} {lo:g} veya daha büyük olmalı (verilen: {v:g})")
+    return v
+
+
+ADJUST_KEYS = {"overrides", "variants", "disabled", "enabled", "qty_overrides", "extra_items", "overhead_pct",
+               "profit_pct", "vat_pct", "approx_class"}
+
+
+def validate_adjust(adjust, prices=None):
+    """Fiyat ayarı sözlüğünü doğrula; ihlalde Türkçe mesajlı ValueError. Geçerliyse aynı sözlüğü döndürür."""
+    if adjust is None:
+        return {}
+    if not isinstance(adjust, dict):
+        raise ValueError("fiyat ayarı (adjust) bir sözlük olmalı")
+    unknown = set(adjust) - ADJUST_KEYS
+    if unknown:
+        raise ValueError(f"bilinmeyen fiyat ayarı alanı: {', '.join(sorted(unknown))}")
+    for k in ("overhead_pct", "profit_pct", "vat_pct"):
+        if k in adjust and adjust[k] is not None:
+            _num(adjust[k], {"overhead_pct": "genel gider oranı", "profit_pct": "kâr oranı", "vat_pct": "KDV oranı"}[k], 0, 100)
+    for k, label in (("overrides", "birim fiyat"), ("qty_overrides", "miktar")):
+        d = adjust.get(k)
+        if d is None:
+            continue
+        if not isinstance(d, dict):
+            raise ValueError(f"{k} {{kod: sayı}} sözlüğü olmalı")
+        for code, v in d.items():
+            if not isinstance(code, str) or not code:
+                raise ValueError(f"{k}: kalem kodu metin olmalı")
+            _num(v, f"{code} {label}")
+    items = {it["code"]: it for it in (prices or load_prices())["items"]}
+    var = adjust.get("variants")
+    if var is not None:
+        if not isinstance(var, dict):
+            raise ValueError("variants {kod: varyant} sözlüğü olmalı")
+        for code, vid in var.items():
+            it = items.get(code)
+            if it is None or not it.get("variants"):
+                raise ValueError(f"{code} varyantlı bir kalem değil")
+            if vid not in {v["id"] for v in it["variants"]}:
+                raise ValueError(f"{code} için geçersiz varyant: {vid!r} "
+                                 f"(seçenekler: {', '.join(v['id'] for v in it['variants'])})")
+    for k in ("disabled", "enabled"):
+        lst = adjust.get(k)
+        if lst is None:
+            continue
+        if not isinstance(lst, (list, tuple)) or not all(isinstance(c, str) for c in lst):
+            raise ValueError(f"{k} kalem kodu listesi olmalı")
+    ex = adjust.get("extra_items")
+    if ex is not None:
+        if not isinstance(ex, list):
+            raise ValueError("extra_items liste olmalı")
+        for i, x in enumerate(ex, 1):
+            if not isinstance(x, dict):
+                raise ValueError(f"ek kalem {i}: sözlük olmalı")
+            if not isinstance(x.get("name"), str) or not x["name"].strip():
+                raise ValueError(f"ek kalem {i}: ad (name) boş olamaz")
+            if "unit" in x and not isinstance(x["unit"], str):
+                raise ValueError(f"ek kalem {i}: birim (unit) metin olmalı")
+            _num(x.get("quantity", 0), f"ek kalem {i} miktarı")
+            _num(x.get("unit_price", 0), f"ek kalem {i} birim fiyatı")
+    if "approx_class" in adjust and adjust["approx_class"] is not None and not isinstance(adjust["approx_class"], str):
+        raise ValueError("approx_class metin olmalı (ör. \"IV-A\")")
+    return adjust
+
+
 def estimate(qres, prices=None, adjust=None):
     """qres: quantities.compute() çıktısı. Dönen yapı hem UI'da hem raporlarda kullanılır."""
     prices = copy.deepcopy(prices or load_prices())
-    adj = adjust or {}
+    adj = validate_adjust(adjust, prices) or {}
     lines = qres["lines"]
     rows = []
     for it in prices["items"]:
@@ -43,8 +115,9 @@ def estimate(qres, prices=None, adjust=None):
         rule = it["qty"]
         auto_qty = Q.quantity(lines, rule["metric"], rule.get("factor", 1.0), **_filters(rule))
         qty = adj.get("qty_overrides", {}).get(code, auto_qty)
-        enabled = code not in adj.get("disabled", [])
+        enabled = code not in adj.get("disabled", []) or code in adj.get("enabled", [])
         rows.append({
+            "approx": bool(it.get("approx")),
             "code": code, "group": it["group"], "name": it["name"] + (f" — {variant['name']}" if variant else ""),
             "unit": it["unit"], "quantity": round(qty, 2), "auto_quantity": round(auto_qty, 2),
             "unit_price": unit_price, "amount": round(qty * unit_price, 2) if enabled else 0.0,
@@ -54,7 +127,7 @@ def estimate(qres, prices=None, adjust=None):
         })
     for x in adj.get("extra_items", []):
         q, p = float(x.get("quantity", 0)), float(x.get("unit_price", 0))
-        rows.append({"code": x.get("code", "EK"), "group": x.get("group", "Ek kalemler"), "name": x["name"],
+        rows.append({"approx": False, "code": x.get("code", "EK"), "group": x.get("group", "Ek kalemler"), "name": x["name"],
                      "unit": x.get("unit", "götürü"), "quantity": q, "auto_quantity": None, "unit_price": p,
                      "amount": round(q * p, 2), "enabled": True, "variant": None, "variants": [], "overridden": True})
 

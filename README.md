@@ -70,6 +70,38 @@ mobilya parametrik kataloğa yerleşir. Geometri hiçbir zaman görüntü modeli
 
 Blender 4.5 LTS: `~/Applications/blender-4.5.14-linux-x64/` (başka yer için `ARCHAI_BLENDER`).
 
+## Güvenlik ve çalıştırma
+
+| Ortam değişkeni | Anlamı |
+|---|---|
+| `ARCHAI_TOKEN` | Erişim anahtarı. Ayarlıysa **her istek** (arayüz ve statik dosyalar dahil) anahtar ister: `Authorization: Bearer …`, `X-ArchAI-Token: …`, `?token=…` ya da `archai_token` çerezi. `?token=` ile gelinince HttpOnly + SameSite=Strict çerez yazılır, sonraki istekler onu kullanır. **Ayarlı değilse yalnız bu makineden (127.0.0.1 / ::1) erişilir**, uzak istemciler 403 alır. |
+| `ARCHAI_OUT` | Çıktı kökü (varsayılan `out/`): projeler `ARCHAI_OUT/projects/`, ayarlar `ARCHAI_OUT/settings.json`. Testler geçici dizin kullanır. |
+| `ARCHAI_ALLOWED_HOSTS` | Virgüllü ek `Host` adları (ör. `ofis-pc.local,archai.lan`). Loopback adları ve IP adresleri her zaman kabul edilir; diğer adlar 400 alır (DNS rebinding koruması). |
+| `ARCHAI_BLENDER` | Blender yürütülebilir dosyası (Cycles render kuyruğu). |
+| `ARCHAI_RENDER_TIMEOUT` | Tek render işinin süre sınırı, sn (varsayılan 1800); aşılırsa süreç öldürülür, iş `error` olur. |
+
+Yerel kullanım (varsayılan, anahtar gerekmez):
+
+```bash
+uv run uvicorn webapp.app:app --port 8000            # http://localhost:8000
+```
+
+Yerel ağdan (LAN) erişim — anahtar zorunlu:
+
+```bash
+ARCHAI_TOKEN=$(openssl rand -hex 16) uv run uvicorn webapp.app:app --host 0.0.0.0 --port 8000
+# diğer cihazda: http://192.168.1.20:8000/?token=<ANAHTAR>   (ilk açılıştan sonra çerez yeterli)
+```
+
+- Durum değiştiren isteklerde (POST/PUT/DELETE) `Origin` başlığı varsa `Host` ile aynı olmalı (çapraz site istekleri 403).
+  Ters vekil (reverse proxy) arkasında `Host` başlığını koruyun.
+- Yükleme sınırları: DXF / resim plan **25 MB** (413); Cycles sahnesi (`/real`) **300 MB**; render kuyruğu en çok
+  **8** bekleyen iş (dolunca 429); bir işte en çok 200 ışık. `meta` / `job` JSON'u şemaya uymazsa 422.
+- Proje kimlikleri `YYYYMMDD-HHMMSS-ad-xxxx` biçimindedir; başka biçimdeki klasörler (elle kopyalanmış eski kayıtlar)
+  API'den açılmaz. Bozuk `project.json` arşiv listesinde atlanır.
+- Hata yanıtları Türkçe ve tek satırdır; beklenmeyen hatalar ayrıntı sızdırmadan `500 iç hata` döner (ayrıntı sunucu logunda).
+- Excel çıktısında `= + - @` ile başlayan metinler formül olarak yorumlanmasın diye başına `'` konur.
+
 ## Sınırlar — bilinmesi gerekenler
 
 - Tüm çıktılar **avan proje** seviyesindedir (paftalar, teklif, şartname, Excel bunu yazar): statik, tesisat ve
@@ -82,5 +114,6 @@ Blender 4.5 LTS: `~/Applications/blender-4.5.14-linux-x64/` (başka yer için `A
 - Kat planı kural tabanlı: kat başına 1–2 daire, tek çekirdek; ısıtma, statik, tesisat projesi üretilmez.
 - Birim fiyatlar örnektir. Mekanik/elektrik tesisatı m² başına götürü.
 - DXF içe aktarma katman kurallarına dayanır; DWG önce DXF'e çevrilmelidir. Eğik/eğrisel duvarlar yaklaşık.
-- Köprü localhost'ta auth'suz `exec_python` çalıştırır; web uygulamasında kimlik doğrulama yok — yalnız yerel kullanım.
+- Blender köprüsü localhost'ta auth'suz `exec_python` çalıştırır — yalnız yerel kullanım. Web uygulaması için
+  bkz. **Güvenlik ve çalıştırma** (`ARCHAI_TOKEN` olmadan yalnız loopback).
 - Üçüncü taraf referans görseller (Instagram karesi) repoda tutulmaz; `.gitignore`da.

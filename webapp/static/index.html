@@ -250,6 +250,7 @@ summary{cursor:pointer;padding:9px 0;font:500 12px var(--mono);letter-spacing:.0
     <div data-show="dxf" hidden>
       <label for="file">Plan · .dxf (DUVAR · PENCERE · KAPI · MAHAL) veya resim (.png/.jpg — CAD ekran görüntüsü, tarama)</label><input id="file" type="file" accept=".dxf,.png,.jpg,.jpeg,.webp">
       <div class="r2"><div><label for="df">Kat sayısı</label><input id="df" type="number" value="1"></div><div><label for="dfh">Kat yüksekliği · m</label><input id="dfh" type="number" step="0.1" value="3.0"></div></div>
+      <label class="check"><input id="vis" type="checkbox"> Claude görsel okuması (planı Anthropic'e gönderir)</label>
     </div>
     <details class="kunye"><summary>PROJE KÜNYESİ · YER · İMZALAR</summary>
       <div class="r3"><div><label for="s_il">İl</label><input id="s_il" data-k="site.il"></div><div><label for="s_ilce">İlçe</label><input id="s_ilce" data-k="site.ilce"></div><div><label for="s_mah">Mahalle</label><input id="s_mah" data-k="site.mahalle"></div></div>
@@ -330,6 +331,8 @@ import {createInterior} from './interior.js';
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const tl=v=>v==null?'—':v.toLocaleString('tr-TR',{style:'currency',currency:'TRY',maximumFractionDigits:0});
 const n2=v=>v==null?'—':Number(v).toLocaleString('tr-TR',{maximumFractionDigits:2});
+// innerHTML / şablon içine giren kullanıcı, dosya ve model kaynaklı her değer bundan geçer (XSS)
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const SHEET={vaziyet:'Vaziyet planı',zemin_kat_plani:'Zemin kat planı',normal_kat_plani:'Normal kat planı',kesit_AA:'A-A kesiti',on_gorunus:'Ön görünüş'};
 let mode='land', P=null, tab='ozet', adj={}, timer=null;
 
@@ -705,7 +708,9 @@ function demoElements(){  // proje yokken: demo kule
 $$('#mode button').forEach(b=>b.onclick=()=>{mode=b.dataset.m;$$('#mode button').forEach(x=>x.classList.toggle('on',x===b));
   $$('[data-show]').forEach(el=>el.hidden=!el.dataset.show.split(' ').includes(mode));});
 $$('#tabs button').forEach(b=>b.onclick=()=>{tab=b.dataset.t;$$('#tabs button').forEach(x=>x.classList.toggle('on',x===b));render();});
-async function api(url,opt){const r=await fetch(url,opt);const j=await r.json().catch(()=>({detail:r.statusText}));if(!r.ok)throw new Error(j.detail||r.statusText);return j;}
+async function api(url,opt){const r=await fetch(url,opt);const j=await r.json().catch(()=>({detail:r.statusText}));
+  if(r.status===401)throw new Error('erişim anahtarı gerekli: adresi ?token=ANAHTAR ile açın');
+  if(!r.ok)throw new Error(typeof j.detail==='string'?j.detail:(r.statusText||'hata'));return j;}
 const STEPS=['PLAN ÜRETİLİYOR','METRAJ ÇIKARILIYOR','MALİYET HESAPLANIYOR','ÇİZİMLER HAZIRLANIYOR','BELGELER YAZILIYOR'];
 function busy(on){
   $('#go').disabled=on; $('#scan').style.display=on?'block':'none'; $('#status').classList.toggle('busy',on);
@@ -722,7 +727,7 @@ $('#go').onclick=async()=>{
   try{
     if(mode==='dxf'){
       const f=$('#file').files[0];if(!f)throw new Error('DXF veya resim plan seçin');
-      const fd=new FormData();fd.append('file',f);fd.append('name',extra.name);fd.append('floors',$('#df').value);fd.append('floor_height',$('#dfh').value);fd.append('render_3d',extra.render_3d);fd.append('meta',JSON.stringify(kunye()));
+      const fd=new FormData();fd.append('file',f);fd.append('name',extra.name);fd.append('floors',$('#df').value);fd.append('floor_height',$('#dfh').value);fd.append('render_3d',extra.render_3d);fd.append('meta',JSON.stringify({...kunye(),...($('#vis').checked?{vision:true}:{})}));
       P=await api('/api/projects/dxf',{method:'POST',body:fd});
     }else{
       const body=mode==='land'?{...extra,parcel:{width:v('#pw'),depth:v('#pd')},zoning:{taks:v('#taks'),kaks:v('#kaks'),front:v('#fr'),side:v('#sd'),rear:v('#rr'),max_floors:v('#mf'),floor_height:v('#fh')},program}
@@ -781,11 +786,11 @@ function drawJobs(){
   $('#jobs').innerHTML=Object.values(TR.jobs).filter(j=>!j.dismissed).map(j=>{
     const pct=j.status==='done'?100:Math.round(100*(j.done||0)/(j.total||1));
     const head=j.preset==='maket'?'⌂ MAKET FOTO':'📷 GERÇEK FOTO';
-    const st={queued:`sırada${j.queued_ahead?` (önünde ${j.queued_ahead})`:''}`,running:'Cycles ışık hesaplıyor…',
-      done:`hazır · ${j.elapsed}s · ${j.device||''}`,error:'hata: '+(j.error||'')}[j.status]||j.status;
-    return `<div class="job"><b>${head}</b><small>${st}</small><div class="bar"><i style="width:${pct}%"></i></div>
-      ${j.status==='done'?`<button class="vbtn truebtn" data-open-job="${j.id}">FOTOĞRAFI AÇ</button>`:''}
-      ${j.status==='done'||j.status==='error'?`<button class="vbtn" data-dismiss="${j.id}">KAPAT</button>`:''}</div>`;}).join('');
+    const st=esc({queued:`sırada${j.queued_ahead?` (önünde ${j.queued_ahead})`:''}`,running:'Cycles ışık hesaplıyor…',
+      done:`hazır · ${j.elapsed}s · ${j.device||''}`,error:'hata: '+(j.error||'')}[j.status]||j.status);
+    return `<div class="job"><b>${head}</b><small>${st}</small><div class="bar"><i style="width:${+pct||0}%"></i></div>
+      ${j.status==='done'?`<button class="vbtn truebtn" data-open-job="${esc(j.id)}">FOTOĞRAFI AÇ</button>`:''}
+      ${j.status==='done'||j.status==='error'?`<button class="vbtn" data-dismiss="${esc(j.id)}">KAPAT</button>`:''}</div>`;}).join('');
   $$('[data-open-job]').forEach(b=>b.onclick=()=>openJob(TR.jobs[b.dataset.openJob]));
   $$('[data-dismiss]').forEach(b=>b.onclick=()=>{TR.jobs[b.dataset.dismiss].dismissed=true;drawJobs();});
 }
@@ -804,10 +809,10 @@ async function loaded(){
   build(await api(`/api/projects/${P.id}/elements`),P.zoning); await IN.load(P.id); hud(); render(); recent();
   if(!Q_.get('walk')&&!Q_.get('nointro'))intro();
 }
-async function openP(id){P=await api('/api/projects/'+id);await loaded();}
+async function openP(id){P=await api('/api/projects/'+encodeURIComponent(id));await loaded();}
 async function recent(){
   const l=await api('/api/projects');
-  $('#recent').innerHTML=l.length?l.slice(0,8).map(p=>`<a href="#${p.id}" data-open="${p.id}"><span>${p.name}</span><small>${n2(p.area)} m² · ${tl(p.total)}</small></a>`).join(''):'<div class="empty" style="padding:14px">ARŞİV BOŞ</div>';
+  $('#recent').innerHTML=l.length?l.slice(0,8).map(p=>`<a href="#${esc(p.id)}" data-open="${esc(p.id)}"><span>${esc(p.name)}</span><small>${esc(n2(p.area))} m² · ${esc(tl(p.total))}</small></a>`).join(''):'<div class="empty" style="padding:14px">ARŞİV BOŞ</div>';
   $$('[data-open]').forEach(a=>a.onclick=e=>{e.preventDefault();openP(a.dataset.open);});
 }
 function hud(){
@@ -822,44 +827,44 @@ function render(){
   const c=P.cost,s=P.summary,r=P.report;
   if(tab==='ozet'){
     const lab={taks:'TAKS',kaks:'KAKS / EMSAL',floors:'KAT SAYISI'};
-    const ch=r.checks?Object.entries(r.checks).filter(([k,x])=>'ok' in x).map(([k,x])=>`<tr><td class="mono">${lab[k]||k}</td><td class="n">${x.limit}</td><td class="n">${x.value}</td><td class="n"><span class="flag ${x.ok?'ok':'bad'}">${x.ok?'UYGUN':'AŞIM'}</span></td></tr>`).join(''):'';
+    const ch=r.checks?Object.entries(r.checks).filter(([k,x])=>x&&typeof x==='object'&&'ok' in x).map(([k,x])=>`<tr><td class="mono">${esc(lab[k]||k)}</td><td class="n">${esc(x.limit)}</td><td class="n">${esc(x.value)}</td><td class="n"><span class="flag ${x.ok?'ok':'bad'}">${x.ok?'UYGUN':'AŞIM'}</span></td></tr>`).join(''):'';
     const onay=r.source==='image'&&P.files.tanima_onay_png?`<p class="sec-t">RESİMDEN TANINAN PLAN · ONAY</p>
-      <p class="note mono">ÖLÇEK ${n2(r.px_per_m)} px/m (${r.scale_method}) · ${r.walls} DUVAR · ${r.openings} AÇIKLIK (${r.windows||0} PENCERE) · ${r.rooms} MAHAL · CLAUDE GÖRSEL OKUMA: ${r.vision==='claude'?`AÇIK (${r.furniture||0} MOBİLYA)`:(r.vision||'kapalı').toUpperCase()} — sarı duvar, kırmızı kapı, camgöbeği pencere, mavi mahal; hatalıysa ölçek/ızgara verip yeniden yükleyin</p>
-      <img class="onay" src="${P.files.tanima_onay_png}" alt="Tanınan plan" data-z="${P.files.tanima_onay_png}" style="width:100%;border-radius:8px;margin:6px 0 14px">`:'';
-    out.innerHTML=`${(r.warnings||[]).map(x=>`<div class="warnbox">⚠ ${x}</div>`).join('')}${onay}
+      <p class="note mono">ÖLÇEK ${esc(n2(r.px_per_m))} px/m (${esc(r.scale_method)}) · ${esc(r.walls)} DUVAR · ${esc(r.openings)} AÇIKLIK (${esc(r.windows||0)} PENCERE) · ${esc(r.rooms)} MAHAL · CLAUDE GÖRSEL OKUMA: ${r.vision==='claude'?`AÇIK (${esc(r.furniture||0)} MOBİLYA)`:esc(String(r.vision||'kapalı').toUpperCase())} — sarı duvar, kırmızı kapı, camgöbeği pencere, mavi mahal; hatalıysa ölçek/ızgara verip yeniden yükleyin</p>
+      <img class="onay" src="${esc(P.files.tanima_onay_png)}" alt="Tanınan plan" data-z="${esc(P.files.tanima_onay_png)}" style="width:100%;border-radius:8px;margin:6px 0 14px">`:'';
+    out.innerHTML=`${(r.warnings||[]).map(x=>`<div class="warnbox">⚠ ${esc(x)}</div>`).join('')}${onay}
       <div class="kpis">
         <div class="kpi hl"><small>Genel toplam · KDV dahil</small><b>${tl(c.total)}</b></div>
         <div class="kpi"><small>m² birim · KDV dahil</small><b>${tl(c.per_m2)}</b></div>
         <div class="kpi"><small>Brüt inşaat alanı</small><b>${n2(s.gross_floor_area)} m²</b></div>
         <div class="kpi"><small>Net kullanım alanı</small><b>${n2(s.net_room_area)} m²</b></div>
-        <div class="kpi"><small>Kat · daire</small><b>${r.floors??'—'} · ${r.unit_count||'—'} ${r.unit_type||''}</b></div></div>
+        <div class="kpi"><small>Kat · daire</small><b>${esc(r.floors??'—')} · ${esc(r.unit_count||'—')} ${esc(r.unit_type||'')}</b></div></div>
       ${ch?`<p class="sec-t">İMAR KONTROLÜ</p><table><tr><th>Kriter</th><th class="n">İzin</th><th class="n">Proje</th><th class="n">Durum</th></tr>${ch}</table>
-      <p class="note mono">ÇEKMELER · ÖN ${r.checks.setbacks.front} m · SOL ${r.checks.setbacks.side_left} m · SAĞ ${r.checks.setbacks.side_right} m · ARKA ${r.checks.setbacks.rear} m</p>`:''}
-      <p class="note">${r.note||''} ${c.note||''}</p>`;
+      <p class="note mono">ÇEKMELER · ÖN ${esc(r.checks.setbacks.front)} m · SOL ${esc(r.checks.setbacks.side_left)} m · SAĞ ${esc(r.checks.setbacks.side_right)} m · ARKA ${esc(r.checks.setbacks.rear)} m</p>`:''}
+      <p class="note">${esc(r.note||'')} ${esc(c.note||'')}</p>`;
   }else if(tab==='cizim'){
     const nm=x=>SHEET[x.name.replace(/^\d+_/,'')]||x.name;
-    out.innerHTML=`<div style="margin-bottom:14px"><a class="ghost" href="${P.files.cizim_pdf}" target="_blank">↓ TÜM PAFTALAR · PDF A3</a></div>
-      <div class="sheets">${P.sheets.map(x=>`<div class="sheet"><img src="${x.png}" alt="${nm(x)}" data-z="${x.png}"><div><span>${nm(x)}</span><a href="${x.dxf}">DXF ↓</a></div></div>`).join('')}</div>`;
+    out.innerHTML=`<div style="margin-bottom:14px"><a class="ghost" href="${esc(P.files.cizim_pdf)}" target="_blank">↓ TÜM PAFTALAR · PDF A3</a></div>
+      <div class="sheets">${P.sheets.map(x=>`<div class="sheet"><img src="${esc(x.png)}" alt="${esc(nm(x))}" data-z="${esc(x.png)}"><div><span>${esc(nm(x))}</span><a href="${esc(x.dxf)}">DXF ↓</a></div></div>`).join('')}</div>`;
     $$('[data-z]').forEach(i=>i.onclick=()=>{$('#zoom img').src=i.dataset.z;$('#zoom img').className='bp';$('#zoom').style.display='flex';});
   }else if(tab==='metraj'){
     const rows=[['Brüt inşaat alanı',s.gross_floor_area,'m²'],['Net mahal alanı',s.net_room_area,'m²'],['Duvar aks uzunluğu',s.wall_length,'m'],['Net duvar alanı',s.wall_net_area,'m²'],['Duvar hacmi',s.wall_volume,'m³'],['Pencere',s.window_count,'adet'],['Pencere alanı',s.window_area,'m²'],['Kapı',s.door_count,'adet'],['Çatı alanı',s.roof_area,'m²']];
     const lv={};P.rooms.forEach(x=>(lv[x.level]=lv[x.level]||[]).push(x));
-    out.innerHTML=`<div class="cols" style="margin-top:0"><div><p class="sec-t">MAHAL LİSTESİ</p>${Object.entries(lv).map(([l,rs],i)=>`<details ${i===0?'open':''}><summary>${l.toUpperCase()} — ${n2(rs.reduce((a,b)=>a+b.area,0))} m²</summary><table>${rs.map(x=>`<tr><td>${x.name.split('/').slice(1).join(' / ')}</td><td class="n">${n2(x.area)} m²</td></tr>`).join('')}</table></details>`).join('')}</div>
-      <div><p class="sec-t">ÖZET METRAJ</p><table>${rows.map(x=>`<tr><td>${x[0]}</td><td class="n">${n2(x[1])}</td><td class="mono" style="color:var(--mute)">${x[2]}</td></tr>`).join('')}</table></div></div>`;
+    out.innerHTML=`<div class="cols" style="margin-top:0"><div><p class="sec-t">MAHAL LİSTESİ</p>${Object.entries(lv).map(([l,rs],i)=>`<details ${i===0?'open':''}><summary>${esc(String(l).toUpperCase())} — ${n2(rs.reduce((a,b)=>a+b.area,0))} m²</summary><table>${rs.map(x=>`<tr><td>${esc(x.name.split('/').slice(1).join(' / '))}</td><td class="n">${n2(x.area)} m²</td></tr>`).join('')}</table></details>`).join('')}</div>
+      <div><p class="sec-t">ÖZET METRAJ</p><table>${rows.map(x=>`<tr><td>${esc(x[0])}</td><td class="n">${n2(x[1])}</td><td class="mono" style="color:var(--mute)">${x[2]}</td></tr>`).join('')}</table></div></div>`;
   }else if(tab==='maliyet'){
     out.innerHTML=`<div class="scroll"><table><tr><th></th><th>Poz</th><th>İmalat</th><th class="n">Miktar</th><th>Birim</th><th class="n">Birim fiyat ₺</th><th class="n">Tutar</th></tr>
-      ${c.rows.map(x=>`<tr style="${x.enabled?'':'opacity:.4'}"><td><input type="checkbox" style="width:16px;accent-color:var(--cy)" ${x.enabled?'checked':''} data-dis="${x.code}" aria-label="${x.code} dahil"></td><td class="code">${x.code}</td>
-      <td>${x.variants.length?`<select data-var="${x.code}">${x.variants.map(v=>`<option value="${v.id}" ${v.id===x.variant?'selected':''}>${x.name.split(' — ')[0]} — ${v.name}</option>`).join('')}</select>`:x.name}</td>
-      <td class="n">${x.auto_quantity==null?n2(x.quantity):`<input class="num" data-qty="${x.code}" value="${x.quantity}" title="Otomatik: ${n2(x.auto_quantity)}">`}</td><td class="mono" style="color:var(--mute)">${x.unit}</td>
-      <td class="n">${x.auto_quantity==null?n2(x.unit_price):`<input class="num" data-up="${x.code}" value="${x.unit_price}">`}</td><td class="n">${tl(x.amount)}</td></tr>`).join('')}</table></div>
+      ${c.rows.map(x=>`<tr style="${x.enabled?'':'opacity:.4'}"><td><input type="checkbox" style="width:16px;accent-color:var(--cy)" ${x.enabled?'checked':''} data-dis="${esc(x.code)}" aria-label="${esc(x.code)} dahil"></td><td class="code">${esc(x.code)}</td>
+      <td>${x.variants.length?`<select data-var="${esc(x.code)}">${x.variants.map(v=>`<option value="${esc(v.id)}" ${v.id===x.variant?'selected':''}>${esc(x.name.split(' — ')[0])} — ${esc(v.name)}</option>`).join('')}</select>`:esc(x.name)}</td>
+      <td class="n">${x.auto_quantity==null?n2(x.quantity):`<input class="num" data-qty="${esc(x.code)}" value="${esc(x.quantity)}" title="Otomatik: ${esc(n2(x.auto_quantity))}">`}</td><td class="mono" style="color:var(--mute)">${esc(x.unit)}</td>
+      <td class="n">${x.auto_quantity==null?n2(x.unit_price):`<input class="num" data-up="${esc(x.code)}" value="${esc(x.unit_price)}">`}</td><td class="n">${tl(x.amount)}</td></tr>`).join('')}</table></div>
       <div style="margin-top:12px"><button class="ghost" id="addx">+ EK KALEM</button></div>
       <div class="cols"><div>
-        <div class="r3"><div><label>Genel gider %</label><input data-pct="overhead_pct" type="number" value="${c.overhead_pct}"></div><div><label>Kâr %</label><input data-pct="profit_pct" type="number" value="${c.profit_pct}"></div><div><label>KDV %</label><input data-pct="vat_pct" type="number" value="${c.vat_pct}"></div></div>
-        ${c.approx?`<label>Kontrol · yaklaşık m² maliyet sınıfı</label><select id="apc">${Object.entries(c.approx.classes).map(([k,v])=>`<option ${k===c.approx.class?'selected':''} value="${k}">${k} — ${tl(v)}/m²</option>`).join('')}</select>
+        <div class="r3"><div><label>Genel gider %</label><input data-pct="overhead_pct" type="number" value="${esc(c.overhead_pct)}"></div><div><label>Kâr %</label><input data-pct="profit_pct" type="number" value="${esc(c.profit_pct)}"></div><div><label>KDV %</label><input data-pct="vat_pct" type="number" value="${esc(c.vat_pct)}"></div></div>
+        ${c.approx?`<label>Kontrol · yaklaşık m² maliyet sınıfı</label><select id="apc">${Object.entries(c.approx.classes).map(([k,v])=>`<option ${k===c.approx.class?'selected':''} value="${esc(k)}">${esc(k)} — ${esc(tl(v))}/m²</option>`).join('')}</select>
         <p class="note mono">${n2(c.approx.area)} m² × ${tl(c.approx.unit_cost)} = ${tl(c.approx.amount)} · metraj bazlı ara toplam ${tl(c.subtotal)}</p>`:''}
-        <p class="note">${c.note||''}</p></div>
-      <div class="totals"><div>Ara toplam<b>${tl(c.subtotal)}</b></div><div>Genel gider %${c.overhead_pct}<b>${tl(c.overhead)}</b></div><div>Kâr %${c.profit_pct}<b>${tl(c.profit)}</b></div>
-        <div>KDV hariç<b>${tl(c.total_before_vat)}</b></div><div>KDV %${c.vat_pct}<b>${tl(c.vat)}</b></div><div class="big">GENEL TOPLAM<b>${tl(c.total)}</b></div><div>m² · KDV dahil<b>${tl(c.per_m2)}</b></div></div></div>`;
+        <p class="note">${esc(c.note||'')}</p></div>
+      <div class="totals"><div>Ara toplam<b>${tl(c.subtotal)}</b></div><div>Genel gider %${esc(c.overhead_pct)}<b>${tl(c.overhead)}</b></div><div>Kâr %${esc(c.profit_pct)}<b>${tl(c.profit)}</b></div>
+        <div>KDV hariç<b>${tl(c.total_before_vat)}</b></div><div>KDV %${esc(c.vat_pct)}<b>${tl(c.vat)}</b></div><div class="big">GENEL TOPLAM<b>${tl(c.total)}</b></div><div>m² · KDV dahil<b>${tl(c.per_m2)}</b></div></div></div>`;
     const set=(k,code,val)=>{adj[k]=adj[k]||{};adj[k][code]=val;};
     $$('[data-up]').forEach(i=>i.onchange=()=>{set('overrides',i.dataset.up,parseFloat(i.value));push();});
     $$('[data-qty]').forEach(i=>i.onchange=()=>{set('qty_overrides',i.dataset.qty,parseFloat(i.value));push();});
@@ -872,18 +877,18 @@ function render(){
   }else if(tab==='belge'){
     const D=[['TEKLİF','Teklif mektubu','.docx · kapsam, bedel, ödeme planı',P.files.teklif_docx],['MALİYET','Metraj + maliyet','.xlsx · formüllü',P.files.metraj_maliyet_xlsx],
              ['ŞARTNAME','Teknik şartname','.docx · malzeme, uygulama, ölçü',P.files.sartname_docx],['ÇİZİM','Tüm paftalar','.pdf · A3',P.files.cizim_pdf]];
-    out.innerHTML=`<div class="docs">${D.map(d=>`<a class="doc" href="${d[3]}" ${d[3].endsWith('.pdf')?'target="_blank"':''}><small>${d[0]} ↓</small><b>${d[1]}</b><span>${d[2]}</span></a>`).join('')}</div>
+    out.innerHTML=`<div class="docs">${D.map(d=>`<a class="doc" href="${esc(d[3])}" ${String(d[3]||'').endsWith('.pdf')?'target="_blank"':''}><small>${d[0]} ↓</small><b>${d[1]}</b><span>${d[2]}</span></a>`).join('')}</div>
       <p class="note">Maliyet sekmesindeki her değişiklik bu belgeleri yeniden üretir.</p>`;
   }else if(tab==='3d'){
     out.innerHTML=`<p class="sec-t">CYCLES · GERÇEK RENDER</p><p class="note">3D sahnede (yörüngede veya <b>◉ YÜRÜ</b> modunda) kadrajı ayarlayıp <b>📷 FOTO</b>'ya basın: o açı Blender Cycles ile fotogerçekçi render edilir.</p>
       <div class="gallery" id="rgal"><span class="note">yükleniyor…</span></div><p class="sec-t" style="margin-top:22px">BLENDER ÖNİZLEME</p><div id="bprev"></div>`;
     api(`/api/projects/${P.id}/real`).then(list=>{list=list.filter(j=>j.kind==='still');list.forEach(j=>TR.jobs[j.id]??={...j,dismissed:true});
-      $('#rgal').innerHTML=list.length?list.map(j=>`<button data-gal="${j.id}"><img src="${j.urls[0]}" alt="" loading="lazy"><span>📷 FOTO · ${j.id.split('-')[1].replace(/(..)(..)(..)/,'$1:$2')}</span></button>`).join('')
+      $('#rgal').innerHTML=list.length?list.map(j=>`<button data-gal="${esc(j.id)}"><img src="${esc(j.urls[0])}" alt="" loading="lazy"><span>📷 FOTO · ${esc(String(j.id).split('-')[1]?.replace(/(..)(..)(..)/,'$1:$2'))}</span></button>`).join('')
         :'<span class="note">Henüz gerçek render yok.</span>';
       $$('[data-gal]').forEach(b=>b.onclick=()=>openJob(list.find(j=>j.id===b.dataset.gal)));}).catch(()=>{});
-    const bp=$('#bprev'); bp.innerHTML=P.files.preview_png?`<div class="renders"><figure style="margin:0"><img src="${P.files.preview_png}" alt="Blender önizleme"><figcaption class="note mono">BLENDER ÖNİZLEME</figcaption></figure>
-      <figure style="margin:0"><img src="${P.files.colormap_png}" alt="Malzeme renk haritası"><figcaption class="note mono">MALZEME RENK HARİTASI · AI VİDEO KONTROL GÖRÜNTÜSÜ</figcaption></figure></div>
-      <div style="margin-top:12px"><a class="ghost" href="${P.files.model_glb}">↓ MODEL · GLB</a></div>`
+    const bp=$('#bprev'); bp.innerHTML=P.files.preview_png?`<div class="renders"><figure style="margin:0"><img src="${esc(P.files.preview_png)}" alt="Blender önizleme"><figcaption class="note mono">BLENDER ÖNİZLEME</figcaption></figure>
+      <figure style="margin:0"><img src="${esc(P.files.colormap_png)}" alt="Malzeme renk haritası"><figcaption class="note mono">MALZEME RENK HARİTASI · AI VİDEO KONTROL GÖRÜNTÜSÜ</figcaption></figure></div>
+      <div style="margin-top:12px"><a class="ghost" href="${esc(P.files.model_glb)}">↓ MODEL · GLB</a></div>`
       :`<div class="empty">BLENDER RENDER HENÜZ ALINMADI<br><br><button class="ghost" id="mk3d">▶ BLENDER İLE ÜRET</button></div>`;
     if($('#mk3d'))$('#mk3d').onclick=async e=>{e.target.disabled=true;e.target.textContent='ÜRETİLİYOR…';busy(true);try{P=await api(`/api/projects/${P.id}/render`,{method:'POST'});render();}catch(x){fail(x)}finally{busy(false)}};
   }
@@ -910,19 +915,19 @@ $('#edit').onclick=()=>IN.openPanel(!$('#vp').classList.contains('editing'));
 $('#wedit').onclick=()=>{releaseLock();IN.openPanel(!$('#vp').classList.contains('editing'));};
 recent(); loadSettings();
 const Q_=new URLSearchParams(location.search), tabQ=Q_.get('tab'), vmQ=Q_.get('vm');
-if(tabQ)$(`#tabs [data-t="${tabQ}"]`)?.click();
+if(tabQ)$(`#tabs [data-t="${CSS.escape(tabQ)}"]`)?.click();
 
 const demo=()=>{build(demoElements());$('#hname').textContent='ArchAI';$('#hmeta').textContent='DEMO · PROJE ÜRETMEK İÇİN SOLDAKİ FORMU KULLANIN';};
 const walkQ=Q_.get('walk');
 const afterLoad=async()=>{
-  if(vmQ)$(`[data-vm="${vmQ}"]`)?.click();
+  if(vmQ)$(`[data-vm="${CSS.escape(vmQ)}"]`)?.click();
   if(Q_.get('lv')){$('#lv').value=Q_.get('lv');applyLevels();fitVisible();}
   if(Q_.get('furnish'))$('[data-vm="real"]').click();
   if(walkQ){await new Promise(r=>setTimeout(r,800));enterWalk();if(walkQ.includes(','))[WK.px,WK.py,WK.yaw]=walkQ.split(',').map(Number);}
   if(Q_.get('furnish')){await new Promise(r=>setTimeout(r,1500));await IN.autoFurnish();}
   if(Q_.get('edit'))IN.openPanel(true);};
 const safeAfter=()=>afterLoad().catch(e=>console.warn('başlangıç parametresi uygulanamadı',e));
-if(location.hash.length>1)openP(location.hash.slice(1)).then(safeAfter,demo); else{demo();safeAfter();}
+if(location.hash.length>1)openP(decodeURIComponent(location.hash.slice(1))).then(safeAfter,demo); else{demo();safeAfter();}
 </script>
 </body>
 </html>

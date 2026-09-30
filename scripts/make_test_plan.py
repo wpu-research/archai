@@ -4,15 +4,19 @@ Mimari çizim alışkanlıklarıyla: duvarlar çift çizgi, açıklıklarda kesi
 paralel çizgi, kapılarda kanat çizgisi + yay; mahaller kapalı polyline + isim.
 
     uv run python scripts/make_test_plan.py  →  references/test_plan_2+1.dxf, test_plan_2+1.truth.json
+    ARCHAI_REF_OUT=/tmp/x uv run python scripts/make_test_plan.py  →  aynı dosyalar /tmp/x altına
 """
 
 import json
 import math
+import os
 from pathlib import Path
 
 import ezdxf
 
 ROOT = Path(__file__).resolve().parents[1]
+# çıktı dizini: varsayılan references/; testler ARCHAI_REF_OUT ile geçici dizine yazar (repo değişmez)
+REF_OUT = Path(os.environ.get("ARCHAI_REF_OUT") or ROOT / "references")
 EXT, INT = 0.25, 0.10
 
 # aks çizgileri (m) ve açıklıklar: (offset, width, kind)
@@ -96,7 +100,8 @@ def main():
         cx, cy = (x0 + x1) / 2, (y0 + y1) / 2
         msp.add_text(rname, height=250, dxfattribs={"layer": "MAHAL"}).set_placement(mm((cx, cy)))
 
-    out = ROOT / "references" / "test_plan_2+1.dxf"
+    REF_OUT.mkdir(parents=True, exist_ok=True)
+    out = REF_OUT / "test_plan_2+1.dxf"
     doc.saveas(out)
 
     # doğru cevap: aks çizgileri + dış kontur + mahaller
@@ -108,7 +113,7 @@ def main():
                       "openings": [{"offset": o, "width": w, "kind": k} for o, w, k in ops]})
     for rname, box in ROOMS:
         truth.append({"type": "room", "name": rname, "points": room_poly(*box), "height": 2.8})
-    (ROOT / "references" / "test_plan_2+1.truth.json").write_text(json.dumps(truth, indent=1, ensure_ascii=False))
+    (REF_OUT / "test_plan_2+1.truth.json").write_text(json.dumps(truth, indent=1, ensure_ascii=False))
     print(out)
 
 
