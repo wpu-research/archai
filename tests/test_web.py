@@ -152,9 +152,16 @@ def test_token_modes(monkeypatch):
     assert remote.get("/api/projects", headers={"authorization": "Bearer yanlis"}).status_code == 401
     assert remote.get("/api/projects", headers={"authorization": "Bearer s3cr3t-anahtar"}).status_code == 200
     assert remote.get("/api/projects", headers={"x-archai-token": "s3cr3t-anahtar"}).status_code == 200
-    r = remote.get("/?token=s3cr3t-anahtar")
+    r = remote.get("/?token=s3cr3t-anahtar&x=1", headers={"accept": "text/html"}, follow_redirects=False)
+    assert r.status_code == 303 and r.headers["location"] == "/?x=1"        # anahtar adresten atılır
+    assert r.headers["referrer-policy"] == "no-referrer"
+    remote.cookies.clear()
+    api = remote.get("/api/projects?token=s3cr3t-anahtar")                  # sayfa dışı istek yönlendirilmez
+    assert api.status_code == 200 and "archai_token" in api.headers.get("set-cookie", "")
+    remote.cookies.clear()
+    r = remote.get("/?token=s3cr3t-anahtar", headers={"accept": "text/html"})   # yönlendirme izlenir → sayfa açılır
     assert r.status_code == 200 and "<html" in r.text.lower()
-    sc = r.headers["set-cookie"].lower()
+    sc = r.history[0].headers["set-cookie"].lower()
     assert "archai_token=s3cr3t-anahtar" in sc and "httponly" in sc and "samesite=strict" in sc
     assert remote.get("/api/projects").status_code == 200  # çerezle sonraki istekler
     fresh = TestClient(app, base_url="http://192.168.1.20:8000", cookies={"archai_token": "yanlis"})
@@ -448,3 +455,30 @@ def test_offer_terms_via_api():
     assert "14 (" in text and "Ankara Mahkemeleri" in text and "15 (" in text
     bad = c.post("/api/projects", json={**body, "offer": {"months": 0}})
     assert bad.status_code == 422
+
+
+def test_legacy_project_migration(tmp_path):
+    """Eski biçimli klasör (kimlik kuralına uymayan ad) betikle taşınır, API'den açılır, dosya bağlantıları çalışır."""
+    import importlib.util, json, shutil
+    spec = importlib.util.spec_from_file_location("migrate_projects", ROOT / "scripts" / "migrate_projects.py")
+    mig = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mig)
+    r = c.post("/api/projects", json={"name": "Eski", "quick": {"gross_area": 450, "floors": 3}})
+    assert r.status_code == 200, r.text
+    src = W.PROJECTS / r.json()["id"]
+    out = tmp_path / "out"
+    (out / "projects").mkdir(parents=True)
+    old = out / "projects" / "Kadıköy Demo"                   # büyük harf + Türkçe karakter + boşluk
+    shutil.copytree(src, old)
+    pj = json.loads((old / "project.json").read_text())
+    old_abs = str((src).resolve())
+    (old / "project.json").write_text((old / "project.json").read_text().replace(old_abs, str(old.resolve())))
+    (out / "projects" / "bos-klasor").mkdir()
+    assert mig.main(["--out", str(out)]) == 0 and old.exists()          # önizleme değiştirmez
+    assert mig.main(["--out", str(out), "--apply"]) == 0
+    assert not old.exists() and (out / "projects" / "bos-klasor").exists()   # boş klasör atlandı
+    new = next(p for p in (out / "projects").iterdir() if p.name != "bos-klasor")
+    assert W.PID_RE.fullmatch(new.name) and new.name.endswith("kadikoy-demo")
+    assert str(old.resolve()) not in (new / "project.json").read_text()
+    assert pj["name"] == "Eski"
+    assert mig.main(["--out", str(out), "--apply"]) == 0                   # yeniden çalıştırma zararsız

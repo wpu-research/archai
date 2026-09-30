@@ -85,19 +85,41 @@ def _scaled(src, f, out):
 @needs_plan
 @pytest.mark.parametrize("f", [0.5, 0.75, 1.5, 2.0, 4.0])
 def test_scale_invariance_fixture(tmp_path, f):
-    """Aynı plan büyütülüp küçültülünce ölçek aynı bulunur (önce: 2× → 30,5 px/m, doğrusu 92,4; 4× → 41).
-    Düşük çözünürlükte (0,5× = 23 px/m, 446 px; çizgiler < 1 px) bilgi kaybolur: duvar/mahal eşiği gevşek."""
+    """Aynı plan büyütülüp küçültülünce ölçek ve geometri aynı bulunur (önce: 2× → 30,5 px/m, doğrusu 92,4; 4× → 41).
+    Düşük çözünürlük (0,5× = 23 px/m, 446 px, çizgiler < 1 px): gri tonda 2× büyütme + çizgi çekirdeği + çubuk boy
+    oranı. Ölçülen (2026-09-30) isabet/kapsam, kapı, mahal: 0,5× 0,94/0,94, 15, 15; 0,75× 0,95/0,94, 15, 15
+    (önce 0,965/0,873, 11, 9 ve 0,928/0,91, 15, 14); 1,5× 0,98/0,96; 2× 0,97/0,96; 4× 0,98/0,94."""
     p = _scaled(PLAN, f, tmp_path / f"p{f}.png")
     els, rep = pi.recognize(p)
     assert abs(rep["px_per_m"] / (TRUE_S * f) - 1) <= 0.05, rep["scale_method"]
     m = pe.compare(els, pe.apartment_reference(rep["px_per_m"] / f, Image.open(PLAN).height), "Zemin", "Normal Kat")
-    if f >= 1:
-        assert m["wall_precision"] >= 0.9 and m["wall_recall"] >= 0.9, m
-        assert abs(m["rooms_found"] - 17) <= 2 and m["doors_matched"] >= 14, m
-    elif f >= 0.75:
-        assert m["wall_precision"] >= 0.9 and m["wall_recall"] >= 0.9 and m["rooms_found"] >= 13, m
-    else:
-        assert m["wall_precision"] >= 0.9 and m["wall_recall"] >= 0.85 and m["rooms_found"] >= 7, m
+    assert m["wall_precision"] >= 0.93 and m["wall_recall"] >= 0.93, m
+    assert abs(m["rooms_found"] - 17) <= 2 and m["doors_matched"] >= 0.7 * m["doors_ref"], m   # 1×: 17 mahal
+    assert m["doors_found"] <= m["doors_ref"] + 3, m
+
+
+def _degrid(src, out):
+    """Fikstürün soluk arka plan ızgarasını sil (zemine yakın, kontrastı < 45 pikseller zemin rengine)."""
+    import numpy as np
+    a = np.asarray(Image.open(src).convert("RGB")).astype(np.int16)
+    bg = np.median(a.reshape(-1, 3), 0)
+    a[np.abs(a - bg).max(2) < 45] = bg
+    Image.fromarray(a.astype(np.uint8)).save(out)
+    return out
+
+
+@needs_plan
+@pytest.mark.parametrize("f", [1.0, 2.0])
+def test_fixture_scale_without_grid(tmp_path, f):
+    """Izgarasız kopya: ölçek kapı genişliği (≈ 0,95 m) + çift çizgi iç duvar kalınlığı (≈ 0,10 m) birleşiminden.
+    Ölçülen: 1× +%4,4, 2× +%3,2 (yalnız kapıyla +%9,9 / +%6,5); 0,75× +%1,4; 1,5× +%1,7; 4× +%4,0;
+    0,5× +%18 (iç duvar 2,3 px, çizgiler < 1 px: kalınlık ölçülemiyor — test dışı)."""
+    p = _scaled(_degrid(PLAN, tmp_path / "ng.png"), f, tmp_path / f"ng{f}.png")
+    els, rep = pi.recognize(p)
+    assert rep["grid_px"] is None and "iç duvar" in rep["scale_method"], rep["scale_method"]
+    assert abs(rep["px_per_m"] / (TRUE_S * f) - 1) <= 0.05, rep["scale_method"]
+    m = pe.compare(els, pe.apartment_reference(rep["px_per_m"] / f, Image.open(PLAN).height), "Zemin", "Normal Kat")
+    assert m["wall_precision"] >= 0.93 and m["wall_recall"] >= 0.9, m
 
 
 # ---------------------------------------------------------------- sentetik plan (depo içi, her ortamda)
@@ -194,20 +216,41 @@ def test_synthetic_plan_accuracy(syn, style):
     assert mg == m
 
 
-def test_synthetic_plan_door_scale_without_grid(syn):
-    """Izgarasız: ölçek yalnız kapı genişliği medyanından (≈ 0,95 m varsayımı; bu planda kapılar 0,8–1,0 m) —
-    ölçülen hata %7–10; geometri yine doğru (hizalama ölçek farkını giderir)."""
-    rep, k, m = _syn_metrics(syn["nogrid"], syn["ref"])
-    assert abs(rep["px_per_m"] / SYN_S - 1) <= 0.12, rep["scale_method"]
+@pytest.mark.parametrize("f", [0.5, 1.0, 2.0])
+def test_synthetic_plan_door_scale_without_grid(syn, f):
+    """Izgarasız: ölçek kapı genişliği medyanı (≈ 0,95 m; bu planda kapılar 0,8–1,0 m → tek başına %7–10 hata) ile
+    çift çizgi iç duvar kalınlığı (0,10 m) tahmininin birleşimi. Ölçülen: 0,5× −%2,5, 1× −%2,4, 2× −%2,0
+    (yalnız kapıyla −%9,5 / −%9,4 / −%7,4)."""
+    p = _scaled(syn["nogrid"], f, syn["dir"] / f"nogrid_{f}.png")
+    rep, k, m = _syn_metrics(p, syn["ref"])
+    assert abs(rep["px_per_m"] / (SYN_S * f) - 1) <= 0.04, rep["scale_method"]
+    assert not any("tutarsız" in x for x in rep["warnings"]), rep["warnings"]
     assert m["wall_precision"] >= 0.95 and m["wall_recall"] >= 0.95, m
 
 
-@pytest.mark.parametrize("f", [0.5, 0.75, 1.5, 2.0, 4.0])
+def test_scale_estimates_inconsistent_warns():
+    """Kapı ve duvar kalınlığı tahminleri ±%20 dışında ayrışırsa kapı tahmini kalır ve uyarı döner."""
+    img = Image.new("RGB", (800, 600))
+    prev = type("P", (), {"k": 1.0, "img": img})()
+    orig = pi._run, pi._door_widths
+    try:
+        def fake_run(w, S, mo, final=False):
+            w.tstats = [(9.0, 3.0)] * 6          # 9 px iç duvar → 90 px/m, kapı tahmini 50 px/m
+            return []
+        pi._run, pi._door_widths = fake_run, lambda walls: [0.95] * 6
+        S, n, note, bad = pi._estimate_scale(img, prev, 1.4)
+    finally:
+        pi._run, pi._door_widths = orig
+    assert bad and "tutarsız" in bad and f"{S:.1f} px/m" in bad and "iç duvar" not in note
+
+
+@pytest.mark.parametrize("f", [0.25, 0.375, 0.5, 0.75, 1.5, 2.0, 4.0])
 def test_synthetic_scale_invariance(syn, f):
+    """0,25× / 0,375× = 25 / 37,5 px/m: fikstürün 0,5× / 0,75× hâliyle aynı düşük çözünürlük (büyütülerek işlenir)."""
     p = _scaled(syn["dark"], f, syn["dir"] / f"dark_{f}.png")
     rep, k, m = _syn_metrics(p, syn["ref"])
     assert abs(rep["px_per_m"] / (SYN_S * f) - 1) <= 0.05 and abs(k - 1) <= 0.05, rep["scale_method"]
-    assert m["wall_precision"] >= 0.9 and m["wall_recall"] >= 0.9, m
+    assert m["wall_precision"] >= 0.93 and m["wall_recall"] >= 0.93, m
     assert abs(m["rooms_found"] - m["rooms_ref"]) <= 2 and m["doors_matched"] >= 0.7 * m["doors_ref"], m
 
 

@@ -50,10 +50,13 @@ from .generate import generate
 
 def quick_brief(q):
     """m² + kat + daire tipinden, imarı birebir o binayı veren sanal parsel."""
-    from .generate import module_cap
+    from .generate import module_cap, quick_envelope
     floors = int(q["floors"])
     fp = q["gross_area"] / floors
-    if fp > module_cap(q.get("unit_type", "auto")) and q.get("units_per_floor", "auto") == "auto":
+    env = quick_envelope(q)   # kat başına 3–4 daire: çekirdek + ön/arka daireler için gereken kutu (T kütle dahil)
+    if env:
+        width, depth = env
+    elif fp > module_cap(q.get("unit_type", "auto")) and q.get("units_per_floor", "auto") == "auto":
         # birden çok çekirdek modülü gerekecek: üretici 10–15 m derinlik arasında seçebilsin
         depth, width = 15.25, fp / 10.0 + 0.5
     else:

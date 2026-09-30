@@ -102,7 +102,204 @@ def _module_search(fp, bw, bd, n_bed, target_net, min_modules=1):
     return None if best is None else best[1:]
 
 
+# ------------------------------------------------------------------ kat başına 3–4 daire, tek çekirdek
+# Biçim referansı archai/apartment.py: çekirdek ortada (U merdiven + asansör), iki ön daire çekirdeğin iki yanında
+# (aynalı), arkada bir (3 daire, T kütle) veya iki (4 daire, dikdörtgen) daire. Kat holü H biçimli: ön bant (bina
+# girişi, merdiven ve asansör kapıları), merdiven ile asansör arasındaki şerit, arka bant (daire girişleri).
+CORE3_W = 6.2                       # merdiven 2,8 + hol şeridi 1,4 + asansör/şaft 2,0
+STAIR_W, STRIP_W = 2.8, 1.4
+HOL_W, KD = 1.2, 2.6                # daire holü genişliği; ön dairede mutfak/banyo sırası derinliği
+H1_MIN, HB_MIN, YE_MAX, NECK_MIN = 1.6, 1.4, 11.0, 1.8
+UNIT_GROSS = {"1+1": 70, "2+1": 100, "3+1": 145, "4+1": 190}   # hedef brüt m²/daire (ortak alan payı dahil)
+MULTI_TYPES = ["1+1", "2+1", "3+1"]  # 3–4 daireli yerleşimde desteklenen tipler
+
+
+def _fr(a, b, step):
+    n = int(round((b - a) / step))
+    return [round(a + i * step, 3) for i in range(n + 1)]
+
+
+def units_for(fp, unit_type, upf):
+    """Kat başına daire kararı: 3/4 → tek çekirdekli çok daireli yerleşim; None → 1–2 daire / çok modül yolu.
+    'auto': kat brüt alanı / hedef daire brüt alanı ≈ daire sayısı (2,5–4,5 arası 3 veya 4)."""
+    if upf in (3, 4):
+        return upf
+    if upf != "auto":
+        return None
+    ut = "2+1" if unit_type in (None, "auto") else unit_type
+    if ut not in MULTI_TYPES:
+        return None
+    n = fp / UNIT_GROSS[ut]
+    return (3 if n < 3.5 else 4) if 2.5 <= n < 4.5 else None
+
+
+def _multi_types(wanted, fp, n):
+    if wanted in (None, "auto"):
+        best = min(MULTI_TYPES, key=lambda t: abs(UNIT_GROSS[t] - fp / n))
+        return MULTI_TYPES[:MULTI_TYPES.index(best) + 1][::-1]
+    if wanted not in MULTI_TYPES:
+        return MULTI_TYPES[::-1]
+    return MULTI_TYPES[:MULTI_TYPES.index(wanted) + 1][::-1]
+
+
+def _core_end(yf):
+    """Çekirdeğin (kat holü arka bandı dahil) bittiği y: ön daire derinliği, en çok 11 m; aşarsa arka daireye
+    ≥ 1,8 m'lik bir 'boyun' kalır (çekirdeğin arkasında banyo/depo)."""
+    return yf if yf <= YE_MAX + 1e-9 else _r(min(YE_MAX, yf - NECK_MIN))
+
+
+def _front_dims(w, d, n):
+    """Ön (köşe) daire: önde salon (tam genişlik), arkasında mutfak | banyo sırası, sonra yatak odaları; hol çekirdek
+    yanında. Dönen (uygun mu, salon derinliği, yatak odası derinliği)."""
+    bd = min(3.8, max(2.9, (d - KD - 4.4) / n))
+    sd = d - KD - n * bd
+    ok = (3.4 - 1e-6 <= sd <= 5.6 + 1e-6 and 5.8 - 1e-6 <= w <= 11.0 + 1e-6 and (w - .2) * (sd - .2) >= 17
+          and (w - HOL_W - .2) * (bd - .2) >= 9.2)
+    return ok, sd, bd
+
+
+def _rear4_dims(w, dr, de, n):
+    """Arka (köşe) daire, 4'lü yerleşim: arkada salon, yan cepheye dizili yatak odaları; hol ve (banyo + mutfak)
+    şeridi çekirdeğin arkasında. dr: dış bölüm derinliği, de: iç şerit derinliği."""
+    bd = min(3.8, max(2.8, (dr - 4.2) / n))
+    sd = dr - n * bd
+    ok = (3.2 - 1e-6 <= sd <= 5.6 + 1e-6 and (w - .2) * (sd - .2) >= 17 and (w - .2) * (bd - .2) >= 9.2
+          and 2.6 - 1e-6 <= de - 2.4 <= 7.4 + 1e-6)   # iç şerit: banyo 2,4 + mutfak ≤ 4,4 + depo ≤ 3,0
+    return ok, sd, bd
+
+
+def _center_dims(wr, dr3, n, neck):
+    """Arka orta daire, 3'lü yerleşim: arkada tam genişlik salon; üstünde sol sütun mutfak (+banyo), orta hol,
+    sağ sütun yatak odaları; boyun varsa banyo/depo çekirdeğin hemen arkasında."""
+    cw = wr / 2 - HOL_W / 2
+    sd3 = min(5.0, max(3.6, dr3 - max(3.2 * n, 2.6 if neck else 4.6)))
+    du = dr3 - sd3
+    bd = du / n
+    kit = du - (0 if neck else 2.2)
+    e = 1e-6
+    ok = (2.9 - e <= bd <= 5.0 + e and kit >= 2.4 - e and 2.6 - e <= cw <= 5.5 + e and (cw - .2) * (bd - .2) >= 9.2
+          and (wr - .2) * (sd3 - .2) >= 17)
+    return ok, sd3, bd
+
+
+def _multi_search(n, fp, bw, bd_max, n_bed, target):
+    """Kat başına n (3|4) daire için geometri: brüt oturumu (dış yüz) fp'yi aşmadan tutturan, daireleri dengeleyen
+    ve daire brütünü hedefe yaklaştıran (Wf ön daire genişliği, Yf ön daire derinliği, arka ölçüler). Yoksa None."""
+    best = None
+    for Wf in _fr(5.8, 11.0, 0.1):
+        W = _r(2 * Wf + CORE3_W)
+        if W + EXT_T + 0.05 > bw + 1e-9:
+            break
+        for Yf in _fr(8.6, 20.0, 0.1):
+            ok, sd, bdep = _front_dims(Wf, Yf, n_bed)
+            if not ok:
+                continue
+            Ye = _core_end(Yf)
+            Af = Wf * Yf
+            cands = []
+            if n == 4:
+                D = _floor05(fp / (W + EXT_T) - EXT_T)
+                if D + EXT_T + 0.05 > bd_max + 1e-9:
+                    D = _floor05(bd_max - EXT_T - 0.05)
+                dr = round(D - Yf, 3)
+                if dr <= 0 or not _rear4_dims(Wf, dr, D - Ye, n_bed)[0]:
+                    continue
+                gross = (W + EXT_T) * (D + EXT_T)
+                ar = Wf * dr + CORE3_W / 2 * (D - Ye)
+                cands.append((gross, ar, {"D": D}))
+            else:
+                front = (W + EXT_T) * (Yf + EXT_T)
+                if front >= fp:
+                    continue
+                neck = Yf - Ye >= NECK_MIN - 1e-9
+                base = max(3.2 * n_bed, 2.6 if neck else 4.6) + 4.4
+                for dr3 in _fr(base - 0.6, base + 1.2, 0.2):
+                    D = _r(Yf + dr3)
+                    if D + EXT_T + 0.05 > bd_max + 1e-9:
+                        continue
+                    wr = math.floor(((fp - front) / dr3 - EXT_T) * 10 + 1e-6) / 10
+                    wr = W if wr >= W - 0.2 else wr
+                    # arka blok çekirdekten ya taşmalı (her yanda ≥ 0,5 m: ince duvar parçası kalmasın) ya da tam genişlik
+                    if wr < CORE3_W + 1.0 or not _center_dims(wr, dr3, n_bed, neck)[0]:
+                        continue
+                    gross = front + (wr + EXT_T) * dr3
+                    ar = wr * dr3 + CORE3_W * (Yf - Ye)
+                    cands.append((gross, ar, {"D": D, "Wr": wr}))
+            for gross, ar, extra in cands:
+                if gross > fp * 1.0005:
+                    continue
+                per = gross / n
+                score = (4 * (fp - gross) / fp + abs(ar - Af) / Af + 0.3 * abs(per - target) / target
+                         + 0.02 * abs(sd - 4.4) + 0.02 * abs(bdep - 3.3))
+                if best is None or score < best[0] - 1e-9:
+                    best = (score, {"n": n, "Wf": Wf, "Yf": Yf, "Ye": Ye, "W": W, "gross": round(gross, 2), **extra})
+    return None if best is None else best[1]
+
+
+def multi_choice(fp, wanted, upf, bw=math.inf, bd=math.inf):
+    """Kat başına 3–4 daire kararı ve geometrisi: (n, tip, geom) veya None. 'auto'da önce tahmin edilen n, sonra
+    diğeri (3↔4) istenen tiple denenir (tip küçültülmez, 1–2 daire yoluna düşülür); açık 3/4'te tip küçültülebilir."""
+    n0 = units_for(fp, wanted, upf)
+    if not n0:
+        return None
+    ns = [n0] if upf in (3, 4) else [n0, 7 - n0]
+    types = _multi_types(wanted, fp, n0)
+    if upf not in (3, 4):
+        types = types[:1]
+    for t in types:
+        for n in ns:
+            g = _multi_search(n, fp, bw, bd, UNIT_TYPES[t][1], UNIT_GROSS[t])
+            if g:
+                return n, t, g
+    return None
+
+
+def quick_envelope(q):
+    """Hızlı mod: kat başına 3–4 daire seçilecekse sanal parselin yapılaşma kutusu (brüt genişlik, derinlik; m)."""
+    fp = q["gross_area"] / int(q["floors"])
+    c = multi_choice(fp, q.get("unit_type", "auto"), q.get("units_per_floor", "auto"))
+    if not c:
+        return None
+    g = c[2]
+    return round(g["W"] + EXT_T + 0.05, 2), round(g["D"] + EXT_T + 0.05, 2)
+
+
+def _multi_reason(n, fp, bw, bd, types):
+    free = next((g for t in types if (g := _multi_search(n, fp, math.inf, math.inf, UNIT_TYPES[t][1],
+                                                          UNIT_GROSS[t]))), None)
+    if free:
+        return (f"kat başına {n} daire için yapılaşma alanı yetmiyor: {bw:.1f} × {bd:.1f} m mevcut, en az ≈ "
+                f"{free['W'] + EXT_T + 0.05:.1f} × {free['D'] + EXT_T + 0.05:.1f} m gerekir (ortada {CORE3_W:g} m "
+                f"çekirdek, iki yanında birer ön daire, arkada {n - 2} daire)")
+    return (f"kat başına {n} daire bu kat alanına ({fp:.0f} m²) yerleşmiyor: {n} × "
+            f"{'/'.join(types)} için daire başına ≈ {fp / n:.0f} m² brüt kalıyor — kat başı daire sayısını "
+            "azaltın veya kat alanını artırın")
+
+
 # ------------------------------------------------------------------ kütle
+
+def _multi_massing(fp, W, D, bw, bd, sd, fr, rr, wanted, upf, quick):
+    """Kat başına 3–4 daire: tip/sayı seç, geometriyi parsele yerleştir. Uygun yoksa None."""
+    c = multi_choice(fp, wanted, upf, bw, bd)
+    if not c:
+        return None
+    n, t, g = c
+    width, depth = g["W"], g["D"]
+    ox = _ceil05(sd + EXT_T / 2 + max(0.0, bw - EXT_T - width) / 2)
+    oy = _ceil05(fr + EXT_T / 2)
+    if ox + width + EXT_T / 2 > W - sd + 1e-6 or oy + depth + EXT_T / 2 > D - rr + 1e-6:
+        return None
+    warnings = []
+    if wanted not in ("auto", t):
+        warnings.append(f"{wanted} kat başına {n} daireli yerleşimde {'bu alan-kat kombinasyonuna' if quick else 'bu parsele'} "
+                        f"sığmıyor; {t} önerildi")
+    per = g["gross"] / n
+    if per > 1.5 * UNIT_GROSS[t]:
+        warnings.append(f"daireler hedef brüt alanın çok üzerinde (≈{per:.0f} m², {t} hedefi ≈{UNIT_GROSS[t]} m²) — "
+                        "daire tipini veya kat başı daire sayısını gözden geçirin")
+    return {"footprint": (width, depth), "origin": (ox, oy), "unit_type": t, "layout": f"core{n}",
+            "units_per_floor": n, "modules": 1, "geom": g, "warnings": warnings}
+
 
 def massing(parcel, zoning, program):
     W, D = parcel["width"], parcel["depth"]
@@ -124,6 +321,15 @@ def massing(parcel, zoning, program):
     floors = max(1, min(max_floors, math.ceil(total / max_fp - 1e-9)))
     fp = min(max_fp, total / floors)
     warnings = []
+    n_multi = units_for(fp, wanted, upf)
+    if n_multi:
+        res = _multi_massing(fp, W, D, bw, bd, sd, fr, rr, wanted, upf, quick)
+        if res:
+            return {"parcel_area": A, "buildable": (bw, bd), "floors": floors, **res}
+        if upf in (3, 4):
+            raise ValueError(_multi_reason(n_multi, fp, bw, bd, _multi_types(wanted, fp, n_multi)))
+    elif upf not in ("auto", 1, 2):
+        raise ValueError(f"kat başına daire sayısı {upf} desteklenmiyor (otomatik, 1, 2, 3 veya 4)")
     # Tek çekirdek + 2 daire modülü, hedef daireden çok büyük bir oturuma bölünemez. Eskiden oturum bu modüle
     # kırpılıyordu (5000 m²/10 kat → 2743 m²). Şimdi kat başına birden çok çekirdek modülü (her biri 2 daire)
     # ve derinlik taranır; arazi modunda uygun çözüm yoksa eski kırpma korunur ve KAKS uyarısı düşer.
@@ -271,27 +477,119 @@ def unit_layout(unit_w, depth, n_bed):
     return None
 
 
-def floor_plan(width, depth, n_bed, layout, upf=2, modules=1):
-    """Kat planı: `modules` adet [daire | çekirdek | daire] modülü yan yana. Dönen (rects, cores);
-    cores = [(cx0, cx1, sy), ...] her çekirdek için."""
+def _mirror(rects, W):
+    return [Rect(_r(W - r.x1), r.y0, _r(W - r.x0), r.y1, r.name, r.kind, r.mod) for r in rects]
+
+
+def _front_unit(w, d, n_bed, tag):
+    """Sol ön daire x∈[0,w], y∈[0,d]; çekirdek sağda (x=w). Salon önde tam genişlik (ön + yan cephe), hol çekirdek
+    boyunca, mutfak yan cephede salona açılır, banyo hole; yatak odaları yan cepheye dizilir."""
+    _, sd, bd = _front_dims(w, d, n_bed)
+    sd, hx = _r(sd), _r(w - HOL_W)
+    kx = _r(hx - BATH_W)
+    rs = [Rect(0, 0, w, sd, f"{tag}/Salon"), Rect(hx, sd, w, d, f"{tag}/Hol"),
+          Rect(0, sd, kx, _r(sd + KD), f"{tag}/Mutfak"), Rect(kx, sd, hx, _r(sd + KD), f"{tag}/Banyo")]
+    y = _r(sd + KD)
+    for i in range(n_bed):
+        y1 = d if i == n_bed - 1 else _r(y + bd)
+        if i == n_bed - 1 and n_bed >= 3 and hx - 1.8 >= MIN_BED_W:   # ebeveyn banyosu: son odanın iç ucunda
+            rs += [Rect(0, y, _r(hx - 1.8), y1, f"{tag}/Yatak Odası {i + 1}"),
+                   Rect(_r(hx - 1.8), y, hx, y1, f"{tag}/Ebeveyn Banyo")]
+        else:
+            rs.append(Rect(0, y, hx, y1, f"{tag}/Yatak Odası {i + 1}"))
+        y = y1
+    return rs
+
+
+def _rear4_unit(cx0, xm, yf, ye, D, n_bed, tag):
+    """Sol arka daire (4'lü): dış bölüm x∈[0,cx0]×[yf,D] (arkada salon, yan cepheye yatak odaları), çekirdeğin
+    arkasında x∈[cx0,xm]×[ye,D] hol + banyo + mutfak şeridi (mutfak arka cephede)."""
+    _, sd, bd = _rear4_dims(cx0, D - yf, D - ye, n_bed)
+    hx = _r(cx0 + HOL_W)
+    ys = _r(D - sd)
+    kd = min(D - ye - 2.4, 4.4)            # mutfak arka cephede; uzun şeritte banyo ile arasında depo
+    rest = D - ye - 2.4 - kd
+    yb = _r(ye + 2.4 + (rest if rest < 1.2 else 0))
+    yk = _r(D - kd)
+    rs = [Rect(0, ys, cx0, D, f"{tag}/Salon"), Rect(cx0, ye, hx, D, f"{tag}/Hol"),
+          Rect(hx, ye, xm, yb, f"{tag}/Banyo"), Rect(hx, yk, xm, D, f"{tag}/Mutfak")]
+    if yk - yb > 1e-6:
+        rs.append(Rect(hx, yb, xm, yk, f"{tag}/Depo"))
+    y = ys
+    for i in range(n_bed):
+        y0 = yf if i == n_bed - 1 else _r(y - bd)
+        rs.append(Rect(0, y0, cx0, y, f"{tag}/Yatak Odası {i + 1}"))
+        y = y0
+    return rs
+
+
+def _center_unit(b0, b1, cx0, cx1, yf, ye, D, n_bed, tag):
+    """Arka orta daire (3'lü): arkada tam genişlik salon (arka + iki yan cephe); üstünde sol sütun mutfak (+banyo),
+    ortada hol (çekirdeğin arka bandına bağlanır), sağ sütun yatak odaları. Boyun varsa banyo/depo çekirdeğe bitişik."""
+    neck = yf - ye >= NECK_MIN - 1e-9
+    _, sd3, bd = _center_dims(b1 - b0, D - yf, n_bed, neck)
+    xm = _r((cx0 + cx1) / 2)
+    hx0, hx1 = _r(xm - HOL_W / 2), _r(xm + HOL_W / 2)
+    ys = _r(D - sd3)
+    rs = [Rect(b0, ys, b1, D, f"{tag}/Salon"), Rect(hx0, ye, hx1, ys, f"{tag}/Hol")]
+    if neck:
+        rs += [Rect(cx0, ye, hx0, yf, f"{tag}/Banyo"), Rect(hx1, ye, cx1, yf, f"{tag}/Depo"),
+               Rect(b0, yf, hx0, ys, f"{tag}/Mutfak")]
+    else:
+        rs += [Rect(b0, yf, hx0, _r(yf + 2.2), f"{tag}/Banyo"), Rect(b0, _r(yf + 2.2), hx0, ys, f"{tag}/Mutfak")]
+    y = ys
+    for i in range(n_bed):
+        y0 = yf if i == n_bed - 1 else _r(y - bd)
+        rs.append(Rect(hx1, y0, b1, y, f"{tag}/Yatak Odası {i + 1}"))
+        y = y0
+    return rs
+
+
+def multi_plan(g, n_bed):
+    """Kat başına 3 (T kütle) veya 4 (dikdörtgen) daireli tek çekirdekli kat. Dönen (rects, cores)."""
+    Wf, Yf, Ye, W, D = g["Wf"], g["Yf"], g["Ye"], g["W"], g["D"]
+    cx0, cx1, xm = Wf, _r(Wf + CORE3_W), _r(Wf + CORE3_W / 2)
+    extra = Ye - (H1_MIN + STAIR_DEPTH + HB_MIN)
+    h1 = _r(H1_MIN + extra / 2)
+    yc = _r(h1 + STAIR_DEPTH)
+    left = _front_unit(Wf, Yf, n_bed, "Daire 1")
+    rects = left + _mirror([Rect(r.x0, r.y0, r.x1, r.y1, r.name.replace("Daire 1/", "Daire 2/")) for r in left], W)
+    if g["n"] == 4:
+        rl = _rear4_unit(cx0, xm, Yf, Ye, D, n_bed, "Daire 3")
+        rects += rl + _mirror([Rect(r.x0, r.y0, r.x1, r.y1, r.name.replace("Daire 3/", "Daire 4/")) for r in rl], W)
+    else:
+        wr = g["Wr"]
+        b0 = _r(xm - wr / 2)
+        rects += _center_unit(b0, _r(b0 + wr), cx0, cx1, Yf, Ye, D, n_bed, "Daire 3")
+    sx, lx = _r(cx0 + STAIR_W), _r(cx0 + STAIR_W + STRIP_W)
+    rects += [Rect(cx0, 0, cx1, h1, "Kat Holü", "core"), Rect(sx, h1, lx, yc, "Kat Holü", "core"),
+              Rect(cx0, yc, cx1, Ye, "Kat Holü", "core"),
+              Rect(cx0, h1, sx, yc, "Merdiven", "core"), Rect(lx, h1, cx1, yc, "Asansör/Şaft", "core")]
+    return rects, [(cx0, cx1, h1)]
+
+
+def floor_plan(width, depth, n_bed, layout, upf=2, modules=1, geom=None):
+    """Kat planı: `modules` adet [daire | çekirdek | daire] modülü yan yana; `geom` verilirse (kat başına 3–4 daire)
+    tek çekirdekli çok daireli yerleşim. Dönen (rects, cores); cores = [(cx0, cx1, sy), ...] her çekirdek için."""
+    if geom:
+        return multi_plan(geom, n_bed)
     fn = _unit_rects if layout == "wide" else _unit_rects_deep
     sy = _r(depth - STAIR_DEPTH)
     if upf == 1:  # çekirdek sağ yanda, tek daire
         cx0, cx1 = _r(width - CORE_W), width
-        rects = fn(0, cx0, depth, n_bed, mirror=False, tag="Daire A")
+        rects = fn(0, cx0, depth, n_bed, mirror=False, tag="Daire 1")
         spans = [(cx0, cx1)]
     else:
         rects, spans = [], []
         mw = width / modules
-        letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         for k in range(modules):
             m0, m1 = _r(k * mw) if k else 0.0, (_r((k + 1) * mw) if k < modules - 1 else width)
             cx0 = _r(m0 + (m1 - m0 - CORE_W) / 2)
             cx1 = _r(cx0 + CORE_W)
-            for r in fn(m0, cx0, depth, n_bed, mirror=False, tag=f"Daire {letters[2 * k]}"):
+            for r in fn(m0, cx0, depth, n_bed, mirror=False, tag=f"Daire {2 * k + 1}"):
                 r.mod = k
                 rects.append(r)
-            for r in fn(cx1, m1, depth, n_bed, mirror=True, tag=f"Daire {letters[2 * k + 1]}"):
+            for r in fn(cx1, m1, depth, n_bed, mirror=True, tag=f"Daire {2 * k + 2}"):
                 r.mod = k
                 rects.append(r)
             spans.append((cx0, cx1))
@@ -313,26 +611,69 @@ def _wall_segments(rects, width, depth):
         unit = r.name.split("/")[0] if (r.kind == "room" and "/" in r.name) else None
         for orient, c, s0, s1 in (("h", r.y0, r.x0, r.x1), ("h", r.y1, r.x0, r.x1),
                                    ("v", r.x0, r.y0, r.y1), ("v", r.x1, r.y0, r.y1)):
-            ext = (orient == "h" and c in (0, depth)) or (orient == "v" and c in (0, width))
-            t = EXT_T if ext else CORE_T if core else INT_T
-            edges.setdefault((orient, round(c, 3)), []).append((round(s0, 3), round(s1, 3), t, unit))
+            t = CORE_T if core else INT_T
+            edges.setdefault((orient, round(c, 3)), []).append((round(s0, 3), round(s1, 3), t, unit,
+                                                                r.name if core else None))
     lines = {}
     for key, es in edges.items():
-        pts = sorted({p for s0, s1, _, _ in es for p in (s0, s1)})
+        orient, c = key
+        pts = sorted({p for s0, s1, *_ in es for p in (s0, s1)})
         pieces = []
         for a, b in zip(pts, pts[1:]):
             m = (a + b) / 2
-            cover = [t for s0, s1, t, _ in es if s0 <= m <= s1]
-            if cover:
-                t = max(cover)
-                if len({u for s0, s1, _, u in es if s0 <= m <= s1 and u}) > 1:
+            cov = [e for e in es if e[0] <= m <= e[1]]
+            if not cov:
+                continue
+            names = {e[4] for e in cov}
+            if len(cov) >= 2 and len(names) == 1 and None not in names:
+                continue   # aynı ortak mahalin (H biçimli kat holü) parçaları arası: duvar yok
+            # dış duvar: kenarın yalnız bir yanında mahal var (T kütlede iç köşeler dahil)
+            sides = [_covered(rects, m, c + d) if orient == "h" else _covered(rects, c + d, m) for d in (-1e-3, 1e-3)]
+            if sides[0] != sides[1]:
+                t = EXT_T
+            else:
+                t = max(e[2] for e in cov)
+                if len({e[3] for e in cov if e[3]}) > 1:
                     t = max(t, CORE_T)   # iki farklı dairenin ortak duvarı: daire ayırma duvarı
-                if pieces and abs(pieces[-1][1] - a) < 1e-6 and pieces[-1][2] == t:
-                    pieces[-1] = (pieces[-1][0], b, t)
-                else:
-                    pieces.append((a, b, t))
+            if pieces and abs(pieces[-1][1] - a) < 1e-6 and pieces[-1][2] == t:
+                pieces[-1] = (pieces[-1][0], b, t)
+            else:
+                pieces.append((a, b, t))
         lines[key] = pieces
     return lines
+
+
+def _covered(rects, x, y):
+    return any(r.x0 < x < r.x1 and r.y0 < y < r.y1 for r in rects)
+
+
+def _ext_edges(r, rects):
+    """Mahalin dış cepheye bakan kenar parçaları: (orient, coord, s0, s1). Komşu mahalin kapladığı kısımlar düşülür."""
+    out = []
+    for orient, c, s0, s1, lo in (("h", r.y0, r.x0, r.x1, True), ("h", r.y1, r.x0, r.x1, False),
+                                  ("v", r.x0, r.y0, r.y1, True), ("v", r.x1, r.y0, r.y1, False)):
+        ivs = [(s0, s1)]
+        for q in rects:
+            if q is r:
+                continue
+            if orient == "h" and abs((q.y1 if lo else q.y0) - c) < 1e-6:
+                a, b = q.x0, q.x1
+            elif orient == "v" and abs((q.x1 if lo else q.x0) - c) < 1e-6:
+                a, b = q.y0, q.y1
+            else:
+                continue
+            nxt = []
+            for u, v in ivs:
+                if b <= u + 1e-9 or a >= v - 1e-9:
+                    nxt.append((u, v))
+                    continue
+                if a > u:
+                    nxt.append((u, a))
+                if b < v:
+                    nxt.append((b, v))
+            ivs = nxt
+        out += [(orient, c, u, v) for u, v in ivs if v - u > 1e-6]
+    return out
 
 
 WIN_W = {"Salon": 3.0, "Mutfak": 1.4, "Yatak": 1.6, "Banyo": 0.6, "Ebeveyn": 0.6}
@@ -378,16 +719,12 @@ def _openings(rects, width, depth, cores, ground):
     for tag in sorted({r.name.split("/")[0] for r in rects if r.kind == "room"}):
         unit = [r for r in rects if r.name.startswith(tag + "/")]
         hol = next(r for r in unit if r.name.endswith("/Hol"))
-        hall_core = next(r for r in rects if r.kind == "core" and r.name.startswith("Kat Holü") and r.mod == hol.mod)
+        halls = [r for r in rects if r.kind == "core" and r.name.startswith("Kat Holü") and r.mod == hol.mod]
         rooms = [r for r in unit if r is not hol]
         for r in rooms:
             short = r.name.split("/")[1]
             ww = next((v for k, v in WIN_W.items() if short.startswith(k)), 1.4)
-            ext = []
-            if r.y0 == 0: ext.append(("h", 0, r.x0, r.x1))
-            if r.y1 == depth: ext.append(("h", depth, r.x0, r.x1))
-            if r.x0 == 0: ext.append(("v", 0, r.y0, r.y1))
-            if r.x1 == width: ext.append(("v", width, r.y0, r.y1))
+            ext = _ext_edges(r, rects)
             ext.sort(key=lambda e: -(e[3] - e[2]))
             for e in ext[:2 if short.startswith("Salon") else 1]:
                 win(*e, ww if e is ext[0] else 2.0)
@@ -403,9 +740,9 @@ def _openings(rects, width, depth, cores, ground):
                 if d:
                     ops.append(d)
         # daire girişi: kat holü ↔ daire holü, yoksa kat holüne bakan odaya
-        entry = _shared(hol, hall_core)
+        entry = next((e for h in halls if (e := _shared(hol, h))), None)
         if entry is None:
-            entry = next((_shared(r, hall_core) for r in rooms if _shared(r, hall_core)), None)
+            entry = next((e for r in rooms for h in halls if (e := _shared(r, h))), None)
         d = _door(entry, 1.0) if entry else None
         if d:
             ops.append(d)
@@ -415,6 +752,13 @@ def _openings(rects, width, depth, cores, ground):
         else:
             win("h", 0, cx0, cx1, 1.4)
         ops.append(("h", sy, _r(cx0 + 0.5), _r(cx0 + 1.6), "door"))
+    # asansör kabin kapısı: kuyunun kat holüne bakan kenarında
+    for lift in (r for r in rects if r.kind == "core" and r.name.startswith("Asansör")):
+        edge = next((e for h in rects if h.kind == "core" and h.name.startswith("Kat Holü") and h.mod == lift.mod
+                     and (e := _shared(lift, h))), None)
+        d = _door(edge, 0.9) if edge else None
+        if d:
+            ops.append(d)
     return ops
 
 
@@ -455,6 +799,51 @@ def _room_poly(r, lines):
     return [[round(a, 3), round(c, 3)], [round(b, 3), round(c, 3)], [round(b, 3), round(d, 3)], [round(a, 3), round(d, 3)]]
 
 
+def _tag_key(tag):
+    n = tag.rsplit(" ", 1)[-1]
+    return (0, int(n), tag) if n.isdigit() else (1, 0, tag)
+
+
+def _outline(rects, width, depth):
+    """Brüt kat konturu (dış yüzler, aks + EXT_T/2). Dikdörtgen kütlede 4 köşe; T kütlede birleşik çokgen."""
+    h = EXT_T / 2
+    rect = [(-h, -h), (width + h, -h), (width + h, depth + h), (-h, depth + h)]
+    from shapely.geometry import box
+    from shapely.ops import unary_union
+    u = unary_union([box(r.x0, r.y0, r.x1, r.y1) for r in rects])
+    if abs(u.area - width * depth) < 1e-3:
+        return rect
+    g = u.buffer(h, join_style=2).simplify(1e-4)
+    pts = [(round(x, 3), round(y, 3)) for x, y in list(g.exterior.coords)[:-1]]
+    if g.exterior.is_ccw is False:
+        pts = pts[::-1]
+    return pts
+
+
+def _room_polys(rects, lines):
+    """Mahal adı → (tür, iç yüz çokgeni). Aynı adlı çekirdek parçaları (H kat holü) tek mahalde birleşir:
+    parçaların birleşimi − duvar gövdeleri."""
+    groups = {}
+    for r in rects:
+        groups.setdefault(r.name, []).append(r)
+    out = {}
+    for name, rs in groups.items():
+        if len(rs) == 1:
+            out[name] = (rs[0].kind, _room_poly(rs[0], lines))
+            continue
+        from shapely.geometry import box
+        from shapely.ops import unary_union
+        area = unary_union([box(r.x0, r.y0, r.x1, r.y1) for r in rs])
+        walls = unary_union([box(a, c - t / 2, b, c + t / 2) if o == "h" else box(c - t / 2, a, c + t / 2, b)
+                             for (o, c), ps in lines.items() for a, b, t in ps])
+        p = area.difference(walls)
+        if p.geom_type != "Polygon":
+            p = max(p.geoms, key=lambda g: g.area)
+        p = p.simplify(1e-4)
+        out[name] = (rs[0].kind, [[round(x, 3), round(y, 3)] for x, y in list(p.exterior.coords)[:-1]])
+    return out
+
+
 def generate(parcel, zoning, program):
     m = massing(parcel, zoning, program)
     width, depth = m["footprint"]
@@ -462,7 +851,8 @@ def generate(parcel, zoning, program):
     fh = zoning.get("floor_height", 3.0)
     slab_t = 0.2
     n_bed = UNIT_TYPES[m["unit_type"]][1]
-    rects, cores = floor_plan(width, depth, n_bed, m["layout"], m["units_per_floor"], m.get("modules", 1))
+    rects, cores = floor_plan(width, depth, n_bed, m["layout"], m["units_per_floor"], m.get("modules", 1),
+                              m.get("geom"))
     core = cores[0]
     lines = _wall_segments(rects, width, depth)
     P = lambda x, y: [round(ox + x, 3), round(oy + y, 3)]
@@ -474,8 +864,9 @@ def generate(parcel, zoning, program):
                  "points": [P((core[0] + core[1]) / 2 - 1.0, -oy), P((core[0] + core[1]) / 2 + 1.0, -oy),
                             P((core[0] + core[1]) / 2 + 1.0, 0), P((core[0] + core[1]) / 2 - 1.0, 0)],
                  "z": 0.02, "thickness": 0.05}]
-    outline = [P(-EXT_T / 2, -EXT_T / 2), P(width + EXT_T / 2, -EXT_T / 2),
-               P(width + EXT_T / 2, depth + EXT_T / 2), P(-EXT_T / 2, depth + EXT_T / 2)]
+    outline = [P(x, y) for x, y in _outline(rects, width, depth)]
+    room_polys = _room_polys(rects, lines)
+    tags = sorted({r.name.split("/")[0] for r in rects if r.kind == "room"}, key=_tag_key)
     units = []
     for f in range(m["floors"]):
         lvl = f"Kat {f}" if f else "Zemin Kat"
@@ -490,23 +881,23 @@ def generate(parcel, zoning, program):
                 mine = sorted([(a, b, k) for o, cc, a, b, k in ops if o == orient and abs(cc - c) < 1e-6
                                and a >= s0 - 1e-6 and b <= s1 + 1e-6])
                 start, end = ((s0, c), (s1, c)) if orient == "h" else ((c, s0), (c, s1))
-                ext = (orient == "h" and c in (0, depth)) or (orient == "v" and c in (0, width))
+                ext = t == EXT_T   # _wall_segments dış kenara (tek yanında mahal olan) yalnız dış duvar kalınlığı verir
                 elements.append({
                     "type": "wall", "name": f"{lvl}/D{wi:02d}", "tag": "wall", "level": lvl, "exterior": ext,
                     "start": P(*start), "end": P(*end), "thickness": t, "height": fh - slab_t, "base_z": z,
                     "openings": [{"offset": round(a - s0, 3), "width": round(b - a, 3), "kind": k,
                                   **({"sill": 0.9, "height": 1.4 if (b - a) < 2 else 1.6} if k == "window"
                                      else {"height": 2.1, "leaf": True})} for a, b, k in mine]})
-        for r in rects:
-            poly = [P(x, y) for x, y in _room_poly(r, lines)]
-            elements.append({"type": "room", "name": f"{lvl}/{r.name}", "level": lvl, "points": poly, "z": z,
-                             "height": fh - slab_t, "role": "common" if r.kind == "core" else "room"})
+        for name, (kind, pts) in room_polys.items():
+            poly = [P(x, y) for x, y in pts]
+            elements.append({"type": "room", "name": f"{lvl}/{name}", "level": lvl, "points": poly, "z": z,
+                             "height": fh - slab_t, "role": "common" if kind == "core" else "room"})
         for k, c in enumerate(cores):
             for st in _stair_elements(lvl, ox, oy, z, fh, c):
                 if len(cores) > 1:
                     st["name"] = st["name"].replace("/merdiven", f"/merdiven{k + 1}")
                 elements.append(st)
-        for tag in sorted({r.name.split("/")[0] for r in rects if r.kind == "room"}):
+        for tag in tags:
             units.append({"level": lvl, "unit": tag, "type": m["unit_type"]})
     elements.append({"type": "slab", "name": "cati", "tag": "roof", "role": "roof", "level": "Çatı",
                      "points": outline, "z": m["floors"] * fh, "thickness": slab_t})
@@ -515,13 +906,14 @@ def generate(parcel, zoning, program):
 
     # uygunluk kontrolü
     A = m["parcel_area"]
-    fp_gross = (width + EXT_T) * (depth + EXT_T)
+    from .quantities import polygon_area
+    fp_gross = ((width + EXT_T) * (depth + EXT_T) if len(outline) == 4
+                else polygon_area([tuple(p) for p in _outline(rects, width, depth)]))
     gross_total = fp_gross * m["floors"]
     unit_net = {}
     for r in rects:
         if r.kind == "room":
             u = r.name.split("/")[0]
-            from .quantities import polygon_area
             unit_net[u] = unit_net.get(u, 0) + polygon_area([tuple(p) for p in _room_poly(r, lines)])
     h = EXT_T / 2
     sb, sb_detail, sb_ok = setback_checks(parcel["width"], parcel["depth"],

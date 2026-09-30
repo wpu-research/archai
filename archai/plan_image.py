@@ -12,11 +12,14 @@ Yöntem (yalnız numpy + PIL):
   4. kollinear parçalar arası boşluk → kapı açıklığı (dxf_import ile aynı kurallar), uçlar aksa oturur
   5. duvarlar + kapı boşlukları kapatılıp boş alan doldurulur → mahaller
 
-Ölçek önceliği: px_per_m > grid_m (arka plan ızgarası periyodu) > kapı boşluğu medyanı ≈ 0,95 m
-(ızgara varsa birimi bu tahmine en yakın standart değerden seçilir).
+Ölçek önceliği: px_per_m > grid_m (arka plan ızgarası periyodu) > kapı boşluğu medyanı ≈ 0,95 m ile çift çizgi iç
+duvar kalınlığı ≈ 0,10 m tahminlerinin birleşimi (tutarsızsa uyarı; ızgara varsa birimi bu tahmine en yakın standart
+değerden seçilir).
 Çözünürlük bağımsızlığı: ipucusuz ölçek, girdinin √2 basamaklarıyla yeniden örneklenmiş kopyalarında sabit işlem
-ölçeğiyle (CANON_S) aranır; son tanıma ≈ CANON_S px/m'ye küçültülmüş kopyada yapılır (büyütülmez), sonuç orijinal
-piksele çevrilir. Girdi ≤ MAX_PIXELS; işlem görseli ≤ WORK_SIDE (zaman/bellek sınırlı).
+ölçeğiyle (CANON_S) aranır; son tanıma ≈ CANON_S px/m'lik kopyada yapılır, sonuç orijinal piksele çevrilir. Düşük
+çözünürlüklü girdi (çizgiler < 1 px, kenar yumuşatmalı) eşiklemeden ÖNCE gri tonda (LANCZOS) en çok MAX_UPSCALE kat
+büyütülür; büyütmenin yaydığı çizgiler kesit tepesine inceltilir (_line_cores). Girdi ≤ MAX_PIXELS; işlem görseli
+≤ WORK_SIDE (zaman/bellek sınırlı).
 Pencere, mahal adı ve mobilya sembolleri bu aşamada okunmaz (raporda uyarı olarak döner).
 """
 
@@ -32,6 +35,10 @@ from shapely.ops import unary_union
 from .dxf_import import Piece, _merge_collinear, _snap_ends, build_elements
 from .quantities import polygon_area
 
+BAR_RATIO = 0.5       # _bars: komşu satır koşusu çubuğa ancak boyu ≥ bu oranda benzerse eklenir (bkz. _bars)
+INT_M = 0.10          # çift çizgi iç duvar kalınlığı önseli (0,08–0,12 m; dış 0,20–0,30 m)
+R_THICK_M = 0.04       # kalın kontur açılış yarıçapı (m·S): 0,035 villa paftasında (43,3 px/m) 1↔2 px sınırındaydı
+WALL_W = 3.0          # keskin kalınlık kümesinin kapı tahminine göre ağırlığı (ölçümle seçildi)
 DOOR_M = 0.95         # kapı boşluğu medyanı varsayımı (ölçek yoksa; iç kapı 0,9–1,0 m)
 
 
@@ -53,13 +60,20 @@ def erode(m, ry, rx=None):
     return _box_count(m, ry, rx) == (2 * ry + 1) * (2 * rx + 1)
 
 
+def contrast(rgb):
+    """Zemine göre çizgi kontrastı (0–255): koyu zeminde en parlak kanal − zemin, açık zeminde zemin − parlaklık."""
+    a = rgb.astype(np.int16)
+    lum = a.sum(2, dtype=np.float32) / 3                      # float32: büyük işlem görselinde bellek yarıya iner
+    bg = float(np.median(lum))
+    hi = a.max(2)
+    con = (hi - np.float32(bg)) if bg < 128 else (np.float32(bg) - lum)
+    return con, (hi - a.min(2)) < 60
+
+
 def ink_mask(rgb):
     """(mürekkep, nötr): zeminle belirgin kontrastlı pikseller ve bunların renksiz (beyaz/gri/siyah) olanları."""
-    a = rgb.astype(np.int16)
-    lum = a.mean(2)
-    bg = float(np.median(lum))
-    ink = a.max(2) > bg + 70 if bg < 128 else lum < bg - 70
-    neutral = (a.max(2) - a.min(2)) < 60
+    con, neutral = contrast(rgb)
+    ink = con > 70
     return ink, ink & neutral
 
 
@@ -88,8 +102,12 @@ def grid_period(rgb, ink):
 
 
 # ---------------------------------------------------------------- çubuk çıkarımı
-def _bars(mask, min_len, max_t):
-    """Yatay çubuklar: satır koşuları (≥ min_len) ardışık satırlarda birleşir → (y0, y1, x0, x1)."""
+def _bars(mask, min_len, max_t, ratio=0.0):
+    """Yatay çubuklar: satır koşuları (≥ min_len) ardışık satırlarda birleşir → (y0, y1, x0, x1).
+
+    ratio > 0: koşu çubuğa ancak boyları benzerse (kısa/uzun ≥ ratio) eklenir. Yoksa duvara bitişen kısa bir çizgi
+    (tezgâh, dolap, yatak başlığı; düşük çözünürlükte aradaki 1 px boşluk kapanır) çubuğa katılıp kalınlığı max_t'yi
+    aşırır ve duvar tümüyle atılır; oran koşuluyla kısa koşu ayrı çubuk olur, duvar sürer."""
     runs_by_row = []
     for row in mask:
         x = np.flatnonzero(np.diff(np.r_[0, row.astype(np.int8), 0]))
@@ -98,7 +116,8 @@ def _bars(mask, min_len, max_t):
     for y, runs in enumerate(runs_by_row):
         nxt = []
         for s, e in runs:
-            hit = next((b for b in open_ if min(e, b[3]) - max(s, b[2]) >= 0.8 * min(e - s, b[3] - b[2])), None)
+            hit = next((b for b in open_ if min(e, b[3]) - max(s, b[2]) >= 0.8 * min(e - s, b[3] - b[2])
+                        and min(e - s, b[3] - b[2]) >= ratio * max(e - s, b[3] - b[2])), None)
             if hit:
                 open_.remove(hit)
                 nxt.append([hit[0], y, min(hit[2], s), max(hit[3], e), hit[4] + [(s, e)]])
@@ -116,6 +135,47 @@ def _bars(mask, min_len, max_t):
         # uçlar: satırların çoğunun ulaştığı yer (birleşim köşelerindeki taşmayı at)
         out.append((y0, y1, xs0[len(xs0) // 4], xs1[(3 * len(xs1)) // 4]))
     return out
+
+
+def _line_cores(con, thin):
+    """İnce çizgi maskesinin yön başına çekirdeği: kesit boyunca yerel tepeye 1 px komşu ve tepenin yarısından parlak
+    pikseller (yatay çizgi için dikey kesit, dikey için yatay). Büyütülmüş / kenar yumuşatmalı görüntüde 2–3 px'e
+    yayılan çizgi ile ona 1–2 px yakın mobilya/başlık çizgisi arasındaki sığ çukur ayrılır; aksi hâlde ikisi tek kalın
+    koşuya birleşip `_bars` kalınlık sınırında (max_t) duvarla birlikte atılır. Keskin (1–2 px) çizgide maske değişmez."""
+    cp = np.pad(con, 1, mode="edge")
+    mv = np.maximum(np.maximum(cp[:-2, 1:-1], cp[2:, 1:-1]), con)
+    mh = np.maximum(np.maximum(cp[1:-1, :-2], cp[1:-1, 2:]), con)
+    return (thin & (2 * con >= mv) & dilate(con >= mv, 1, 0),
+            thin & (2 * con >= mh) & dilate(con >= mh, 0, 1))
+
+
+def _face_thickness(con, p, S, H, k=12):
+    """Çift çizgi duvarın alt-piksel kalınlığı (px): kesit boyunca iki yüz çizgisinin tepesi 3 noktalı parabolle
+    inceltilir (kenar yumuşatmalı / taralı duvarda tam sayı satır ortası ±0,5 px sapar → 0,1 m ≈ 4–5 px'te ±%10).
+    Ölçek tahmini içindir; geometri (aks, kalınlık) değişmez. Ölçülemezse None."""
+    horiz = abs(p.ux) > 0.5
+    c = (H - p.n * S) if horiz else (-p.n * S)           # eksen (piksel kenarı koordinatı): yatayda satır, dikeyde sütun
+    img = con if horiz else con.T
+    half, L = p.t * S / 2, p.s1 - p.s0
+    out = []
+    for j in range(k):
+        sp = p.s0 + L * (0.15 + 0.7 * (j + 0.5) / k)
+        a = int(sp * S) if horiz else int(H - sp * S)
+        if not 0 <= a < img.shape[1]:
+            continue
+        pos = []
+        for f in (c - half, c + half):
+            r0 = int(round(f - 0.5))
+            if not 2 <= r0 < img.shape[0] - 2:
+                break
+            win = img[r0 - 1:r0 + 2, a]
+            r = r0 - 1 + int(np.argmax(win))
+            y0, y1, y2 = (float(v) for v in img[r - 1:r + 2, a])
+            den = y0 - 2 * y1 + y2
+            pos.append(r + 0.5 + (0.5 * (y0 - y2) / den if den < 0 else 0.0))
+        if len(pos) == 2:
+            out.append(pos[1] - pos[0])
+    return float(np.median(out)) if len(out) >= 3 else None
 
 
 def _pieces(bars_h, bars_v, H, S, min_t):
@@ -649,7 +709,7 @@ def _rooms(walls, cell=0.05, min_area=1.2):
 MAX_PIXELS = 60_000_000   # girdi sınırı (≈ 7750 × 7750); üstü reddedilir
 CANON_S = 50.0            # işlem ölçeği (px/m): eşikler bu ölçek civarında ayarlı (test planı 46, villa paftası 44)
 WORK_SIDE = (320, 2600)   # işlem görselinin uzun kenarı (px) sınırları: bellek/zaman üst sınırı
-MAX_UPSCALE = 1.0         # son tanıma turunda büyütme üst sınırı
+MAX_UPSCALE = 2.0         # son tanıma turunda büyütme üst sınırı (0,5× girdi ≈ 23 px/m → 46 px/m; üstü bilgi katmaz)
 GRID_SIDE = 1000          # ızgara periyodu bu boyuttaki önizlemede aranır (büyük periyotta tepe filtresi kaçırır)
 SEARCH_SIDE = (400, 2300)  # ölçek hipotezlerinin işlem görseli uzun kenarı (≈ 8–46 m pafta genişliği)
 
@@ -682,7 +742,9 @@ class _Work:
         self.k = size[1] / H0
         self.rgb = np.asarray(im)
         self.H, self.W = self.rgb.shape[:2]
-        self.ink, self.neutral = ink_mask(self.rgb)
+        self.con, self.gray = contrast(self.rgb)
+        self.ink = self.con > 70
+        self.neutral = self.ink & self.gray
         if labels:
             self.lab, self.sizes = label_free(~dilate(self.ink, 1))
             self.sizes[0] = 0
@@ -692,16 +754,19 @@ def _door_widths(walls):
     return [b - a for w in walls for a, b, k, *_ in w.openings if k == "door" and 0.5 < b - a < 1.4]
 
 
-def _run(w, S, max_opening):
+def _run(w, S, max_opening, final=False):
     """İşlem görselinde (w) S px/m ölçeğiyle duvar + açıklık çıkarımı."""
     ink, neutral, lab, sizes, H, Wimg = w.ink, w.neutral, w.lab, w.sizes, w.H, w.W
-    r_thick = max(1, round(0.035 * S))
-    thick = dilate(erode(ink, r_thick), r_thick)                    # ≥ ~7 cm dolu kontur (renkli duvar çizgisi)
+    r_thick = max(1, round(R_THICK_M * S))
+    thick = dilate(erode(ink, r_thick), r_thick)                    # ≥ ~8 cm dolu kontur (renkli duvar çizgisi)
     thin = neutral & ~dilate(thick, 1)
+    up = w.k > 1.01                    # büyütülmüş (düşük çözünürlüklü girdi): çizgi çekirdeği + boy oranı koşulu
+    thin_h, thin_v = _line_cores(w.con, thin) if up else (thin, thin)
+    rt = BAR_RATIO if up else 0.0
     min_len, max_line = round(0.3 * S), max(3, round(0.06 * S))   # ≥ 3 px: kenar yumuşatma çizgiyi kalınlaştırır
-    lines = [(True, (H - (y0 + y1 + 1) / 2) / S, x0 / S, (x1 + 1) / S) for y0, y1, x0, x1 in _bars(thin, min_len, max_line)
+    lines = [(True, (H - (y0 + y1 + 1) / 2) / S, x0 / S, (x1 + 1) / S) for y0, y1, x0, x1 in _bars(thin_h, min_len, max_line, rt)
              if x1 - x0 < 0.8 * Wimg]
-    lines += [(False, -((x0 + x1 + 1) / 2) / S, (H - y1 - 1) / S, (H - y0) / S) for x0, x1, y0, y1 in _bars(thin.T, min_len, max_line)
+    lines += [(False, -((x0 + x1 + 1) / 2) / S, (H - y1 - 1) / S, (H - y0) / S) for x0, x1, y0, y1 in _bars(thin_v.T, min_len, max_line, rt)
               if y1 - y0 < 0.8 * H]                                   # pafta çerçevesi / antet çizgisi değil
     def filled(h, n1, n2, s0, s1):
         """İki çizgi arasındaki bantta mürekkep oranı (tarama / dolu poşe duvar)."""
@@ -714,13 +779,16 @@ def _run(w, S, max_opening):
             band = ink[int(H - s1 * S):int(H - s0 * S), max(0, x0):max(0, x1)]
         return band.size > 0 and band.mean() >= 0.12
     pieces, rest = _pair(lines, 0.055, 0.2, wide=(0.4, filled))   # < 5,5 cm çift: dolap/tezgâh çerçevesi
-    bh = _bars(thick, min_len, round(0.42 * S))
-    bv = _bars(thick.T, min_len, round(0.42 * S))
+    rtk = rt if final else 0.0        # kalın çubukta oran koşulu yalnız son turda (taramada sahte kapı üretir)
+    bh = _bars(thick, min_len, round(0.42 * S), rtk)
+    bv = _bars(thick.T, min_len, round(0.42 * S), rtk)
     pieces += _pieces(bh, bv, H, S, 0.1)
     pieces = [p for p in pieces if p.s1 - p.s0 >= 0.5 or p.t > 0.12]  # kısa ince çift: sandalye, komodin
     ps = _furniture(_hug(pieces), lab, sizes, H, S)
     ps += _furniture(_singles(rest, ps), lab, sizes, H, S)
     ps = _components(_clip_annotations(ps), max_opening, 0.2)
+    w.tstats = [(t, p.s1 - p.s0) for p in ps if getattr(p, "src", "") != "thick"          # çift çizgi kalınlığı (px)
+                for t in [_face_thickness(w.con, p, S, H)] if t]
     ps = _unify_thickness(ps)
     walls = _merge_collinear(ps, [], [], max_opening, max_opening)
     walls = _end_doors(walls, max_opening)
@@ -749,11 +817,42 @@ def _work(img, prev, k):
     return w, w.k
 
 
+def _thickness_peaks(tstats, min_share=0.15):
+    """Çift çizgi duvar kalınlıklarının (px, uzunluk ağırlıklı) baskın kümeleri → [(kalınlık px, keskinlik)], inceden
+    kalına. Kalın konturlar (renkli tek çizgi) sayılmaz: kalınlıkları duvar değil kalem kalınlığıdır. Keskinlik: tepenin
+    ±%40'ındaki uzunluğun ±%15'e düşen payı (dağınık dağılım = düşük çözünürlük / güvenilmez)."""
+    ts = [(t, L) for t, L in tstats if t > 1.5 and L >= 0.5]
+    if len(ts) < 4:
+        return []
+    lt, Ls = np.log([t for t, _ in ts]), np.array([L for _, L in ts])
+    tot = Ls.sum()
+    edges = np.arange(lt.min() - 0.1, lt.max() + 0.15, 0.05)       # ≈ %5'lik kutular
+    hist = np.histogram(lt, edges, weights=Ls)[0]
+    sm = np.convolve(hist, [1, 2, 1], "same") / 4
+    out = []
+    for i in range(len(sm)):
+        if not (sm[i] > 0 and sm[i] >= (sm[i - 1] if i else 0) and sm[i] > (sm[i + 1] if i + 1 < len(sm) else 0)):
+            continue
+        c = (edges[i] + edges[i + 1]) / 2
+        near = np.abs(lt - c) <= math.log(1.15)
+        if Ls[near].sum() < min_share * tot:
+            continue
+        mid = np.abs(lt - c) <= math.log(1.25)
+        t = float(np.exp((lt[mid] * Ls[mid]).sum() / Ls[mid].sum()))   # ağırlıklı ortalama: piksele oturan çizimde
+        wide = np.abs(lt - c) <= math.log(1.4)                           # yatay/dikey duvarların ±0,5 px'i ortalanır
+        out.append((t, float(Ls[near].sum() / Ls[wide].sum())))
+    return out
+
+
 def _estimate_scale(img, prev, max_opening):
     """İpucusuz ölçek: işlem ölçeği CANON_S sabit tutulup girdi √2 basamaklarıyla küçültülür/büyütülür (her basamak
     bir ölçek hipotezi h = CANON_S / k). Her hipotezde kapı boşlukları bulunur; medyanı ≈ DOOR_M olan (kendisiyle
     tutarlı, est ≈ h) ve çok kapı veren hipotez seçilir. Çözünürlükten bağımsızdır: 2× girdi, 1× girdinin bir basamak
-    aşağısıyla aynı işlem görselini görür. → (S orijinal px/m, kapı sayısı) ya da (None, 0)."""
+    aşağısıyla aynı işlem görselini görür.
+
+    Seçilen hipotezde ikinci bağımsız tahmin: çift çizgi iç duvar kalınlığı ≈ INT_M (0,08–0,12 m). İki tahmin ±%20
+    içinde tutarlıysa log-ağırlıklı birleştirilir (kalınlık kümesi keskinse ağırlığı WALL_W); tutarsızsa kapı tahmini
+    kalır ve uyarı döner. → (S orijinal px/m, kapı sayısı, yöntem notu, uyarı ya da None) ya da (None, 0, None, None)."""
     best = None
     L = max(img.size)
     for j in range(-6, 13):
@@ -769,8 +868,24 @@ def _estimate_scale(img, prev, max_opening):
         # tutarlılık × kapı sayısı; küçük işlem görselinde (≤ 800 px) yazı/sembol boşlukları sahte kapı üretir
         score = len(ws) * math.exp(-(math.log(est / h) / 0.25) ** 2) * min(1.0, max(w.W, w.H) / 800) ** 2
         if best is None or score > best[0]:
-            best = (score, est, len(ws))
-    return (best[1], best[2]) if best else (None, 0)
+            best = (score, est, len(ws), [(t / kt, Lm) for t, Lm in w.tstats])   # kalınlık orijinal px
+    if not best:
+        return None, 0, None, None
+    _, est, n, tstats = best
+    note = f"kapı genişliği medyanı ≈ {DOOR_M} m ({n} kapı)"
+    peaks = _thickness_peaks(tstats)
+    if not peaks:
+        return est, n, note, None
+    # iç duvar kümesi: INT_M varsayımıyla kapı tahminine en yakın ölçeği veren tepe (dış duvar / doğrama kümeleri elenir)
+    t_px, sharp = min(peaks, key=lambda p: abs(math.log(p[0] / INT_M / est)))
+    sw = t_px / INT_M
+    if abs(math.log(sw / est)) > math.log(1.2):
+        return est, n, note, (f"Ölçek tahminleri tutarsız: kapı genişliği {est:.1f} px/m, çift çizgi duvar kalınlığı "
+                              f"({INT_M} m iç duvar varsayımı) {', '.join(f'{p[0] / INT_M:.1f}' for p in peaks)} px/m — "
+                              "kapı tahmini kullanıldı; bilinen bir ölçüyle doğrulayın")
+    ww = WALL_W if sharp >= 0.6 else 1.0
+    S = math.exp((ww * math.log(sw) + math.log(est)) / (ww + 1))
+    return S, n, note + f" + iç duvar kalınlığı ≈ {INT_M} m ({t_px:.1f} px)", None
 
 
 # ---------------------------------------------------------------- ana akış
@@ -791,12 +906,13 @@ def recognize(path, px_per_m=None, grid_m=None, floors=1, floor_height=3.0, max_
         S, method = float(px_per_m), "verilen ölçek"
     elif grid_m and period:
         S, method = period / grid_m, f"ızgara {period:.1f} px = {grid_m} m"
-    else:  # ölçek yok: hipotez taraması (kapı genişliği medyanı ≈ 0,95 m); ızgara varsa ona oturt
+    else:  # ölçek yok: hipotez taraması (kapı genişliği + iç duvar kalınlığı); ızgara varsa ona oturt
         if grid_m:
             warnings.append("Izgara bulunamadı; grid_m kullanılamadı, ölçek kapı genişliğinden tahmin edildi")
-        S, n = _estimate_scale(img, prev, max_opening)
+        S, n, method, bad = _estimate_scale(img, prev, max_opening)
+        if bad:
+            warnings.append(bad)
         if S:
-            method = f"kapı genişliği medyanı ≈ {DOOR_M} m ({n} kapı)"
             if period:  # ızgara birimi bilinmiyor: kapı tahminine en yakın standart birim (±%25)
                 opts = [(abs(period / g - S) / S, g) for g in (0.1, 0.2, 0.25, 0.5, 1.0)]
                 err, g = min(opts)
@@ -807,7 +923,7 @@ def recognize(path, px_per_m=None, grid_m=None, floors=1, floor_height=3.0, max_
             S, method = CANON_S, "varsayılan (ölçek bulunamadı)"
             warnings.append(f"Ölçek bulunamadı; {CANON_S:g} px/m varsayıldı — px_per_m veya grid_m verin")
     w, kt = _work(img, prev, _fit_k(img, min(MAX_UPSCALE, _snap_k(CANON_S / S))))
-    walls = _run(w, S * kt, max_opening)
+    walls = _run(w, S * kt, max_opening, final=True)
     if not walls:
         raise ValueError("resimde duvar bulunamadı (plan çizimi değil ya da ölçek çok yanlış; px_per_m verin)")
     solid, room_polys = _rooms(walls)
