@@ -11,7 +11,7 @@ Koordinatlar: plan x (sokak cephesi), y (derinlik; y=0 sokak), metre. Bina aksı
 
 import math
 
-from .generate import EXT_T, INT_T, Rect, _door, _room_poly, _shared, _wall_segments
+from .generate import EXT_T, setback_checks, setback_warnings, INT_T, Rect, _door, _room_poly, _shared, _wall_segments
 from .quantities import polygon_area
 
 PARCEL = (30.0, 28.0)
@@ -85,7 +85,8 @@ def _floor_elements(rects, ops, level, z, height, open_edges=False):
             mine = sorted([o for o in ops if o[0] == orient and abs(o[1] - c) < 1e-6 and o[2] >= s0 - 1e-6 and o[3] <= s1 + 1e-6],
                           key=lambda o: o[2])
             start, end = ((s0, c), (s1, c)) if orient == "h" else ((c, s0), (c, s1))
-            els.append({"type": "wall", "name": f"{level}/D{wi:02d}", "tag": "wood", "level": level,
+            ext = (orient == "h" and c in (0, D)) or (orient == "v" and c in (0, W))
+            els.append({"type": "wall", "name": f"{level}/D{wi:02d}", "tag": "wood", "level": level, "exterior": ext,
                         "start": P(*start), "end": P(*end), "thickness": t, "height": height, "base_z": z,
                         "openings": [{"offset": round(a - s0, 3), "width": round(b - a, 3), "kind": k,
                                       **({"sill": sl, "height": h} if k == "window" else {"height": 2.1, "leaf": True})}
@@ -141,7 +142,7 @@ def elements():
 
     # zemin kat
     fp = rect(x0, y0, x1, y1)
-    els.append(_slab(f"{Z}/doseme", fp, Z0, SLAB, "wood", "floor", Z))
+    els.append({**_slab(f"{Z}/doseme", fp, Z0, SLAB, "wood", "floor", Z), "foundation": "piers"})  # ayaklı temel
     els += _floor_elements(GROUND, ground_openings(), Z, Z0, FH - SLAB)
     els.append({"type": "stairs", "name": f"{Z}/merdiven", "tag": "wood", "level": Z,
                 "origin": [OX + 7.5, OY + 4.2, Z0], "width": 0.9, "steps": 11, "rise": round(FH / 12, 4), "run": 0.2, "rotation_z": 90})
@@ -168,7 +169,8 @@ def elements():
     # alınlıklar: saçaktan mahyaya üçgen tomruk duvar (batı ve doğu)
     for i, xx in enumerate((OX, OX + W)):
         els.append({"type": "wall", "name": f"Çatı/alinlik{i}", "tag": "wood", "level": "Çatı", "start": [xx, round(y0, 3)], "end": [xx, round(y1, 3)],
-                    "thickness": EXT_T, "height": RIDGE, "base_z": zk + LOFT_H, "profile": "gable", "openings": []})
+                    "thickness": EXT_T, "height": RIDGE, "base_z": zk + LOFT_H, "profile": "gable", "openings": [],
+                    "exterior": True})
     return els
 
 
@@ -239,15 +241,16 @@ def report(els):
     h = EXT_T / 2
     fp = (W + EXT_T) * (D + EXT_T)
     gross = sum(polygon_area([tuple(p) for p in e["points"]]) for e in els if e["type"] == "slab" and e["role"] == "floor")
-    sb = {"front": OY - h, "side_left": OX - h, "side_right": round(PW - (OX + W + h), 3), "rear": round(PD - (OY + D + h), 3)}
+    sb, sb_detail, sb_ok = setback_checks(PW, PD, (OX - h, OY - h, OX + W + h, OY + D + h), ZONING)
     z = ZONING
     checks = {"taks": {"value": round(fp / A, 3), "limit": z["taks"], "ok": fp / A <= z["taks"] + 1e-3},
               "kaks": {"value": round(gross / A, 3), "limit": z["kaks"], "ok": gross / A <= z["kaks"] + 1e-3},
-              "floors": {"value": 2, "limit": z["max_floors"], "ok": True}, "setbacks": sb}
+              "floors": {"value": 2, "limit": z["max_floors"], "ok": True}, "setbacks": sb,
+              "setbacks_detail": sb_detail, "setback_ok": sb_ok}
     net = sum(polygon_area([tuple(p) for p in e["points"]]) for e in els if e["type"] == "room")
     return {"parcel_area": A, "footprint": (W, D), "origin": (OX, OY), "floors": 2, "unit_type": "Dağ Evi 1+1",
             "unit_count": 1, "footprint_gross": round(fp, 2), "gross_total": round(gross, 2), "unit_net_area": {"Dağ Evi": round(net, 2)},
-            "checks": checks, "warnings": [], "layout": "cabin", "units_per_floor": 1,
+            "checks": checks, "warnings": setback_warnings(sb_detail), "layout": "cabin", "units_per_floor": 1,
             "note": "Demo senaryosu — tomruk dağ evi (zemin + asma kat, ön veranda, ayaklı temel, beşik çatı); "
                     "şematik ön tasarım, mimar kontrolü gerekir."}
 

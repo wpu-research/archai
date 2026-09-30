@@ -8,13 +8,15 @@ Ortak: {"name", "adjust": {...fiyat ayarları}, "company", "customer"}
 
 import json
 import math
+import os
 from pathlib import Path
 
 from . import costing, drawings, quantities as Q, reports, spec
 from .dxf_import import import_dxf
 
-SETTINGS = Path(__file__).resolve().parents[1] / "out" / "settings.json"
-INFO_KEYS = ("company", "customer", "site", "owner", "architect", "drawn_by", "checked_by", "approved_by", "rev")
+SETTINGS = Path(os.environ.get("ARCHAI_OUT") or Path(__file__).resolve().parents[1] / "out") / "settings.json"
+INFO_KEYS = ("company", "customer", "site", "owner", "architect", "drawn_by", "checked_by", "approved_by", "rev",
+             "offer")
 
 
 def load_settings():
@@ -48,15 +50,22 @@ from .generate import generate
 
 def quick_brief(q):
     """m² + kat + daire tipinden, imarı birebir o binayı veren sanal parsel."""
+    from .generate import module_cap
     floors = int(q["floors"])
     fp = q["gross_area"] / floors
-    depth = 13.5 if fp >= 120 else max(9.0, math.sqrt(fp))  # konut için tipik bina derinliği
-    width = fp / depth
-    parcel = {"width": round(width + 6, 2), "depth": round(depth + 8, 2)}
+    if fp > module_cap(q.get("unit_type", "auto")) and q.get("units_per_floor", "auto") == "auto":
+        # birden çok çekirdek modülü gerekecek: üretici 10–15 m derinlik arasında seçebilsin
+        depth, width = 15.25, fp / 10.0 + 0.5
+    else:
+        depth = 13.5 if fp >= 120 else max(9.0, math.sqrt(fp))  # konut için tipik bina derinliği
+        width = fp / depth
+    # +0,1 m pay: dış yüz çekme çizgisine 5 cm'lik aks yuvarlamasıyla taşmasın (yoksa bina kırpılır)
+    parcel = {"width": round(width + 6.1, 2), "depth": round(depth + 8.1, 2)}
     A = parcel["width"] * parcel["depth"]
     zoning = {"taks": fp / A * 1.001, "kaks": q["gross_area"] / A * 1.001, "front": 5, "side": 3, "rear": 3,
               "max_floors": floors, "floor_height": q.get("floor_height", 3.0)}
-    return parcel, zoning, {"unit_type": q.get("unit_type", "auto"), "units_per_floor": q.get("units_per_floor", "auto")}
+    return parcel, zoning, {"unit_type": q.get("unit_type", "auto"), "units_per_floor": q.get("units_per_floor", "auto"),
+                            "quick_area": float(q["gross_area"])}
 
 
 def run(brief, out_dir, render_3d=False):
@@ -80,17 +89,30 @@ def run_dxf(dxf_path, brief, out_dir, render_3d=False):
     return finalize(brief, elements, report, {"dxf": str(dxf_path)}, out_dir, render_3d), elements
 
 
-def _vision(img_path, elements, rep, mode="auto", client=None):
-    """Hibrit okuma (Claude): mahal adları + çizimdeki mobilya. Kimlik yoksa ya da hata olursa geometriyle devam."""
+VISION_UNVERIFIED = "Mahal adları ve mobilya yapay zekâ okumasıdır — doğrulanmadı"
+
+
+def _vision(img_path, elements, rep, mode=False, client=None):
+    """Hibrit okuma (Claude): mahal adları + çizimdeki mobilya. Plan görseli Anthropic'e YALNIZ kullanıcı onayıyla
+    (brief image.vision is True) gönderilir; testte sahte `client` verilirse onay sayılır. Onay yoksa, kimlik yoksa,
+    mahal yoksa ya da hata olursa çağrı yapılmaz / geometriyle devam edilir."""
     from PIL import Image
 
     from . import plan_vision
-    if mode is False or mode == "off" or (mode == "auto" and client is None and not plan_vision.available()):
-        rep["vision"] = "kapalı"
-        rep["warnings"].append("Claude görsel okuma kapalı (Anthropic kimlik bilgisi yok): mahal adı ve mobilya "
+    if mode is not True and client is None:
+        rep["vision"] = "kapalı (onay verilmedi)"
+        rep["warnings"].append("Claude görsel okuma kapalı: planı Anthropic'e göndermek için onay kutusunu işaretleyin")
+        return None
+    if client is None and not plan_vision.available():
+        rep["vision"] = "kapalı (kimlik yok)"
+        rep["warnings"].append("Claude görsel okuma onaylandı ama Anthropic kimlik bilgisi yok: mahal adı ve mobilya "
                                "okunmadı — ANTHROPIC_API_KEY tanımlayın veya `ant auth login`")
         return None
     rooms = [e for e in elements if e["type"] == "room"]
+    if not rooms:
+        rep["vision"] = "kapalı (mahal yok)"
+        rep["warnings"].append("Claude görsel okuma yapılmadı: tanınan mahal yok")
+        return None
     levels = sorted({e["level"] for e in rooms}, key=lambda n: next(e["z"] for e in rooms if e["level"] == n))
     first = [e for e in rooms if e["level"] == levels[0]]
     S, H = rep["px_per_m"], Image.open(img_path).height
@@ -107,6 +129,7 @@ def _vision(img_path, elements, rep, mode="auto", client=None):
             objs.append({**o, "id": f"{o['id']}_{len(objs)}"})
     rep["vision"] = "claude"
     rep["furniture"] = len(objs) // max(1, len(levels))
+    rep["warnings"].append(VISION_UNVERIFIED)
     return {"floors": {}, "paint": "kirik_beyaz", "objects": objs}
 
 
@@ -116,7 +139,7 @@ def run_image(img_path, brief, out_dir, render_3d=False):
     p = brief.get("image", {})
     elements, rep = plan_image.recognize(img_path, px_per_m=p.get("px_per_m"), grid_m=p.get("grid_m"),
                                          floors=int(p.get("floors", 1)), floor_height=float(p.get("floor_height", 3.0)))
-    design = _vision(img_path, elements, rep, p.get("vision", "auto"))
+    design = _vision(img_path, elements, rep, p.get("vision") is True)   # yalnız açık onay (bool True)
     s = Q.compute(elements)["summary"]
     report = {**rep, "gross_total": s["gross_floor_area"], "unit_count": p.get("unit_count", ""),
               "unit_type": p.get("unit_type", "")}
@@ -169,6 +192,7 @@ def finalize(brief, elements, report, meta, out_dir, render_3d=False):
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     name = brief.get("name", "Proje")
+    Q.mark_exterior(elements)   # dış/iç duvar ayrımı: kaynağın yazmadığı duvarlar için kat konturundan
     q = Q.compute(elements)
     cost = costing.estimate(q, adjust=brief.get("adjust"))
     info = build_info(brief)

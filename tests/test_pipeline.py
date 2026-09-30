@@ -1,6 +1,4 @@
 import json
-import subprocess
-import sys
 from pathlib import Path
 
 import pytest
@@ -9,13 +7,12 @@ from archai import costing, quantities as Q
 from archai.dxf_import import import_dxf
 
 ROOT = Path(__file__).resolve().parents[1]
-DXF = ROOT / "references" / "test_plan_2+1.dxf"
 
 
 @pytest.fixture(scope="module")
-def imported():
-    subprocess.run([sys.executable, str(ROOT / "scripts" / "make_test_plan.py")], check=True, capture_output=True)
-    els, rep = import_dxf(DXF, floors=1, floor_height=3.0, slab_thickness=0.2, add_roof=False)
+def imported(test_dxf):
+    # plan conftest'te geçici dizine üretilir (ARCHAI_REF_OUT) — references/ değişmez
+    els, rep = import_dxf(test_dxf, floors=1, floor_height=3.0, slab_thickness=0.2, add_roof=False)
     return els, rep
 
 
@@ -35,8 +32,8 @@ def test_room_names_and_areas(imported):
     assert set(rooms) == {"Salon", "Mutfak", "Yatak Odası 1", "Banyo", "Yatak Odası 2"}
 
 
-def test_multi_floor_scales(imported):
-    els3, _ = import_dxf(DXF, floors=3, floor_height=3.0, add_roof=True)
+def test_multi_floor_scales(imported, test_dxf):
+    els3, _ = import_dxf(test_dxf, floors=3, floor_height=3.0, add_roof=True)
     s1, s3 = Q.compute(imported[0])["summary"], Q.compute(els3)["summary"]
     assert s3["gross_floor_area"] == pytest.approx(3 * s1["gross_floor_area"], abs=0.01)
     assert s3["window_count"] == 3 * s1["window_count"]

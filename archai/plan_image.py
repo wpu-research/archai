@@ -14,11 +14,15 @@ Yöntem (yalnız numpy + PIL):
 
 Ölçek önceliği: px_per_m > grid_m (arka plan ızgarası periyodu) > kapı boşluğu medyanı ≈ 0,95 m
 (ızgara varsa birimi bu tahmine en yakın standart değerden seçilir).
+Çözünürlük bağımsızlığı: ipucusuz ölçek, girdinin √2 basamaklarıyla yeniden örneklenmiş kopyalarında sabit işlem
+ölçeğiyle (CANON_S) aranır; son tanıma ≈ CANON_S px/m'ye küçültülmüş kopyada yapılır (büyütülmez), sonuç orijinal
+piksele çevrilir. Girdi ≤ MAX_PIXELS; işlem görseli ≤ WORK_SIDE (zaman/bellek sınırlı).
 Pencere, mahal adı ve mobilya sembolleri bu aşamada okunmaz (raporda uyarı olarak döner).
 """
 
 import math
 from pathlib import Path
+from types import SimpleNamespace
 
 import numpy as np
 from PIL import Image
@@ -641,64 +645,158 @@ def _rooms(walls, cell=0.05, min_area=1.2):
     return solid, rooms
 
 
+# ---------------------------------------------------------------- işlem görseli + ölçek
+MAX_PIXELS = 60_000_000   # girdi sınırı (≈ 7750 × 7750); üstü reddedilir
+CANON_S = 50.0            # işlem ölçeği (px/m): eşikler bu ölçek civarında ayarlı (test planı 46, villa paftası 44)
+WORK_SIDE = (320, 2600)   # işlem görselinin uzun kenarı (px) sınırları: bellek/zaman üst sınırı
+MAX_UPSCALE = 1.0         # son tanıma turunda büyütme üst sınırı
+GRID_SIDE = 1000          # ızgara periyodu bu boyuttaki önizlemede aranır (büyük periyotta tepe filtresi kaçırır)
+SEARCH_SIDE = (400, 2300)  # ölçek hipotezlerinin işlem görseli uzun kenarı (≈ 8–46 m pafta genişliği)
+
+
+def load_image(path):
+    """Resmi güvenle aç: bozuk/desteklenmeyen dosya ve aşırı büyük resim ValueError."""
+    try:
+        im = Image.open(path)
+    except (OSError, SyntaxError, ValueError, Image.DecompressionBombError) as ex:
+        raise ValueError(f"resim okunamadı: {ex}") from ex
+    W, H = im.size
+    if W * H > MAX_PIXELS:
+        im.close()
+        raise ValueError(f"resim çok büyük ({W}×{H} px = {W * H / 1e6:.0f} MP > {MAX_PIXELS / 1e6:.0f} MP); "
+                         "küçültüp yeniden yükleyin")
+    try:
+        return im.convert("RGB")
+    except (OSError, SyntaxError, ValueError, Image.DecompressionBombError) as ex:
+        raise ValueError(f"resim okunamadı: {ex}") from ex
+
+
+class _Work:
+    """Orijinal resmin k katı ölçekli (LANCZOS) işlem kopyası ve maskeleri. Metre koordinatları k'dan bağımsızdır:
+    işlem pikseli / işlem ölçeği = orijinal piksel / orijinal ölçek."""
+
+    def __init__(self, img, k, labels=True):
+        W0, H0 = img.size
+        size = (max(1, round(W0 * k)), max(1, round(H0 * k)))
+        im = img if size == img.size else img.resize(size, Image.LANCZOS)
+        self.k = size[1] / H0
+        self.rgb = np.asarray(im)
+        self.H, self.W = self.rgb.shape[:2]
+        self.ink, self.neutral = ink_mask(self.rgb)
+        if labels:
+            self.lab, self.sizes = label_free(~dilate(self.ink, 1))
+            self.sizes[0] = 0
+
+
+def _door_widths(walls):
+    return [b - a for w in walls for a, b, k, *_ in w.openings if k == "door" and 0.5 < b - a < 1.4]
+
+
+def _run(w, S, max_opening):
+    """İşlem görselinde (w) S px/m ölçeğiyle duvar + açıklık çıkarımı."""
+    ink, neutral, lab, sizes, H, Wimg = w.ink, w.neutral, w.lab, w.sizes, w.H, w.W
+    r_thick = max(1, round(0.035 * S))
+    thick = dilate(erode(ink, r_thick), r_thick)                    # ≥ ~7 cm dolu kontur (renkli duvar çizgisi)
+    thin = neutral & ~dilate(thick, 1)
+    min_len, max_line = round(0.3 * S), max(3, round(0.06 * S))   # ≥ 3 px: kenar yumuşatma çizgiyi kalınlaştırır
+    lines = [(True, (H - (y0 + y1 + 1) / 2) / S, x0 / S, (x1 + 1) / S) for y0, y1, x0, x1 in _bars(thin, min_len, max_line)
+             if x1 - x0 < 0.8 * Wimg]
+    lines += [(False, -((x0 + x1 + 1) / 2) / S, (H - y1 - 1) / S, (H - y0) / S) for x0, x1, y0, y1 in _bars(thin.T, min_len, max_line)
+              if y1 - y0 < 0.8 * H]                                   # pafta çerçevesi / antet çizgisi değil
+    def filled(h, n1, n2, s0, s1):
+        """İki çizgi arasındaki bantta mürekkep oranı (tarama / dolu poşe duvar)."""
+        lo, hi = sorted((n1, n2))
+        if h:
+            y0, y1 = int(H - hi * S) + 2, int(H - lo * S) - 1
+            band = ink[max(0, y0):max(0, y1), int(s0 * S):int(s1 * S)]
+        else:
+            x0, x1 = int(-hi * S) + 2, int(-lo * S) - 1
+            band = ink[int(H - s1 * S):int(H - s0 * S), max(0, x0):max(0, x1)]
+        return band.size > 0 and band.mean() >= 0.12
+    pieces, rest = _pair(lines, 0.055, 0.2, wide=(0.4, filled))   # < 5,5 cm çift: dolap/tezgâh çerçevesi
+    bh = _bars(thick, min_len, round(0.42 * S))
+    bv = _bars(thick.T, min_len, round(0.42 * S))
+    pieces += _pieces(bh, bv, H, S, 0.1)
+    pieces = [p for p in pieces if p.s1 - p.s0 >= 0.5 or p.t > 0.12]  # kısa ince çift: sandalye, komodin
+    ps = _furniture(_hug(pieces), lab, sizes, H, S)
+    ps += _furniture(_singles(rest, ps), lab, sizes, H, S)
+    ps = _components(_clip_annotations(ps), max_opening, 0.2)
+    ps = _unify_thickness(ps)
+    walls = _merge_collinear(ps, [], [], max_opening, max_opening)
+    walls = _end_doors(walls, max_opening)
+    return _poche_windows(_classify_openings(_snap_ends(walls), ink, S, H), ink, S, H)
+
+
+
+def _snap_k(k):
+    """İşlem katsayısını √2 basamağına oturt: 2^(n/2) ölçekli girdiler aynı işlem görseline iner; 1'e yakın
+    ölçekte (0,84–1,19) resim yeniden örneklenmez (ince çizgili ekran görüntüsünde örnekleme sapma yaratır)."""
+    return 2 ** (round(2 * math.log2(k)) / 2)
+
+
+def _fit_k(img, k):
+    """İşlem görselinin uzun kenarı WORK_SIDE içinde kalsın."""
+    L = max(img.size)
+    return min(max(k, WORK_SIDE[0] / L), WORK_SIDE[1] / L)
+
+
+def _work(img, prev, k):
+    """k katı işlem görseli (küçültme önizlemeden: hızlı) → (_Work, gerçek işlem/orijinal oranı)."""
+    if k <= prev.k:
+        w = _Work(prev.img, k / prev.k)
+        return w, w.k * prev.k
+    w = _Work(img, k)
+    return w, w.k
+
+
+def _estimate_scale(img, prev, max_opening):
+    """İpucusuz ölçek: işlem ölçeği CANON_S sabit tutulup girdi √2 basamaklarıyla küçültülür/büyütülür (her basamak
+    bir ölçek hipotezi h = CANON_S / k). Her hipotezde kapı boşlukları bulunur; medyanı ≈ DOOR_M olan (kendisiyle
+    tutarlı, est ≈ h) ve çok kapı veren hipotez seçilir. Çözünürlükten bağımsızdır: 2× girdi, 1× girdinin bir basamak
+    aşağısıyla aynı işlem görselini görür. → (S orijinal px/m, kapı sayısı) ya da (None, 0)."""
+    best = None
+    L = max(img.size)
+    for j in range(-6, 13):
+        k = 2 ** (-j / 2)
+        if not (SEARCH_SIDE[0] <= L * k <= SEARCH_SIDE[1]):
+            continue
+        w, kt = _work(img, prev, k)
+        h = CANON_S / k
+        ws = _door_widths(_run(w, h * kt, max_opening))
+        if len(ws) < 2:
+            continue
+        est = h * float(np.median(ws)) / DOOR_M
+        # tutarlılık × kapı sayısı; küçük işlem görselinde (≤ 800 px) yazı/sembol boşlukları sahte kapı üretir
+        score = len(ws) * math.exp(-(math.log(est / h) / 0.25) ** 2) * min(1.0, max(w.W, w.H) / 800) ** 2
+        if best is None or score > best[0]:
+            best = (score, est, len(ws))
+    return (best[1], best[2]) if best else (None, 0)
+
+
 # ---------------------------------------------------------------- ana akış
 def recognize(path, px_per_m=None, grid_m=None, floors=1, floor_height=3.0, max_opening=1.4, add_roof=True):
-    """Resim plan → (elements, report). report["overlay"] için overlay() kullanılabilir."""
-    rgb = np.asarray(Image.open(path).convert("RGB"))
-    H, Wimg = rgb.shape[:2]
+    """Resim plan → (elements, report). report["overlay"] için overlay() kullanılabilir.
+
+    Tanıma çözünürlükten bağımsız bir işlem görselinde yapılır (ölçek ≈ CANON_S px/m, uzun kenar ≤ WORK_SIDE);
+    metre koordinatları ve report["px_per_m"] orijinal resme göredir (overlay orijinal pikselle çizer)."""
+    img = load_image(path)
     warnings = []
-    period = None
+    kp = min(1.0, WORK_SIDE[1] / max(img.size))
+    prev = SimpleNamespace(k=kp, img=img if kp == 1 else img.resize((max(1, round(img.width * kp)),
+                                                                     max(1, round(img.height * kp))), Image.LANCZOS))
+    pw = _Work(prev.img, min(1.0, GRID_SIDE / max(prev.img.size)), labels=False)   # ızgara tepeleri ≈ 10–40 px
+    period = grid_period(pw.rgb, pw.ink)
+    period = period / (pw.k * prev.k) if period else None  # orijinal piksel
     if px_per_m:
         S, method = float(px_per_m), "verilen ölçek"
-    else:
-        S, method = None, None
-    ink, neutral = ink_mask(rgb)
-    period = grid_period(rgb, ink)
-    if grid_m and period and not px_per_m:
+    elif grid_m and period:
         S, method = period / grid_m, f"ızgara {period:.1f} px = {grid_m} m"
-
-    lab, sizes = label_free(~dilate(ink, 1))
-    sizes[0] = 0
-
-    def run(S):
-        r_thick = max(1, round(0.035 * S))
-        thick = dilate(erode(ink, r_thick), r_thick)                    # ≥ ~7 cm dolu kontur (renkli duvar çizgisi)
-        thin = neutral & ~dilate(thick, 1)
-        min_len, max_line = round(0.3 * S), max(2, round(0.06 * S))
-        lines = [(True, (H - (y0 + y1 + 1) / 2) / S, x0 / S, (x1 + 1) / S) for y0, y1, x0, x1 in _bars(thin, min_len, max_line)
-                 if x1 - x0 < 0.8 * Wimg]
-        lines += [(False, -((x0 + x1 + 1) / 2) / S, (H - y1 - 1) / S, (H - y0) / S) for x0, x1, y0, y1 in _bars(thin.T, min_len, max_line)
-                  if y1 - y0 < 0.8 * H]                                   # pafta çerçevesi / antet çizgisi değil
-        def filled(h, n1, n2, s0, s1):
-            """İki çizgi arasındaki bantta mürekkep oranı (tarama / dolu poşe duvar)."""
-            lo, hi = sorted((n1, n2))
-            if h:
-                y0, y1 = int(H - hi * S) + 2, int(H - lo * S) - 1
-                band = ink[max(0, y0):max(0, y1), int(s0 * S):int(s1 * S)]
-            else:
-                x0, x1 = int(-hi * S) + 2, int(-lo * S) - 1
-                band = ink[int(H - s1 * S):int(H - s0 * S), max(0, x0):max(0, x1)]
-            return band.size > 0 and band.mean() >= 0.12
-        pieces, rest = _pair(lines, 0.055, 0.2, wide=(0.4, filled))   # < 5,5 cm çift: dolap/tezgâh çerçevesi
-        bh = _bars(thick, min_len, round(0.42 * S))
-        bv = _bars(thick.T, min_len, round(0.42 * S))
-        pieces += _pieces(bh, bv, H, S, 0.1)
-        pieces = [p for p in pieces if p.s1 - p.s0 >= 0.5 or p.t > 0.12]  # kısa ince çift: sandalye, komodin
-        ps = _furniture(_hug(pieces), lab, sizes, H, S)
-        ps += _furniture(_singles(rest, ps), lab, sizes, H, S)
-        ps = _components(_clip_annotations(ps), max_opening, 0.2)
-        ps = _unify_thickness(ps)
-        walls = _merge_collinear(ps, [], [], max_opening, max_opening)
-        walls = _end_doors(walls, max_opening)
-        return _poche_windows(_classify_openings(_snap_ends(walls), ink, S, H), ink, S, H)
-
-    if S is None:  # ölçek yok: kaba ölçekle kapıları bul, medyan kapı genişliği ≈ 0,95 m; ızgara varsa ona oturt
-        S0 = 45.0
-        walls = run(S0)
-        ws = [b - a for w in walls for a, b, k, *_ in w.openings if k == "door" and 0.5 < b - a < 1.4]
-        if ws:
-            S = S0 * float(np.median(ws)) / DOOR_M
-            method = f"kapı genişliği medyanı ≈ {DOOR_M} m ({len(ws)} kapı)"
+    else:  # ölçek yok: hipotez taraması (kapı genişliği medyanı ≈ 0,95 m); ızgara varsa ona oturt
+        if grid_m:
+            warnings.append("Izgara bulunamadı; grid_m kullanılamadı, ölçek kapı genişliğinden tahmin edildi")
+        S, n = _estimate_scale(img, prev, max_opening)
+        if S:
+            method = f"kapı genişliği medyanı ≈ {DOOR_M} m ({n} kapı)"
             if period:  # ızgara birimi bilinmiyor: kapı tahminine en yakın standart birim (±%25)
                 opts = [(abs(period / g - S) / S, g) for g in (0.1, 0.2, 0.25, 0.5, 1.0)]
                 err, g = min(opts)
@@ -706,9 +804,12 @@ def recognize(path, px_per_m=None, grid_m=None, floors=1, floor_height=3.0, max_
                     S, method = period / g, f"ızgara {period:.1f} px = {g} m (kapı genişliğiyle seçildi)"
             warnings.append(f"Ölçek tahmin edildi ({method}); bilinen bir ölçüyle doğrulayın")
         else:
-            S, method = S0, "varsayılan (ölçek bulunamadı)"
-            warnings.append("Ölçek bulunamadı; 45 px/m varsayıldı — px_per_m veya grid_m verin")
-    walls = run(S)
+            S, method = CANON_S, "varsayılan (ölçek bulunamadı)"
+            warnings.append(f"Ölçek bulunamadı; {CANON_S:g} px/m varsayıldı — px_per_m veya grid_m verin")
+    w, kt = _work(img, prev, _fit_k(img, min(MAX_UPSCALE, _snap_k(CANON_S / S))))
+    walls = _run(w, S * kt, max_opening)
+    if not walls:
+        raise ValueError("resimde duvar bulunamadı (plan çizimi değil ya da ölçek çok yanlış; px_per_m verin)")
     solid, room_polys = _rooms(walls)
     rooms = [{"points": [[round(x, 3), round(y, 3)] for x, y in list(p.exterior.coords)[:-1]], "name": f"Mahal {i + 1}"}
              for i, p in enumerate(sorted(room_polys, key=lambda p: (-round(p.centroid.y, 0), p.centroid.x)))]

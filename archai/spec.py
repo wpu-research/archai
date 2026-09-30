@@ -24,7 +24,7 @@ ITEMS = {
     "DUV-01": {
         "malzeme": "Dış duvarlar projede belirtilen kalınlıkta yatay delikli tuğla, gazbeton veya bims blok ile örülecektir; kâgir birimler TS EN 771 serisine uygun olacaktır.",
         "uygulama": "Duvarlar şaşırtmalı örülecek, derzler tam doldurulacak, betonarme elemanlarla birleşimlerde filiz/file uygulanacaktır. Lento ve hatıllar projeye göre yapılacaktır.",
-        "olcum": "Aks uzunluğu × duvar yüksekliğinden pencere ve kapı boşlukları düşülerek net duvar alanı (m²) üzerinden ödenir.",
+        "olcum": "Yalnız dış cepheye bakan duvarlar: aks uzunluğu × duvar yüksekliğinden pencere ve kapı boşlukları düşülerek net duvar alanı (m²) üzerinden ödenir. Aks ölçüsü T/L birleşimlerinde ~%1–2 fazla sayım içerir.",
     },
     "DUV-02": {
         "malzeme": "İç bölme duvarları projede belirtilen kalınlıkta tuğla/gazbeton veya onaylı hafif bölme sistemi ile yapılacaktır.",
@@ -54,7 +54,7 @@ ITEMS = {
     "SIV-01": {
         "malzeme": "Kaba sıva çimento/kireç esaslı hazır sıva, üzerine saten alçı ve iki kat su bazlı iç cephe boyası.",
         "uygulama": "Yüzeyler tozdan arındırılıp astarlanacak, köşelere köşe profili konacaktır. Boya en az iki kat, tam örtücü uygulanacaktır.",
-        "olcum": "Mahal çevresi × kat yüksekliği ile duvar yüzeyi (m²) olarak hesaplanır; boşluklar ön metrajda düşülmemiştir.",
+        "olcum": "Mahal çevresi × mahal yüksekliğinden, mahalin yüzündeki kapı ve pencere boşlukları düşülerek duvar yüzeyi (m²) olarak hesaplanır (iç kapı her iki mahalde, pencere ve dış kapı tek yüzde düşülür). Asansör kuyusu ve şaftlar dahil değildir.",
     },
     "SIV-02": {
         "malzeme": "Mantolama sisteminin son kat dekoratif sıvası ve silikonlu dış cephe boyası.",
@@ -74,12 +74,57 @@ ITEMS = {
     "ZEM-01": {
         "malzeme": "Zemin kaplaması: {variant}. Malzeme numunesi ve renk onayı alınacaktır.",
         "uygulama": "Şap kuruduktan ve nem ölçümü yapıldıktan sonra üretici talimatına göre uygulanacak; seramik/taş kaplamalarda TS EN 12004'e uygun yapıştırıcı kullanılacaktır.",
-        "olcum": "Mahal net alanı (m²) üzerinden ödenir; fire birim fiyata dahildir.",
+        "olcum": "Daire içi mahallerin net alanı (m²) üzerinden ödenir; ortak alanlar (ORT-01), merdiven, asansör kuyusu ve şaftlar dahil değildir. Fire birim fiyata dahildir.",
+    },
+    "ORT-01": {
+        "malzeme": "Ortak alan (kat holü, giriş holü) zemin kaplaması: granit veya yüksek aşınma dayanımlı (PEI 5) porselen seramik; kaymazlık sınıfı R10.",
+        "uygulama": "Şap üzerine TS EN 12004'e uygun yapıştırıcı ile; asansör ve merdiven eşiklerinde kot farkı bırakılmadan döşenecektir.",
+        "olcum": "Ortak mahallerin (merdiven evi ve asansör kuyusu hariç) net alanı (m²) üzerinden ödenir.",
+    },
+    "HAF-01": {
+        "malzeme": "Temel çukuru kazısı, her cins zeminde; kazı fazlası toprağın döküm alanına nakli dahil.",
+        "uygulama": "Kazı şevleri ve iksa zemin etüdü raporuna göre yapılacak; temel altı tesviye ve sıkıştırma dahildir.",
+        "olcum": "AVAN yaklaşık: bina oturum alanı × (radye kalınlığı + 1,0 m) hacim (m³). Kesin miktar zemin etüdü ve temel projesine göre belirlenir.",
+    },
+    "TEM-01": {
+        "malzeme": "Radye temel betonarmesi (en az C30/37, B500C donatı), grobeton, temel altı su yalıtımı ve koruma betonu dahil.",
+        "uygulama": "Statik projeye göre; yalıtım bindirmeleri ve perde dönüşleri tutanakla kontrol edilecektir.",
+        "olcum": "AVAN yaklaşık: bina oturum alanı × radye kalınlığı (0,30 + 0,04 × kat adedi m) hacim (m³). Kesin statik ve temel projesi sonrası kesinleşir.",
+    },
+    "TEM-02": {
+        "malzeme": "Tekil beton pabuç + taş/beton ayak; ahşap taban kirişlerine ankraj dahil.",
+        "uygulama": "Don derinliğinin altına oturtulacak; ayak üst kotları nivo ile kontrol edilecektir.",
+        "olcum": "AVAN yaklaşık: bina oturum alanı (m²) üzerinden götürü. Kesin temel projesine göre kesinleşir.",
+    },
+    "KOL-01": {
+        "malzeme": "Kolon, kiriş ve perde betonarmesi (en az C30/37, B500C donatı, kalıp dahil).",
+        "uygulama": "TS 500 ve Türkiye Bina Deprem Yönetmeliği'ne uygun statik projeye göre yapılacaktır.",
+        "olcum": "AVAN yaklaşık: betonarme kat döşemesi alanı × 0,12 m³/m² (döşeme betonu BET-01'de ayrıca sayılır). Kesin statik proje sonrası kesinleşir.",
+    },
+    "MER-01": {
+        "malzeme": "Betonarme merdiven kolu ve sahanlığı; basamak ve rıhtlarda granit/doğal taş kaplama; korkuluk ve küpeşte.",
+        "uygulama": "Rıht yüksekliği tüm kolda eşit; basamak kaymaz kenarlı olacaktır.",
+        "olcum": "Basamak sayısı × kol genişliği (m, basamak uzunluğu) üzerinden; sahanlık birim fiyata dahildir. AVAN yaklaşık, statik projeye göre kesinleşir.",
+    },
+    "MER-02": {
+        "malzeme": "Kurutulmuş masif ahşap limonluk ve basamak; korkuluk ve küpeşte dahil.",
+        "uygulama": "Limonluklar döşemeye ankrajlanacak, basamaklar gıcırtı önleyici bağlantıyla monte edilecektir.",
+        "olcum": "Basamak sayısı × merdiven genişliği (m) üzerinden ödenir.",
+    },
+    "DUV-04": {
+        "malzeme": "Çekirdek ve daire ayırma duvarları: en az 20 cm yatay delikli tuğla / gazbeton; yangın ve ses yalıtım gereklerini sağlayacak.",
+        "uygulama": "Duvarlar betonarme elemanlara filiz ile bağlanacak; tesisat geçişleri yangın durdurucu ile kapatılacaktır.",
+        "olcum": "İç (dış cepheye bakmayan) ≥20 cm duvarların net alanı (m²), boşluklar düşülerek hesaplanır.",
+    },
+    "ASN-01": {
+        "malzeme": "Elektrikli asansör (TS EN 81-20/50), kabin, makine, ray, kumanda ve kat kapıları; ilk periyodik kontrol dahil.",
+        "uygulama": "Asansör Yönetmeliği'ne uygun; kuyu ölçüleri ve makine yeri üretici projesine göre.",
+        "olcum": "AVAN yaklaşık: durak (kat) başına adet. Kesin bedel kabin kapasitesi ve üretici teklifine göre belirlenir.",
     },
     "SUP-01": {
         "malzeme": "Zemin kaplamasıyla uyumlu süpürgelik.",
         "uygulama": "Duvara düz ve derzsiz monte edilecek, köşeler gönyesinde kesilecektir.",
-        "olcum": "Mahal çevre uzunluğu (m) üzerinden ödenir; kapı boşlukları ön metrajda düşülmemiştir.",
+        "olcum": "Mahal çevre uzunluğundan kapı genişlikleri düşülerek (m) ödenir; merdiven evi, asansör kuyusu ve şaftlar dahil değildir.",
     },
     "PEN-01": {
         "malzeme": "Pencere sistemi: {variant}. Yalıtım camı TS EN 1279'a uygun olacak; ısıl geçirgenlik değerleri TS 825 hesabını sağlayacaktır.",

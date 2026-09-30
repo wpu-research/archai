@@ -73,10 +73,101 @@ def test_hybrid_image_project(tmp_path):
     names = [e["name"].split("/")[1] for e in els if e["type"] == "room"]
     assert "Banyo 1" in names and "Yatak Odası 1" in names and len(set(names)) == len(names)
     assert rep["vision"] == "claude" and len(design["objects"]) == len(A.WEST_ITEMS) + len(A.SOUTH_ITEMS)
+    assert project.VISION_UNVERIFIED in rep["warnings"]
 
 
-def test_vision_off_without_credentials(monkeypatch, tmp_path):
+def _no_call(*a, **k):
+    raise AssertionError("onaysız/gereksiz Anthropic çağrısı")
+
+
+ROOM = {"type": "room", "name": "Zemin/Mahal 1", "level": "Zemin", "z": 0, "points": [[0, 0], [4, 0], [4, 3], [0, 3]]}
+
+
+def test_vision_requires_consent(monkeypatch):
+    """Sözleşme değişikliği (konsey #7): eskiden kimlik varsa varsayılan 'auto' planı sessizce gönderiyordu.
+    Artık yalnız mode is True (kullanıcı onayı) ya da testte sahte client verilirse çağrı yapılır."""
+    from archai import project
+    monkeypatch.setattr(pv, "available", lambda: True)
+    monkeypatch.setattr(pv, "ask", _no_call)
+    for mode in (False, "auto", "true", 1, None):
+        rep = {"warnings": [], "px_per_m": 50}
+        assert project._vision("x.png", [dict(ROOM)], rep, mode) is None
+        assert rep["vision"] == "kapalı (onay verilmedi)"
+        assert any("onay kutusunu" in w for w in rep["warnings"])
+
+
+def test_vision_consent_without_credentials(monkeypatch):
     from archai import project
     monkeypatch.setattr(pv, "available", lambda: False)
-    rep = {"warnings": []}
-    assert project._vision("x.png", [], rep) is None and rep["vision"] == "kapalı"
+    monkeypatch.setattr(pv, "ask", _no_call)
+    rep = {"warnings": [], "px_per_m": 50}
+    assert project._vision("x.png", [dict(ROOM)], rep, True) is None and rep["vision"] == "kapalı (kimlik yok)"
+
+
+def test_vision_skipped_without_rooms():
+    from archai import project
+    fake = FakeClient({"rooms": [], "furniture": []})
+    rep = {"warnings": [], "px_per_m": 50}
+    assert project._vision("x.png", [], rep, True, client=fake) is None
+    assert fake.calls == [] and rep["vision"] == "kapalı (mahal yok)"
+
+
+def test_run_image_passes_only_bool_true(monkeypatch, tmp_path):
+    from archai import plan_image, project
+    seen = []
+
+    def spy(img, els, rep, mode, client=None):
+        seen.append(mode)
+        raise RuntimeError("dur")
+    monkeypatch.setattr(plan_image, "recognize", lambda *a, **k: ([dict(ROOM)], {"warnings": [], "px_per_m": 50}))
+    monkeypatch.setattr(project, "_vision", spy)
+    for val, want in (({}, False), ({"vision": "true"}, False), ({"vision": 1}, False), ({"vision": True}, True)):
+        with pytest.raises(RuntimeError):
+            project.run_image("x.png", {"image": val}, tmp_path)
+        assert seen[-1] is want
+
+
+def test_available_needs_real_credentials(monkeypatch, tmp_path):
+    monkeypatch.delenv("ANTHROPIC_API_KEY", raising=False)
+    monkeypatch.delenv("ANTHROPIC_AUTH_TOKEN", raising=False)
+    monkeypatch.setattr(Path, "home", lambda: tmp_path)
+    assert not pv.available()
+    (tmp_path / ".config" / "anthropic").mkdir(parents=True)
+    assert not pv.available()                                   # boş dizin kimlik değil
+    (tmp_path / ".config" / "anthropic" / "profile.json").write_text("{}")
+    assert pv.available()
+    monkeypatch.setattr(Path, "home", lambda: tmp_path / "yok")
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "sk-test")
+    assert pv.available()
+
+
+def test_client_timeout(monkeypatch, tmp_path):
+    import anthropic
+    from PIL import Image
+    made = {}
+
+    class Boom(Exception):
+        pass
+
+    def fake_ctor(**kw):
+        made.update(kw)
+        raise Boom()
+    monkeypatch.setattr(anthropic, "Anthropic", fake_ctor)
+    img = tmp_path / "p.png"
+    Image.new("RGB", (200, 150), "white").save(img)
+    with pytest.raises(Boom):
+        pv.ask(img, [ROOM], 20.0)
+    assert made == {"timeout": 90.0, "max_retries": 1}
+
+
+def test_labels_sanitized():
+    evil = "Salon/<img src=x onerror=alert(1)>" + "A" * 483
+    assert len(evil) == 517
+    els = [dict(ROOM), {**ROOM, "name": "Zemin/Mahal 2"}, {**ROOM, "name": "Zemin/Mahal 3"}, {**ROOM, "name": "Zemin/Mahal 4"}]
+    pv.apply(els, {"rooms": [{"id": 1, "type": "salon", "label": evil}, {"id": 2, "type": "banyo", "label": "\x00\u202e\n "},
+                             {"id": 3, "type": "wc", "label": "WC"}, {"id": 4, "type": "wc", "label": "W\u0007C"}]})
+    names = [e["name"].split("/", 1)[1] for e in els]
+    assert len(names[0]) <= pv.LABEL_MAX and not any(c in names[0] for c in "<>/\\\"'`&")
+    assert names[0].startswith("Salon img src=x onerror=alert(1)")
+    assert names[1] == "Banyo"                                  # boş kaldı → tür adı
+    assert names[2:] == ["WC 1", "WC 2"]                        # tekrar eden ad numaralanır
