@@ -184,6 +184,9 @@ export function createInterior(ctx) {
       if (o.suluk) part(g, bx(.45, .006, .4), M.steel, ev + Math.sign(o.suluk) * .48, .883, .02);  // damlalık
       part(g, cyl(.012, .012, .3, 12), M.chrome, ev, 1.03, -D / 2 + .08);
       part(g, bx(.58, .008, .5), M.black, oc, .884, .02);
+      part(g, bx(.56, .44, .012), M.black, oc, .52, D / 2 + .006);                               // ankastre fırın camı
+      part(g, bx(.44, .014, .014), M.steel, oc, .78, D / 2 + .02);
+      part(g, bx(.6, .1, .34), M.steel, oc, 1.45, -D / 2 + .19);                                  // davlumbaz
       for (const [dx, dz] of [[-.14, -.12], [.14, -.12], [-.14, .14], [.14, .14]]) part(g, cyl(.08, .08, .004, 24), M.steel, oc + dx, .89, .02 + dz);
       part(g, bx(L, .6, .01), M.quartz, 0, 1.18, -D / 2 + .005);
       return g;
@@ -229,9 +232,13 @@ export function createInterior(ctx) {
     },
     komodin() {
       const g = G();
-      part(g, rb(.45, .5, .42, .015), M.oak, 0, .25, 0);
-      part(g, bx(.4, .006, .01), M.black, 0, .3, .211);
-      part(g, bx(.1, .012, .012), M.steel, 0, .4, .215);
+      part(g, rb(.45, .44, .42, .015), M.oak, 0, .28, 0);
+      for (const [x, z] of [[-.19, -.17], [.19, -.17], [-.19, .17], [.19, .17]]) part(g, cyl(.012, .01, .06, 8), M.black, x, .03, z);  // ayak
+      M.oakDark ??= Object.assign(M.oak.clone(), {color: M.oak.color.clone().multiplyScalar(.82)});
+      for (const y of [.18, .38]) {                                                         // çekmece önleri + düğme
+        part(g, rb(.41, .18, .012, .006), M.oakDark, 0, y, .211);
+        part(g, cyl(.012, .012, .02, 12), M.steel, 0, y, .222).rotation.x = Math.PI / 2;
+      }
       part(g, cyl(.06, .08, .03, 24), M.chrome, 0, .515, 0);
       part(g, cyl(.012, .012, .2, 10), M.chrome, 0, .63, 0);
       M.shade ??= Object.assign(M.linen.clone(), {side: THREE.DoubleSide});
@@ -247,9 +254,12 @@ export function createInterior(ctx) {
     },
     sandalye() {
       const g = G();
-      part(g, rb(.46, .06, .46, .02), M.cushion, 0, .47, 0);
-      part(g, rb(.46, .38, .04, .015), M.oak, 0, .72, -.21).rotation.x = -.08;
-      for (const [x, z] of [[-.2, -.2], [.2, -.2], [-.2, .2], [.2, .2]]) part(g, cyl(.015, .015, .45, 10), M.oak, x, .225, z);
+      part(g, rb(.44, .045, .44, .012), M.oak, 0, .44, 0);                                  // oturak tablası
+      part(g, rb(.42, .05, .4, .02), M.cushion, 0, .488, .01);                                // döşeme
+      for (const x of [-.2, .2]) part(g, cyl(.014, .016, .44, 10), M.oak, x, .69, -.205);     // sırt dikmeleri
+      part(g, rb(.44, .07, .03, .012), M.oak, 0, .88, -.21);                                  // üst kayıt
+      for (const x of [-.09, 0, .09]) part(g, bx(.035, .3, .014), M.oak, x, .7, -.208);       // çıtalar
+      for (const [x, z] of [[-.2, -.2], [.2, -.2], [-.2, .2], [.2, .2]]) part(g, cyl(.015, .012, .44, 10), M.oak, x, .22, z);
       return g;
     },
     tv() {
@@ -345,11 +355,14 @@ export function createInterior(ctx) {
     gardirop(o = {}) {
       const g = G(), W = o.w ?? 1.8, n = Math.max(2, Math.round(W / .6)), dw = W / n;
       part(g, bx(W, 2.4, .6), M.lacquer, 0, 1.2, 0);
+      part(g, bx(W - .02, .08, .012), M.black, 0, .04, .305);                                    // geri çekik baza
+      part(g, bx(W + .01, .03, .61), M.oak, 0, 2.385, .005);                                    // taç
       for (let i = 0; i < n; i++) {
-        const x = -W / 2 + dw / 2 + i * dw;
-        part(g, bx(dw - .006, 2.36, .02), M.lacquer, x, 1.2, .31);
-        part(g, bx(.015, .5, .015), M.steel, x + (i === n - 1 ? -1 : 1) * (dw / 2 - .05), 1.15, .325);
+        const x = -W / 2 + dw / 2 + i * dw, hx = x + (i % 2 ? -1 : 1) * (dw / 2 - .05);
+        part(g, bx(dw - .008, 2.26, .02), M.lacquer, x, 1.21, .31);
+        part(g, bx(.014, .9, .016), M.steel, hx, 1.2, .325);                                    // boy kulp
       }
+      for (let i = 1; i < n; i++) part(g, bx(.006, 2.26, .004), M.black, -W / 2 + i * dw, 1.21, .322);   // kapak derzi
       return g;
     },
   };
@@ -359,7 +372,12 @@ export function createInterior(ctx) {
     part(g, rb(w, .22, 2.0, .06), M.linen, 0, .41, 0);
     part(g, rb(w + .04, .06, 1.4, .03), M.duvet, 0, .53, .3);
     for (const x of (w > 1.2 ? [-w / 4, w / 4] : [0])) part(g, rb(.58, .13, .38, .06), M.linen, x, .58, -.72);
-    part(g, rb(w + .16, 1.05, .1, .03), M.fabric, 0, .55, -1.08);
+    part(g, rb(w + .16, 1.05, .05, .02), M.fabric, 0, .55, -1.105);                              // başlık gövdesi
+    const np = Math.max(3, Math.round((w + .1) / .3)), pw = (w + .08) / np;
+    M.fabricDark ??= Object.assign(M.fabric.clone(), {color: M.fabric.color.clone().multiplyScalar(.9)});
+    for (let i = 0; i < np; i++) part(g, rb(pw - .012, .72, .05, .022), M.fabricDark, -(w + .08) / 2 + pw * (i + .5), .66, -1.065);   // dikey döşeme panelleri
+    part(g, rb(w + .06, .05, .2, .02), M.linen, 0, .56, -.39);                                   // çarşaf kıvrımı
+    part(g, bx(w, .06, 1.9), M.black, 0, .03, .02);                                            // geri çekik baza gölgesi
     if (d) g.scale.z = d / 2.18;
     k.add(g); return k;
   }
@@ -396,6 +414,19 @@ export function createInterior(ctx) {
   const defaultFloor = name => /Banyo|Mutfak|Kat Holü|Merdiven|Şaft|Asansör/.test(name) ? 'large_grey_tiles' : 'laminate_floor_02';
   function levelGroup(level) { const i = (V.nLv || []).indexOf(level); return V.levels.filter(L => !L.site)[i]?.group; }
 
+  // taşıyıcı: elemanda işaretliyse o, yoksa ≥ 18 cm (dış, perde, bölücü duvar); bölme duvarlar yıkılabilir
+  const structural = w => w.structural ?? ((w.thickness || .2) >= .18);
+  const isDemolished = w => !!w && (S.design.demolished || []).includes(w.name);
+  function applyDemolish() {
+    V.root.traverse(o => { if (typeof o.userData.wall === 'string') o.visible = !(S.design.demolished || []).includes(o.userData.wall); });
+  }
+  function demolishedArea() {
+    return (V.elements || []).filter(e => e.type === 'wall' && isDemolished(e)).reduce((a, w) => {
+      const L = Math.hypot(w.end[0] - w.start[0], w.end[1] - w.start[1]);
+      const op = (w.openings || []).reduce((s, o) => s + o.width * (o.height ?? 2.1), 0);
+      return a + L * (w.height || 2.8) - op;
+    }, 0);
+  }
   function buildExtras() {
     clearExtras();
     const els = V.elements || [];
@@ -406,11 +437,30 @@ export function createInterior(ctx) {
       m.rotation.x = -Math.PI / 2; m.position.y = (r.z || 0) + .004; m.receiveShadow = true;
       m.userData.room = r; g.add(m); S.floorMeshes.push(m);
     }
-    // pencere kasaları + kapı kasaları
-    for (const w of els.filter(e => e.type === 'wall')) {
+    // pencere kasaları + kapı kasaları + süpürgelik
+    M.skirt ??= new THREE.MeshStandardMaterial({color: 0xbdb3a4, roughness: .6});
+    const roomsBy = {};
+    for (const w of els.filter(e => e.type === 'wall' && !isDemolished(e))) {
       const g = levelGroup(w.level); if (!g) continue;
       const [x0, y0] = w.start, [x1, y1] = w.end, L = Math.hypot(x1 - x0, y1 - y0); if (L < 1e-3) continue;
       const ux = (x1 - x0) / L, uy = (y1 - y0) / L, ang = Math.atan2(uy, ux), zb = w.base_z || 0, T = w.thickness || .2;
+      if (w.tag !== 'wood' && !w.profile) {
+        const rooms = roomsBy[w.level] ??= els.filter(e => e.type === 'room' && e.level === w.level);
+        const doorsW = (w.openings || []).filter(o => o.kind === 'door').map(o => [o.offset, o.offset + o.width]).sort((a, b) => a[0] - b[0]);
+        const spans = []; let c0 = 0;
+        for (const [a, b] of doorsW) { spans.push([c0, a]); c0 = b; }
+        spans.push([c0, L]);
+        for (const sg of [-1, 1]) {
+          const nx = -uy * sg, ny = ux * sg;
+          for (const [a, b] of spans) {
+            if (b - a < .05) continue;
+            const m = (a + b) / 2, px = x0 + ux * m + nx * (T / 2 + .25), py = y0 + uy * m + ny * (T / 2 + .25);
+            if (!rooms.some(r => inPoly([px, py], r.points))) continue;       // dış yüz: süpürgelik yok
+            const k = new THREE.Mesh(bx(b - a, .08, .014), M.skirt), cx = x0 + ux * m + nx * (T / 2 + .007), cy = y0 + uy * m + ny * (T / 2 + .007);
+            k.position.set(cx, zb + .04, -cy); k.rotation.y = ang; k.receiveShadow = true; g.add(k); S.extras.push(k);
+          }
+        }
+      }
       for (const o of w.openings || []) {
         const a = o.offset, b = a + o.width, door = o.kind === 'door', sill = door ? 0 : (o.sill ?? .9), top = sill + (o.height ?? (door ? 2.1 : 1.4));
         const timber = w.tag === 'wood';
@@ -430,6 +480,7 @@ export function createInterior(ctx) {
         if (!door) { put((a + b) / 2, sill + fw / 2, o.width, fw); if (o.width > 1.2) put((a + b) / 2, (sill + top) / 2, .04, top - sill - .1); }
       }
     }
+    roomLamps(!!S.night); applyDemolish();
   }
   function surfaceMaterials(on) {
     const stone = floorMat('large_grey_tiles'), deck = floorMat('weathered_planks');
@@ -539,17 +590,37 @@ export function createInterior(ctx) {
     }
   }
   function clearExtras() {
-    for (const m of [...S.floorMeshes, ...S.extras, ...(S.leaves || [])]) m.parent?.remove(m);
-    S.floorMeshes = []; S.extras = []; S.leaves = [];
+    for (const m of [...S.floorMeshes, ...S.extras, ...(S.leaves || []), ...(S.lamps || [])]) m.parent?.remove(m);
+    S.floorMeshes = []; S.extras = []; S.leaves = []; S.lamps = [];
   }
   // kapı kanadı: hol/koridor değil oda tarafına açılır (iki taraf da oda ya da hol ise küçük odaya);
   // menteşe duvar ucuna yakın kasada; kanat mobilyaya çarparsa açı daralır
   const HALLISH = /Hol|Koridor|Ortak|Giriş|Antre/;
+  const angDiff = (a, b) => Math.atan2(Math.sin(a - b), Math.cos(a - b));
+  function tick(dt) {  // kapı kanatları hedef açıya döner (≈ 150°/s)
+    for (const p of S.leaves || []) {
+      const d = p.userData.door; if (!d) continue;
+      const e = angDiff(d.tgt, d.cur); if (Math.abs(e) < 1e-3) continue;
+      d.cur += Math.sign(e) * Math.min(Math.abs(e), dt * 2.6); p.rotation.y = d.cur;
+    }
+  }
+  function toggleDoor() {  // ekran ortasındaki (≤ 2,5 m) kapıyı aç/kapa
+    if (!S.leaves?.length) return false;
+    ray.setFromCamera(new THREE.Vector2(0, 0), V.C);
+    const h = ray.intersectObjects(S.leaves, true).find(x => x.object.userData.door && shown(x.object));
+    if (!h || h.distance > 2.5) return false;
+    const d = h.object.userData.door; d.tgt = Math.abs(angDiff(d.tgt, d.th0)) < 1e-3 ? d.th1 : d.th0;
+    return true;
+  }
+  function doorSegs(level) {  // (neredeyse) kapalı kanat gezintide duvar gibi engel
+    return (S.leaves || []).map(p => p.userData.door).filter(d => d && d.level === level && Math.abs(angDiff(d.cur, d.th0)) < .35)
+      .map(d => [d.hx, d.hy, d.hx + Math.cos(d.cur) * d.lw, d.hy + Math.sin(d.cur) * d.lw, .03]);
+  }
   function buildLeaves() {
     for (const m of S.leaves || []) m.parent?.remove(m);
     S.leaves = [];
     const els = V.elements || [], byLevel = {};
-    for (const w of els.filter(e => e.type === 'wall' && e.tag !== 'wood')) {
+    for (const w of els.filter(e => e.type === 'wall' && e.tag !== 'wood' && !isDemolished(e))) {
       const doorsHere = (w.openings || []).filter(o => o.kind === 'door' && o.leaf);
       if (!doorsHere.length) continue;
       const g = levelGroup(w.level); if (!g) continue;
@@ -575,10 +646,13 @@ export function createInterior(ctx) {
         const piv = new THREE.Group(); piv.position.set(hx, zb, -hy);
         // kapalı kanat duvar boyunca (dir·u), açılma sg·n yönüne: plan açısı θ = atan2(dir·u + sg·n·tan) → three'de rotation.y = plan açısı
         const th = Math.atan2(uy * dir * Math.cos(ang) + ny * sg * Math.sin(ang), ux * dir * Math.cos(ang) + nx * sg * Math.sin(ang));
+        const th0 = Math.atan2(uy * dir, ux * dir);                       // kapalı: duvar hattında
         piv.rotation.y = th;
+        piv.userData.door = {level: w.level, hx, hy, lw, th0, th1: th, cur: th, tgt: th};
         const leaf = new THREE.Mesh(bx(lw, top - fw - .01, .04), M.oak); leaf.position.set(lw / 2, (top - fw) / 2, 0);
         const knob = new THREE.Mesh(cyl(.02, .02, .14, 12), M.chrome); knob.rotation.x = Math.PI / 2; knob.position.set(lw - .07, 1.0, 0);
         leaf.castShadow = leaf.receiveShadow = true; piv.add(leaf, knob); g.add(piv); S.leaves.push(piv);
+        leaf.userData.door = knob.userData.door = piv.userData.door;
       }
     }
   }
@@ -616,6 +690,7 @@ export function createInterior(ctx) {
       if (S.saved) { swapMaterials(S.saved.face, S.saved.slab, S.saved.glass); V.R.toneMapping = S.saved.tm; V.R.toneMappingExposure = S.saved.exp; V.S.fog.density = S.saved.fog; }
       V.S.environment = null; V.S.background = null; V.R.shadowMap.enabled = false;
       V.S.remove(S.sun, S.sun?.target, S.ground, S.fill);
+      for (const [o, i0] of S.baseLights || []) o.intensity = i0;
       V.mat.site.opacity = .035; V.mat.site.color.set(0x3cffa6); V.mat.site.depthWrite = false;
       surfaceMaterials(false); clearExtras(); clearObjects(); cancelTool(); select(null);
       if (S.ao) S.ao.enabled = false; V.bloom.enabled = true;
@@ -624,9 +699,36 @@ export function createInterior(ctx) {
   function placeSun() {
     if (!S.sun || !V.box) return;
     const s = V.box.getSize(new THREE.Vector3()), R = Math.max(s.x, s.z, s.y) * .75 + 6;
-    S.sun.position.set(-R * .9, R * 1.3, R * .8); S.sun.target.position.set(0, 0, 0);
+    // saat 6 → doğu (+x), 12 → güney-tepe, 18 → batı; plan kuzeyi −Z, güneş güneyden (+Z)
+    const t = Math.min(1, Math.max(0, ((S.hour ?? 11) - 6) / 12)), el = Math.sin(Math.PI * t);
+    const dir = new THREE.Vector3(Math.cos(Math.PI * t), el * 1.25 + .18, .55).normalize();
+    S.sun.position.copy(dir.multiplyScalar(R * 1.8)); S.sun.target.position.set(0, 0, 0);
     Object.assign(S.sun.shadow.camera, {left: -R, right: R, top: R, bottom: -R, near: 1, far: R * 5}); S.sun.shadow.camera.updateProjectionMatrix();
+    const night = !!S.night, warm = 1 - el;
+    // görüntüleyicinin kendi ışıkları (şematik mod için): gece kısılır, gündüz asıl değerine döner
+    S.baseLights ??= V.S.children.filter(o => (o.isDirectionalLight || o.isHemisphereLight) && o !== S.sun && o !== S.fill).map(o => [o, o.intensity]);
+    for (const [o, i0] of S.baseLights) o.intensity = night ? i0 * .04 : i0;
+    S.sun.color.setHSL(.09, .35 + warm * .45, .93 - warm * .1);
+    S.sun.intensity = night ? .04 : 1.2 + 2.2 * el;
+    if (S.fill) S.fill.intensity = night ? .06 : .55;
+    V.S.environmentIntensity = night ? .06 : 1.25;
+    if (S.real && S.env) V.S.background = night ? (S.nightSky ??= new THREE.Color(0x0b1020)) : S.env.tex;
+    V.R.toneMappingExposure = night ? 1.5 : 1.3;
+    if (S.real) V.mat.site.color.set(night ? 0x1b2119 : 0x7d8a66);   // arsa yüzeyi ışıksız malzeme: gece elle koyulaşır
+    roomLamps(night);
   }
+  function roomLamps(on) {  // gece: her odada tavan ışığı (sıcak beyaz)
+    for (const l of S.lamps || []) l.parent?.remove(l);
+    S.lamps = [];
+    if (!on || !S.real) return;
+    for (const r of (V.elements || []).filter(e => e.type === 'room' && !/Asansör|Şaft/.test(e.name))) {
+      const g = levelGroup(r.level); if (!g) continue;
+      const [cx, cy] = centroid(r.points), a = polyArea(r.points);
+      const l = new THREE.PointLight(0xffd6a0, 3 + Math.min(6, a * .35), Math.sqrt(a) * 2.2 + 3, 1.7);
+      l.position.set(cx, (r.z || 0) + (r.height || 2.8) - .3, -cy); g.add(l); S.lamps.push(l);
+    }
+  }
+  function setSun(hour, night) { S.hour = hour; S.night = night; if (S.sun) placeSun(); }
   function swapMaterials(face, slab, glass) {
     const f0 = V.mat.face, s0 = V.mat.slab, g0 = V.mat.glass;
     V.root.traverse(o => { if (!o.isMesh) return; if (o.material === f0) o.material = face; else if (o.material === s0) o.material = slab; else if (o.material === g0) o.material = glass; });
@@ -641,9 +743,11 @@ export function createInterior(ctx) {
     try { obj = await loadItem(o.kind, o); } catch (e) { console.warn('nesne yüklenemedi', o.kind, e); return null; }
     obj.position.set(o.x, levelZ(o.level) + (o.h || 0), -o.y); obj.rotation.y = o.rot || 0;
     obj.userData.item = o; obj.traverse(m => { if (m.isMesh) { m.castShadow = m.receiveShadow = true; m.userData.owner = obj; } });
+    obj.scale.y = Math.max(.001, S.growK ?? 1);
     g.add(obj); S.objs.set(o.id, obj); return obj;
   }
   const levelZ = n => ((V.elements || []).find(e => e.type === 'slab' && e.role === 'floor' && e.level === n) || {z: 0}).z;
+  function grow(k) { S.growK = k; for (const o of S.objs.values()) o.scale.y = Math.max(.001, k); for (const p of S.leaves || []) p.visible = k > .5; }
   function clearObjects() { for (const o of S.objs.values()) o.parent?.remove(o); S.objs.clear(); }
   // paralel yükle; render dışa aktarımı S.restoring bitene kadar bekler (yarım sahne gönderilmesin)
   function restoreObjects() {
@@ -718,6 +822,11 @@ export function createInterior(ctx) {
       S.sel.position.set(p.x - S.drag.dx, S.sel.position.y, -(p.y - S.drag.dy)); S.selBox?.update(); return;
     }
     if (!S.tool) return;
+    if (S.tool.type === 'demolish') {
+      const hw = pick(ev, wallMeshes()), m = hw?.object || null; highlight(m);
+      if (m) { m.material.emissive.set(structural(m.userData.wall) ? 0xff3030 : 0xffa040); m.material.emissiveIntensity = .4; }
+      return;
+    }
     const h = pickFloor(ev);
     if (S.tool.type === 'floor') { highlight(h?.object || null); return; }
     if (S.ghost) {
@@ -742,8 +851,21 @@ export function createInterior(ctx) {
     if (S.drag && S.sel) { const it = S.sel.userData.item; it.x = S.sel.position.x; it.y = -S.sel.position.z; save(); }
     S.drag = null; if (!isWalking()) V.O.enabled = true;
   }
+  function wallMeshes() { const a = []; V.root.traverse(o => { if (o.isMesh && typeof o.userData.wall === 'object') a.push(o); }); return a; }
+  function toggleDemolish(w) {
+    const d = S.design.demolished ??= [], i = d.indexOf(w.name);
+    if (i >= 0) d.splice(i, 1); else d.push(w.name);
+    highlight(null); buildExtras(); buildLeaves(); save(); renderPanel();
+  }
   async function onClick(ev) {
     if (!S.real || !S.tool) return false;
+    if (S.tool.type === 'demolish') {
+      const hw = pick(ev, wallMeshes());
+      if (!hw) { hint('Yıkmak için bir bölme duvara tıklayın · Esc bitir'); return true; }
+      const w = hw.object.userData.wall;
+      if (structural(w)) { hint('Taşıyıcı duvar yıkılamaz — statik proje ve mühendis onayı gerekir'); return true; }
+      toggleDemolish(w); hint(`Bölme duvar yıkıldı · toplam ${n2(demolishedArea())} m² — Esc bitir`); return true;
+    }
     const h = pickFloor(ev);
     if (!h) { hint('Bir odanın zeminine tıklayın — başka kat için KESİT kaydırıcısını kullanın'); return true; }
     const p = hitToPlan(h);
@@ -984,7 +1106,7 @@ export function createInterior(ctx) {
     try { S.design = {floors: {}, paint: 'kirik_beyaz', objects: [], ...(await api(`/api/projects/${pid}/interior`))}; }
     catch { S.design = {floors: {}, paint: 'kirik_beyaz', objects: []}; }
     if (S.real) { buildExtras(); applyPaint(); await restoreObjects(); }
-    summary();
+    applyDemolish(); summary();
   }
 
   // ------------------------------------------------------------------ panel
@@ -1021,8 +1143,14 @@ export function createInterior(ctx) {
       summary();
     } else if (tab === 'duvar') {
       body.innerHTML = `<div class="sw paint">${PAINTS.map(p => `<button data-p="${p.id}" class="${S.design.paint === p.id ? 'on' : ''}"><i style="background:#${p.c.toString(16).padStart(6, '0')}"></i><span>${p.name}</span></button>`).join('')}</div>
-        <p class="inote">Boya tüm duvar yüzeylerine uygulanır.</p>`;
+        <p class="inote">Boya tüm duvar yüzeylerine uygulanır.</p>
+        <p class="sec-t" style="margin-top:14px">YIKIM · BÖLME DUVAR</p>
+        <div class="irow"><button class="vbtn walkbtn ${S.tool?.type === 'demolish' ? 'on' : ''}" id="idemo">⛏ DUVAR YIK</button><button class="vbtn" id="idemu">TÜMÜNÜ GERİ AL</button></div>
+        <p class="inote">Duvarın üstüne gelin: taşıyıcı (dış, perde, ≥ 18 cm) <b style="color:#ff6060">kırmızı</b> yanar ve yıkılamaz, bölme duvar <b style="color:#ffb060">turuncu</b> yanar.
+        Yıkılan: ${(S.design.demolished || []).length} duvar · ${n2(demolishedArea())} m². Statik kararlar mimar/mühendis onayı gerektirir.</p>`;
       $$('[data-p]').forEach(b => b.onclick = () => { S.design.paint = b.dataset.p; applyPaint(); save(); renderPanel(); });
+      $('#idemo').onclick = () => { if (S.tool?.type === 'demolish') cancelTool(); else { cancelTool(); S.tool = {type: 'demolish'}; hint('Yıkmak için bölme duvara tıklayın · Esc bitir'); } renderPanel(); };
+      $('#idemu').onclick = () => { S.design.demolished = []; buildExtras(); buildLeaves(); applyDemolish(); save(); renderPanel(); };
     } else {
       const cats = [...new Set(ITEMS.map(i => i.cat))];
       body.innerHTML = `<div class="irow"><button class="vbtn walkbtn" id="iauto">✦ ÖRNEK DÖŞE (BU KAT)</button><button class="vbtn" id="iclr">TEMİZLE</button></div>
@@ -1084,8 +1212,8 @@ export function createInterior(ctx) {
     const cam = new THREE.PerspectiveCamera(fov, asp, .1, 1000); c.y = box.min.y;
     cam.position.set(c.x, c.y + dist * Math.sin(el), c.z + dist * Math.cos(el)); cam.lookAt(c); cam.updateMatrixWorld();
     const R = Math.max(sz.x, sz.z) * 1.5 + 10;
-    const job = {camera: {matrix: cam.matrixWorld.elements.slice(), fov, aspect: asp}, lights: [], sun_energy: 2.8, exposure: .85, hq: true, preset: 'maket',
-      sun: {pos: [c.x - R * .8, c.y + R * 1.2, c.z - R * .5], target: [c.x, c.y, c.z]}};
+    const job = {camera: {matrix: cam.matrixWorld.elements.slice(), fov, aspect: asp}, ...(S.night ? {} : {lights: [], sun_energy: 2.8, exposure: .85}), hq: true, preset: 'maket',
+      ...(S.night ? {} : {sun: {pos: [c.x - R * .8, c.y + R * 1.2, c.z - R * .5], target: [c.x, c.y, c.z]}})};
     const undo = () => { caps.forEach(m => m.parent?.remove(m)); cut.forEach(({L, par}) => par?.add(L.group)); if (S.ground) S.ground.material = gMat; V.mat.site.color.set(siteC); };
     return {job, undo};
   }
@@ -1112,6 +1240,7 @@ export function createInterior(ctx) {
       return {pos: W3(cx, cy, (r.z || 0) + (r.height || 2.8) - .02), w: Math.max(...xs) - Math.min(...xs), d: Math.max(...ys) - Math.min(...ys)};
     });
     const job = {kind, sun: S.sun ? {pos: S.sun.position.toArray(), target: S.sun.target.position.toArray()} : null, lights};
+    if (S.night) Object.assign(job, {sun_energy: .03, sky: .04, room_light: 16, exposure: 1.0});
     if (kind === 'still') { V.C.updateMatrixWorld(); job.camera = {matrix: V.C.matrixWorld.elements.slice(), fov: V.C.fov, aspect: V.C.aspect}; }
     if (stage) Object.assign(job, stage.job);
     return {glb, job};
@@ -1119,6 +1248,7 @@ export function createInterior(ctx) {
 
   return {
     setReal, load, openPanel, resizeAO, autoFurnish, autoDecor, clearDecor, exportForRender,
+    grow, tick, toggleDoor, doorSegs, isDemolished, setSun,
     async measure(kind) { const b = new THREE.Box3().setFromObject(await loadItem(kind)); const r = v => +v.toFixed(3);
       return {min: [r(b.min.x), r(b.min.y), r(b.min.z)], max: [r(b.max.x), r(b.max.y), r(b.max.z)]}; },
     items: () => ITEMS.map(i => i.id),
