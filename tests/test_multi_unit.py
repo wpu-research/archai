@@ -205,3 +205,21 @@ def test_project_run_end_to_end(q, tmp_path):
               "cizim_04_kesit_AA", "cizim_05_on_gorunus"):
         assert (tmp_path / res["files"][k]).exists(), k
     assert (tmp_path / "cizimler" / "03_normal_kat_plani.png").exists()
+
+
+def test_roof_parapet_stays_inside_outline():
+    """Çatı korkuluğu kat konturunun içinde kalır (T kütlede de); eskiden tek kutu doğuya 21 m taşıyordu."""
+    from shapely.geometry import Polygon, box
+    from archai.generate import generate
+    els, rep = generate({"width": 30, "depth": 34}, {"taks": 0.35, "kaks": 1.6, "front": 5, "side": 3, "rear": 3,
+                                                    "max_floors": 4, "floor_height": 3.0}, {"unit_type": "2+1", "units_per_floor": 3})
+    roof = next(e for e in els if e["type"] == "slab" and e.get("role") == "roof")
+    outline = Polygon(roof["points"]).buffer(0.02)
+    ps = [e for e in els if e["type"] == "box" and e["name"].startswith("cati_parapet")]
+    assert len(ps) >= 8                                   # T kütle: en az 8 kenar
+    for e in ps:
+        (x, y, z), (sx, sy, sz) = e["origin"], e["size"]
+        assert outline.contains(box(x, y, x + sx, y + sy)), e["name"]
+        assert abs(z - roof["z"]) < 1e-9 and sz == 0.9
+    # kapalı çevre: korkuluk toplam uzunluğu kontur çevresine yakın
+    assert abs(sum(max(e["size"][:2]) for e in ps) - Polygon(roof["points"]).length) < 0.5

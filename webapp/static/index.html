@@ -96,7 +96,8 @@ details.kunye summary{font:500 10.5px var(--mono);letter-spacing:.14em;color:var
 .hud.tl{top:16px;left:18px}.hud.tr{top:14px;right:14px;display:flex;gap:6px}.hud.bl{left:18px;bottom:16px}.hud.br{right:16px;bottom:14px}
 .hud.bc{left:50%;bottom:14px;transform:translateX(-50%);display:none;align-items:center;gap:8px;pointer-events:auto;background:rgba(4,8,14,.55);
   padding:6px 10px;border-radius:10px;backdrop-filter:blur(6px);color:#e6f1f8;font-size:11px}
-.vp.real:not(.editing) .hud.bc{display:flex}.hud.bc input{width:130px;accent-color:#ffb547}.hud.bc b{min-width:38px;font-weight:600}
+.vp.real:not(.editing) .hud.bc{display:flex}
+.vp.walking>.hud.bc{display:none!important}  /* yürürken klavye ipucuyla çakışmasın */.hud.bc input{width:130px;accent-color:#ffb547}.hud.bc b{min-width:38px;font-weight:600}
 .hud.bc .vbtn.on{background:#1d2c55;border-color:#8fa8ff;color:#dfe6ff}
 @media (max-width:700px){.hud.bc{bottom:112px}.hud.bc input{width:90px}}
 .hud .pname{font:600 20px var(--sans);letter-spacing:.01em;text-shadow:0 0 24px rgba(62,232,255,.35)}
@@ -909,7 +910,7 @@ const IN=window.IN=createInterior({THREE,V,$,$$,n2,api,getProject:()=>P,toWorld,
     const d=V.C.position.distanceTo(V.O.target), vw=2*d*Math.tan(THREE.MathUtils.degToRad(V.C.fov/2))*V.C.aspect;
     V.shift=new THREE.Vector3().setFromMatrixColumn(V.C.matrixWorld,0).multiplyScalar(vw*.16);
     V.C.position.add(V.shift);V.O.target.add(V.shift);}});
-window.ARCHAI={V,toWorld,THREE};  // hata ayıklama / uçtan uca test tutamacı
+window.ARCHAI={V,toWorld,THREE,intro};  // hata ayıklama / uçtan uca test tutamacı
 window.WALK_SET=(x,y,yaw)=>{WK.px=x;WK.py=y;WK.yaw=yaw;WK.pitch=-.08;WK.room=undefined;};
 $('#edit').onclick=()=>IN.openPanel(!$('#vp').classList.contains('editing'));
 $('#wedit').onclick=()=>{releaseLock();IN.openPanel(!$('#vp').classList.contains('editing'));};
