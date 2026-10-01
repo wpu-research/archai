@@ -19,11 +19,11 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Literal
-from urllib.parse import urlsplit
+from urllib.parse import urlencode, urlsplit
 
 from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.exceptions import RequestValidationError
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import AliasChoices, BaseModel, ConfigDict, Field, ValidationError, model_validator
 
@@ -132,9 +132,18 @@ async def access_guard(request: Request, call_next):
         clen = 0
     if clen > MAX_SCENE_BYTES + MB:
         return _deny(413, "istek gövdesi çok büyük")
+    if from_query and request.method == "GET" and "text/html" in request.headers.get("accept", ""):
+        # anahtar adres çubuğunda/geçmişte kalmasın: çerezi yaz, anahtarsız adrese yönlendir
+        rest = [(k, v) for k, v in request.query_params.multi_items() if k != "token"]
+        url = request.url.path + (("?" + urlencode(rest)) if rest else "")
+        resp = RedirectResponse(url, status_code=303)
+        resp.set_cookie(TOKEN_COOKIE, expected, httponly=True, samesite="strict", path="/")
+        resp.headers["Referrer-Policy"] = "no-referrer"
+        return resp
     resp = await call_next(request)
     if from_query:
         resp.set_cookie(TOKEN_COOKIE, expected, httponly=True, samesite="strict", path="/")
+    resp.headers.setdefault("Referrer-Policy", "no-referrer")
     return resp
 
 
@@ -380,7 +389,13 @@ def _new_id(name):
 def _public(pid, result):
     """Dosya yollarını /files/... URL'lerine çevir."""
     base = PROJECTS / pid
-    files = {k: f"/files/{pid}/{Path(v).resolve().relative_to(base.resolve())}" for k, v in result["files"].items()}
+
+    def rel(v):  # mutlak yol bu klasörün altındaysa göreli; değilse (klasör taşındı/yeniden adlandırıldı) '.../projects/<ad>/' önekini at
+        try:
+            return Path(v).resolve().relative_to(base.resolve())
+        except ValueError:
+            return Path(re.sub(r"^.*?/projects/[^/]+/", "", str(v).replace("\\", "/")))
+    files = {k: f"/files/{pid}/{rel(v)}" for k, v in result["files"].items()}
     pngs = sorted((base / "cizimler").glob("*.png"))
     return {**result, "id": pid, "files": files,
             "sheets": [{"name": p.stem, "png": f"/files/{pid}/cizimler/{p.name}",
