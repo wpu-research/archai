@@ -300,7 +300,7 @@ summary{cursor:pointer;padding:9px 0;font:500 12px var(--mono);letter-spacing:.0
       <div class="cross"></div>
       <div class="hud tl"><div class="meta" id="wlvl">—</div><div class="pname" id="wroom">—</div><div class="meta" id="warea"></div></div>
       <div class="hud tr"><button class="vbtn truebtn" data-real="still">📷 FOTO</button><button class="vbtn realbtn" id="wedit">✎ DÜZENLE</button><button class="vbtn" id="wdn" title="Alt kat (Q)">▼ KAT</button><button class="vbtn" id="wup" title="Üst kat (E)">▲ KAT</button><button class="vbtn on" id="wexit">✕ ÇIK</button></div>
-      <div class="whelp" id="whelp">WASD / OKLAR HAREKET · FARE BAKIŞ · SHIFT KOŞ · <b>F</b> / TIK KAPI · Q / E KAT · <b>ESC</b> ÇIKIŞ</div>
+      <div class="whelp" id="whelp">WASD / OKLAR HAREKET · FARE BAKIŞ · SHIFT KOŞ · <b>F</b> / TIK KAPI · MERDİVENDEN ÇIK · Q / E KAT · <b>ESC</b> ÇIKIŞ</div>
     </div>
     <aside class="idrawer glass" id="idrawer">
       <div class="ihead"><div class="tabs" id="itabs"><button data-it="zemin" class="on">ZEMİN</button><button data-it="duvar">DUVAR</button><button data-it="nesne">NESNE</button></div>
@@ -565,8 +565,8 @@ function labelSprite(title,sub){
   const sp=new THREE.Sprite(new THREE.SpriteMaterial({map:new THREE.CanvasTexture(cv),transparent:true,depthWrite:false}));
   sp.scale.set(1.9,.56,1); return sp;
 }
-function prepLevel(n){
-  WK.lvl=n; WK.z=levelZ(n); WK.segs=[];
+function prepLevel(n,keepZ){
+  WK.lvl=n; if(!keepZ)WK.z=levelZ(n); WK.segs=[];
   for(const w of V.elements){
     if(w.type!=='wall'||w.level!==n||IN.isDemolished(w))continue;
     const [x0,y0]=w.start,[x1,y1]=w.end,L=Math.hypot(x1-x0,y1-y0); if(L<1e-4)continue;
@@ -586,6 +586,34 @@ function prepLevel(n){
   }
   V.S.add(WK.labels);
   $('#wlvl').textContent=(level=>level.startsWith('Kat ')?`${level.split(' ')[1]}. NORMAL KAT`:level.toUpperCase())(n)+` · ${kotTxt(WK.z)}`;
+}
+/* merdiven: basamak üst yüzeyi (sahanlık dahil) yürünebilir. Her basamak alttan düz kutu olarak çizilir (rıht yüksekliği (i+1)*rise). */
+const STEP_UP=.45;
+function stairHeights(x,y){
+  const out=[];
+  for(const e of V.elements){
+    if(e.type==='stairs'){
+      const [ox,oy,oz]=e.origin,r=(e.rotation_z||0)*Math.PI/180,run=e.run||.28,w=e.width||1.2,n=e.steps||10,rise=e.rise||.17;
+      const dx=x-ox,dy=y-oy,al=dx*Math.cos(r)+dy*Math.sin(r),ac=-dx*Math.sin(r)+dy*Math.cos(r);
+      if(al>=0&&al<n*run&&ac>=0&&ac<=w)out.push(oz+(Math.floor(al/run)+1)*rise);
+    }else if(e.type==='box'&&/merdiven/.test(e.name||'')){
+      const [ox,oy,oz]=e.origin,[sx,sy,sz]=e.size;
+      if(x>=ox&&x<=ox+sx&&y>=oy&&y<=oy+sy)out.push(oz+sz);
+    }
+  }
+  return out;
+}
+// bulunulan noktadaki zemin kotu: null = geçilemez (basamak yığını çok yüksek), yoksa kat zemini ya da basamak üstü
+function groundAt(x,y,z){
+  const hs=stairHeights(x,y); if(!hs.length)return levelZ(WK.lvl);
+  const ok=hs.filter(h=>h<=z+STEP_UP); return ok.length?Math.max(...ok):null;
+}
+// yükseklik hangi kata en yakınsa gezinti o katın duvarlarına geçer (merdivenin ortasında kat değişir)
+function syncLevelToZ(){
+  const L=floorLevels(); if(L.length<2)return;
+  let best=WK.lvl,bd=Math.abs(WK.z-levelZ(WK.lvl));
+  for(const n of L){const d=Math.abs(WK.z-levelZ(n));if(d<bd-.2){best=n;bd=d;}}
+  if(best!==WK.lvl){prepLevel(best,true);WK.room=undefined;}
 }
 const kotTxt=z=>Math.abs(z)<1e-6?'±0.00':(z>0?'+':'')+z.toFixed(2);
 function collide(){
@@ -649,8 +677,20 @@ function walkStep(dt,now){
   const len=Math.hypot(f,r); if(len>1){f/=len;r/=len;}
   const sp=(k.ShiftLeft||k.ShiftRight)?RUN:WALK, sy=Math.sin(WK.yaw), cy=Math.cos(WK.yaw);
   // plan ekseninde ileri = (-sin yaw, +cos yaw), sağ = (cos yaw, sin yaw)
+  const ox_=WK.px,oy_=WK.py;
   WK.px+=(-sy*f+cy*r)*sp*dt; WK.py+=(cy*f+sy*r)*sp*dt;
-  if(len)collide();
+  if(len){
+    collide();
+    if(groundAt(WK.px,WK.py,WK.z)===null){   // basamak yığınına yandan girilemez: eksen eksen kay
+      const nx=WK.px,ny=WK.py;
+      if(groundAt(nx,oy_,WK.z)!==null){WK.px=nx;WK.py=oy_;}
+      else if(groundAt(ox_,ny,WK.z)!==null){WK.px=ox_;WK.py=ny;}
+      else{WK.px=ox_;WK.py=oy_;}
+    }
+  }
+  const g=groundAt(WK.px,WK.py,WK.z); if(g!==null)WK.z+=(g-WK.z)*Math.min(1,dt*(g>WK.z?14:9));   // yumuşak çık / in
+  if(Math.abs(WK.z-g)<.002&&g!==null)WK.z=g;
+  syncLevelToZ();
   const bob=len?Math.sin(now/1000*9)*.025*Math.min(1,len):0;
   V.C.position.copy(toWorld(WK.px,WK.py,WK.z+EYE+bob));
   V.C.rotation.set(WK.pitch,WK.yaw,0,'YXZ');
@@ -907,7 +947,7 @@ $('#zoom').onclick=()=>$('#zoom').style.display='none';
 
 initViewport();
 const IN=window.IN=createInterior({THREE,V,$,$$,n2,api,getProject:()=>P,toWorld,polyArea,centroid,inPoly,
-  isWalking:()=>WK.on, walkLevel:()=>WK.lvl, setModeReal:()=>{if(V.mode!=='real')$('[data-vm="real"]').click();},
+  isWalking:()=>WK.on, walkLevel:()=>WK.lvl, walkZ:()=>WK.z, setModeReal:()=>{if(V.mode!=='real')$('[data-vm="real"]').click();},
   openInterior:()=>{  // çatı/üst katlar kapalıysa en üst kata in: iç mekân görünsün, tıklama gizli kata gitmesin
     if(WK.on)return; const floors=V.nLv.filter(n=>V.elements.some(e=>e.type==='slab'&&e.role==='floor'&&e.level===n));
     const cur=V.nLv[+$('#lv').value-1]; if(!floors.includes(cur)){$('#lv').value=V.nLv.indexOf(floors[floors.length-1])+1;applyLevels();}},
@@ -933,6 +973,7 @@ const DA=createDesigns({$,$$,api,esc,tl,getProject:()=>P,
     if(tab==='tasarim')render();  // toplam/hud güncel; sekme yeniden çizilirken DA durumu korunur
     return res;}});
 window.ARCHAI={V,toWorld,THREE,intro};  // hata ayıklama / uçtan uca test tutamacı
+window.WALK_Z=()=>[WK.z,WK.lvl,WK.px,WK.py];
 window.WALK_SET=(x,y,yaw)=>{WK.px=x;WK.py=y;WK.yaw=yaw;WK.pitch=-.08;WK.room=undefined;};
 $('#edit').onclick=()=>IN.openPanel(!$('#vp').classList.contains('editing'));
 $('#wedit').onclick=()=>{releaseLock();IN.openPanel(!$('#vp').classList.contains('editing'));};
