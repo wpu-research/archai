@@ -21,7 +21,7 @@ from openpyxl import Workbook
 from openpyxl.styles import Alignment, Border, Font, PatternFill, Side
 from openpyxl.utils import get_column_letter
 
-from .notice import AVAN_NOTE, AVAN_SHORT
+from .notice import AVAN_NOTE, AVAN_SHORT, IMAR_NOTE
 
 FONT = "Arial"
 MONEY_XL = '#,##0.00'
@@ -376,7 +376,7 @@ def write_offer_docx(path, project, report, qres, cost, company=None, customer=N
 
     d.add_heading("3. TEKLİF ŞARTLARI", 1)
     city = co.get("city") or site.get("il") or "[İl]"
-    terms = [("Proje seviyesi", AVAN_NOTE), *offer_terms(info, gfa, cost, city)]
+    terms = [("Proje seviyesi", AVAN_NOTE), ("İmar değerleri", IMAR_NOTE), *offer_terms(info, gfa, cost, city)]
     for i, (h, txt) in enumerate(terms, 1):
         _numbered(d, f"3.{i}", txt, h)
     _para(d, "", space_after=0)
@@ -518,10 +518,10 @@ def _xl_title(ws, title, info, ncols):
                 f"{site.get('parsel') or '—'}   ·   Tarih: {info.get('date') or f'{date.today():%d.%m.%Y}'}")
     ws["A3"].font = Font(name=FONT, size=9)
     ws.merge_cells(f"A4:{last}4")
-    ws["A4"] = AVAN_NOTE
+    ws["A4"] = f"{AVAN_NOTE}  {IMAR_NOTE}"
     ws["A4"].font = Font(name=FONT, size=8, italic=True, color="C00000")
     ws["A4"].alignment = Alignment(wrap_text=True, vertical="top")
-    ws.row_dimensions[4].height = 24
+    ws.row_dimensions[4].height = 36
     ws.oddFooter.center.text = AVAN_SHORT
     ws.oddFooter.center.size = 7
 
@@ -558,7 +558,7 @@ def write_xlsx(path, project_name, qres, cost, info=None):
     ws.title = "Birim Fiyat Cetveli"
     _xl_title(ws, "BİRİM FİYAT TEKLİF CETVELİ", info, 7)
     if cost.get("note"):
-        ws["A4"] = f"{AVAN_NOTE}  {cost['note']}"
+        ws["A4"] = f"{AVAN_NOTE}  {IMAR_NOTE}  {cost['note']}"
     _xl_header(ws, 5, ["Sıra No", "Poz No", "İş Kaleminin Adı ve Kısa Açıklaması", "Birimi", "Miktarı", "Birim Fiyat (TL)",
                        "Tutarı (TL)"], [7, 10, 58, 8, 12, 16, 18])
     row, i, first = 6, 0, 6

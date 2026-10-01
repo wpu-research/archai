@@ -227,6 +227,8 @@ class Zoning(BaseModel):
     rear: _num(0, 100) | None = None
     max_floors: Annotated[int, Field(ge=1, le=30)] | None = None
     floor_height: _num(2.2, 6) | None = None
+    max_height: _num(gt=2.2, hi=200) | None = None       # yençok / saçak kotu sınırı (m)
+    emsal_disi_pct: _num(0, 30) | None = None            # emsale girmeyen ortak alan payı (% brüt)
 
 
 class Program(BaseModel):
@@ -838,4 +840,8 @@ class _nolock:
 from webapp.video_routes import router as video_router  # noqa: E402 — müşteri videosu uç noktaları
 
 app.include_router(video_router)
+
+from webapp.design_routes import router as design_router  # noqa: E402
+app.include_router(design_router)  # Tasarım ajanı
+
 app.mount("/", StaticFiles(directory=Path(__file__).parent / "static", html=True), name="static")

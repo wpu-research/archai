@@ -9,6 +9,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
+<link rel="stylesheet" href="designs.css">
 <style>
 :root{
   --void:#04070c;--glass:rgba(9,17,27,.66);
@@ -241,6 +242,8 @@ summary{cursor:pointer;padding:9px 0;font:500 12px var(--mono);letter-spacing:.0
       <div class="r2"><div><label for="taks">TAKS</label><input id="taks" type="number" step="0.01" value="0.40"></div><div><label for="kaks">KAKS / Emsal</label><input id="kaks" type="number" step="0.05" value="2.00"></div></div>
       <div class="r3"><div><label for="fr">Ön çekme</label><input id="fr" type="number" value="5"></div><div><label for="sd">Yan çekme</label><input id="sd" type="number" value="3"></div><div><label for="rr">Arka çekme</label><input id="rr" type="number" value="3"></div></div>
       <div class="r2"><div><label for="mf">Maks. kat</label><input id="mf" type="number" value="6"></div><div><label for="fh">Kat yüksekliği · m</label><input id="fh" type="number" step="0.1" value="3.0"></div></div>
+      <div class="r2"><div><label for="mh" title="İmar planı notundaki yençok / saçak kotu sınırı. Boş bırakılırsa sınır uygulanmaz.">Yençok / saçak kotu · m</label><input id="mh" type="number" step="0.1" placeholder="sınır yok"></div><div><label for="ed" title="Merdiven, asansör ve ortak alanların emsale girmeyen payı (% brüt, en çok 30). Belediyeye göre değişir; boş = 0.">Emsal dışı ortak alan · %</label><input id="ed" type="number" step="1" min="0" max="30" placeholder="0"></div></div>
+      <p class="note mono" style="margin:4px 0 0">İmar değerleri mahalleye ve köye göre değişir; imar durum belgenizden girin ve imar müdürlüğünden teyit edin.</p>
     </div>
     <div data-show="quick" hidden>
       <div class="r2"><div><label for="qa">Toplam brüt · m²</label><input id="qa" type="number" value="600"></div><div><label for="qf">Kat sayısı</label><input id="qf" type="number" value="3"></div></div>
@@ -310,7 +313,7 @@ summary{cursor:pointer;padding:9px 0;font:500 12px var(--mono);letter-spacing:.0
   <div class="glass">
     <div class="tabs" id="tabs">
       <button data-t="ozet" class="on"><i>01</i>ÖZET</button><button data-t="cizim"><i>02</i>ÇİZİMLER</button><button data-t="metraj"><i>03</i>METRAJ</button>
-      <button data-t="maliyet"><i>04</i>MALİYET · FİYAT</button><button data-t="belge"><i>05</i>BELGELER</button><button data-t="3d"><i>06</i>RENDER</button>
+      <button data-t="maliyet"><i>04</i>MALİYET · FİYAT</button><button data-t="belge"><i>05</i>BELGELER</button><button data-t="3d"><i>06</i>RENDER</button><button data-t="tasarim"><i>07</i>TASARIM AJANI</button>
     </div>
     <div id="view"><div class="empty">SOLDAN BİLGİLERİ GİRİP “PROJEYİ ÜRET”E BASIN</div></div>
   </div>
@@ -329,6 +332,7 @@ import {RenderPass} from 'three/addons/postprocessing/RenderPass.js';
 import {UnrealBloomPass} from 'three/addons/postprocessing/UnrealBloomPass.js';
 import {OutputPass} from 'three/addons/postprocessing/OutputPass.js';
 import {createInterior} from './interior.js';
+import {createDesigns} from './designs.js';
 
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const tl=v=>v==null?'—':v.toLocaleString('tr-TR',{style:'currency',currency:'TRY',maximumFractionDigits:0});
@@ -732,7 +736,7 @@ $('#go').onclick=async()=>{
       const fd=new FormData();fd.append('file',f);fd.append('name',extra.name);fd.append('floors',$('#df').value);fd.append('floor_height',$('#dfh').value);fd.append('render_3d',extra.render_3d);fd.append('meta',JSON.stringify({...kunye(),...($('#vis').checked?{vision:true}:{})}));
       P=await api('/api/projects/dxf',{method:'POST',body:fd});
     }else{
-      const body=mode==='land'?{...extra,parcel:{width:v('#pw'),depth:v('#pd')},zoning:{taks:v('#taks'),kaks:v('#kaks'),front:v('#fr'),side:v('#sd'),rear:v('#rr'),max_floors:v('#mf'),floor_height:v('#fh')},program}
+      const body=mode==='land'?{...extra,parcel:{width:v('#pw'),depth:v('#pd')},zoning:{taks:v('#taks'),kaks:v('#kaks'),front:v('#fr'),side:v('#sd'),rear:v('#rr'),max_floors:v('#mf'),floor_height:v('#fh'),...($('#mh').value?{max_height:v('#mh')}:{}),...($('#ed').value?{emsal_disi_pct:v('#ed')}:{})},program}
         :{...extra,quick:{gross_area:v('#qa'),floors:v('#qf'),...program}};
       P=await api('/api/projects',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body)});
     }
@@ -828,7 +832,7 @@ function render(){
   const out=$('#view'); if(!P)return;
   const c=P.cost,s=P.summary,r=P.report;
   if(tab==='ozet'){
-    const lab={taks:'TAKS',kaks:'KAKS / EMSAL',floors:'KAT SAYISI'};
+    const lab={taks:'TAKS',kaks:'KAKS / EMSAL',floors:'KAT SAYISI',height:'YENÇOK / SAÇAK KOTU (m)',emsal_disi:'EMSAL DIŞI PAY (%)'};
     const ch=r.checks?Object.entries(r.checks).filter(([k,x])=>x&&typeof x==='object'&&'ok' in x).map(([k,x])=>`<tr><td class="mono">${esc(lab[k]||k)}</td><td class="n">${esc(x.limit)}</td><td class="n">${esc(x.value)}</td><td class="n"><span class="flag ${x.ok?'ok':'bad'}">${x.ok?'UYGUN':'AŞIM'}</span></td></tr>`).join(''):'';
     const onay=r.source==='image'&&P.files.tanima_onay_png?`<p class="sec-t">RESİMDEN TANINAN PLAN · ONAY</p>
       <p class="note mono">ÖLÇEK ${esc(n2(r.px_per_m))} px/m (${esc(r.scale_method)}) · ${esc(r.walls)} DUVAR · ${esc(r.openings)} AÇIKLIK (${esc(r.windows||0)} PENCERE) · ${esc(r.rooms)} MAHAL · CLAUDE GÖRSEL OKUMA: ${r.vision==='claude'?`AÇIK (${esc(r.furniture||0)} MOBİLYA)`:esc(String(r.vision||'kapalı').toUpperCase())} — sarı duvar, kırmızı kapı, camgöbeği pencere, mavi mahal; hatalıysa ölçek/ızgara verip yeniden yükleyin</p>
@@ -842,6 +846,7 @@ function render(){
         <div class="kpi"><small>Kat · daire</small><b>${esc(r.floors??'—')} · ${esc(r.unit_count||'—')} ${esc(r.unit_type||'')}</b></div></div>
       ${ch?`<p class="sec-t">İMAR KONTROLÜ</p><table><tr><th>Kriter</th><th class="n">İzin</th><th class="n">Proje</th><th class="n">Durum</th></tr>${ch}</table>
       <p class="note mono">ÇEKMELER · ÖN ${esc(r.checks.setbacks.front)} m · SOL ${esc(r.checks.setbacks.side_left)} m · SAĞ ${esc(r.checks.setbacks.side_right)} m · ARKA ${esc(r.checks.setbacks.rear)} m</p>`:''}
+      ${r.imar_ozeti?`<div class="warnbox">ℹ ${esc(r.imar_ozeti.note)}</div>`:''}
       <p class="note">${esc(r.note||'')} ${esc(c.note||'')}</p>`;
   }else if(tab==='cizim'){
     const nm=x=>SHEET[x.name.replace(/^\d+_/,'')]||x.name;
@@ -881,6 +886,8 @@ function render(){
              ['ŞARTNAME','Teknik şartname','.docx · malzeme, uygulama, ölçü',P.files.sartname_docx],['ÇİZİM','Tüm paftalar','.pdf · A3',P.files.cizim_pdf]];
     out.innerHTML=`<div class="docs">${D.map(d=>`<a class="doc" href="${esc(d[3])}" ${String(d[3]||'').endsWith('.pdf')?'target="_blank"':''}><small>${d[0]} ↓</small><b>${d[1]}</b><span>${d[2]}</span></a>`).join('')}</div>
       <p class="note">Maliyet sekmesindeki her değişiklik bu belgeleri yeniden üretir.</p>`;
+  }else if(tab==='tasarim'){
+    DA.mount(out);
   }else if(tab==='3d'){
     out.innerHTML=`<p class="sec-t">CYCLES · GERÇEK RENDER</p><p class="note">3D sahnede (yörüngede veya <b>◉ YÜRÜ</b> modunda) kadrajı ayarlayıp <b>📷 FOTO</b>'ya basın: o açı Blender Cycles ile fotogerçekçi render edilir.</p>
       <div class="gallery" id="rgal"><span class="note">yükleniyor…</span></div><p class="sec-t" style="margin-top:22px">BLENDER ÖNİZLEME</p><div id="bprev"></div>`;
@@ -911,6 +918,20 @@ const IN=window.IN=createInterior({THREE,V,$,$$,n2,api,getProject:()=>P,toWorld,
     const d=V.C.position.distanceTo(V.O.target), vw=2*d*Math.tan(THREE.MathUtils.degToRad(V.C.fov/2))*V.C.aspect;
     V.shift=new THREE.Vector3().setFromMatrixColumn(V.C.matrixWorld,0).multiplyScalar(vw*.16);
     V.C.position.add(V.shift);V.O.target.add(V.shift);}});
+// Tasarım ajanı: seçilen alternatif sunucuda interior.json + maliyete yazıldı; burada 3D sahne ve ekran güncellenir
+const DA=createDesigns({$,$$,api,esc,tl,getProject:()=>P,
+  applied:async(res,reapply,furnish)=>{
+    const lvls=()=>V.nLv.filter(n=>V.elements.some(e=>e.type==='room'&&e.level===n&&(e.kind||'room')==='room'));
+    const take=async r=>{P=r.project;adj=P.brief.adjust||{};hud();recent();await IN.load(P.id);};
+    if(V.mode!=='real')$('[data-vm="real"]').click();
+    await take(res);
+    if(furnish&&!res.interior.objects.length){  // mobilya yok: örnek döşe, sonra stili mobilyaya uygula
+      for(const lv of lvls())await IN.autoFurnish(lv);
+      await new Promise(r=>setTimeout(r,900));    // interior.js kaydı 400 ms geciktirir
+      res=await reapply();await take(res);}
+    if(res.decor)for(const lv of lvls())await IN.autoDecor(lv);
+    if(tab==='tasarim')render();  // toplam/hud güncel; sekme yeniden çizilirken DA durumu korunur
+    return res;}});
 window.ARCHAI={V,toWorld,THREE,intro};  // hata ayıklama / uçtan uca test tutamacı
 window.WALK_SET=(x,y,yaw)=>{WK.px=x;WK.py=y;WK.yaw=yaw;WK.pitch=-.08;WK.room=undefined;};
 $('#edit').onclick=()=>IN.openPanel(!$('#vp').classList.contains('editing'));

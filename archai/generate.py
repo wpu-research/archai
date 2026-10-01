@@ -310,6 +310,18 @@ def massing(parcel, zoning, program):
         raise ValueError(f"çekme mesafelerinden sonra yapılaşma alanı çok küçük ({bw:.1f} × {bd:.1f} m)")
     taks, kaks = zoning.get("taks", 0.4), zoning.get("kaks", 1.2)
     max_floors = zoning.get("max_floors", 5)
+    ex = zoning.get("emsal_disi_pct", 0) or 0       # ortak alan (merdiven/asansör/hol) emsal dışı payı, % brüt
+    hmax = zoning.get("max_height")                  # yençok / saçak kotu sınırı (m)
+    pre_warn = []
+    if hmax:
+        fh = zoning.get("floor_height", 3.0)
+        by_h = int(hmax / fh + 1e-6)
+        if by_h < 1:
+            raise ValueError(f"yençok/saçak sınırı {hmax:g} m, kat yüksekliği {fh:g} m — tek kat bile sığmıyor")
+        if by_h < max_floors:
+            pre_warn.append(f"yençok/saçak sınırı {hmax:g} m ve kat yüksekliği {fh:g} m ile en çok {by_h} kat yapılabilir "
+                            f"(imar kat sınırı {max_floors}); kat sayısı {by_h} ile sınırlandı")
+            max_floors = by_h
     upf = program.get("units_per_floor", "auto")
     quick = bool(program.get("quick_area"))
     where = "bu alan-kat kombinasyonu (sanal parsel)" if quick else "parsel bu imar koşullarında"
@@ -317,14 +329,15 @@ def massing(parcel, zoning, program):
     target_net = UNIT_TYPES["2+1" if wanted == "auto" else wanted][0]
 
     max_fp = min(taks * A, bw * bd)
-    total = kaks * A
+    total = kaks * A / (1 - ex / 100)                # emsale girmeyen payla birlikte izin verilen brüt alan
     floors = max(1, min(max_floors, math.ceil(total / max_fp - 1e-9)))
     fp = min(max_fp, total / floors)
-    warnings = []
+    warnings = list(pre_warn)
     n_multi = units_for(fp, wanted, upf)
     if n_multi:
         res = _multi_massing(fp, W, D, bw, bd, sd, fr, rr, wanted, upf, quick)
         if res:
+            res["warnings"] = pre_warn + list(res.get("warnings", []))
             return {"parcel_area": A, "buildable": (bw, bd), "floors": floors, **res}
         if upf in (3, 4):
             raise ValueError(_multi_reason(n_multi, fp, bw, bd, _multi_types(wanted, fp, n_multi)))
@@ -936,12 +949,20 @@ def generate(parcel, zoning, program):
     h = EXT_T / 2
     sb, sb_detail, sb_ok = setback_checks(parcel["width"], parcel["depth"],
                                           (ox - h, oy - h, ox + width + h, oy + depth + h), zoning)
+    ex = zoning.get("emsal_disi_pct", 0) or 0
+    kaks_val = gross_total * (1 - ex / 100) / A       # emsale giren brüt alan / parsel
+    fh = zoning.get("floor_height", 3.0)
     checks = {
         "taks": {"value": round(fp_gross / A, 3), "limit": zoning.get("taks", 0.4), "ok": fp_gross / A <= zoning.get("taks", 0.4) + 1e-3},
-        "kaks": {"value": round(gross_total / A, 3), "limit": zoning.get("kaks", 1.2), "ok": gross_total / A <= zoning.get("kaks", 1.2) + 1e-3},
+        "kaks": {"value": round(kaks_val, 3), "limit": zoning.get("kaks", 1.2), "ok": kaks_val <= zoning.get("kaks", 1.2) + 1e-3},
         "floors": {"value": m["floors"], "limit": zoning.get("max_floors", 5), "ok": m["floors"] <= zoning.get("max_floors", 5)},
         "setbacks": sb, "setbacks_detail": sb_detail, "setback_ok": sb_ok,
     }
+    if zoning.get("max_height"):
+        hv = round(m["floors"] * fh, 2)
+        checks["height"] = {"value": hv, "limit": zoning["max_height"], "ok": hv <= zoning["max_height"] + 1e-3}
+    if ex:
+        checks["emsal_disi"] = {"value": ex, "limit": 30, "ok": ex <= 30}
     warnings = list(m["warnings"]) + setback_warnings(sb_detail)
     extra = {}
     qa = program.get("quick_area")
@@ -953,16 +974,17 @@ def generate(parcel, zoning, program):
             warnings.append(f"istenen {_ti(qa)} m², üretilen {_ti(gross_total)} m² (sapma %{dev:+.1f})")
     else:    # arazi modu: emsal kullanımı
         kaks_area = zoning.get("kaks", 1.2) * A
-        used = gross_total / kaks_area * 100 if kaks_area else 0.0
+        used = gross_total * (1 - ex / 100) / kaks_area * 100 if kaks_area else 0.0
         extra["kaks_used_pct"] = round(used, 1)
         if used < 85:
             warnings.append(f"KAKS kullanımı %{used:.0f} (izin verilen {_ti(kaks_area)} m², üretilen {_ti(gross_total)} m²) — "
                             "kat adedi, daire tipi veya TAKS sınırını gözden geçirin")
+    from .imar import imar_summary
     report = {
-        **m, "warnings": warnings, **extra, "footprint_gross": round(fp_gross, 2), "gross_total": round(gross_total, 2),
+        **m, "warnings": warnings, **extra, "imar_ozeti": imar_summary(zoning, A, checks), "footprint_gross": round(fp_gross, 2), "gross_total": round(gross_total, 2),
         "unit_count": len(units), "unit_net_area": {k: round(v, 2) for k, v in unit_net.items()},
         "unit_target_net": UNIT_TYPES[m["unit_type"]][0], "checks": checks,
-        "note": "Şematik ön tasarım — emsal hesabı yaklaşık (emsal dışı alanlar ayrıştırılmadı); mimar kontrolü gerekir. "
+        "note": "Şematik ön tasarım — emsal hesabı yaklaşık (emsal dışı alan yalnız girilen yüzdeyle düşülür); mimar kontrolü gerekir. "
                 "Duvar metrajı aks uzunluğuyla: T/L birleşimlerinde ~%1–2 fazla sayım içerir.",
     }
     return elements, report
