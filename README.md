@@ -35,6 +35,51 @@ uv run pytest -q
   **ÖRNEK DÖŞE**; düzen proje başına `interior.json`'a kaydedilir
 - Varlıklar CC0 (Poly Haven), repoda değil: `uv run python scripts/fetch_assets.py` (~29 MB)
 
+## Tasarım ajanı
+
+Proje sekmesi **07 TASARIM AJANI**: 1–5 fotoğraf (mekân / ilham) + serbest Türkçe metin (stil, renk, bütçe, kullanım, eşya
+istekleri) → 3–5 tasarım alternatifi (önizleme, özet, palet, toplam maliyet). **Bunu seç** → alternatif projenin
+`interior.json`'una uygulanır (daire içi zemin kaplaması, ıslak hacim kaplaması, duvar boyası, mobilya stili, dekor),
+ZEM-01 maliyet varyantı güncellenir (belgeler yeniden üretilir) ve 3D sahne anında yenilenir. Plan/geometri değişmez;
+ortak alanlar (kat holü, merdiven) dokunulmaz. Çıktılar avan seviyesindedir (`archai/notice.py` notu korunur).
+
+| Sağlayıcı | Ne yapar |
+|---|---|
+| `kural` (varsayılan) | Çevrimdışı, anahtarsız, belirleyici. Metinden stil / renk / zemin / bütçe anahtar kelimeleri (Türkçe, aksan duyarsız) ve fotoğrafın baskın renkleri (PIL) → n farklı tutarlı tasarım |
+| `claude` | Opt-in: istek formunda `claude_consent=true` **ve** Anthropic kimlik bilgisi (`ANTHROPIC_API_KEY` / `ant auth login`) yoksa hiçbir çağrı yapılmaz. Çıktı JSON şemasına zorlanır ve katalogdan süzülür |
+| `http` | `ARCHAI_DESIGN_AGENT_URL` ortam değişkenindeki kendi ajanınız (aşağıda). İsteğe bağlı: `ARCHAI_DESIGN_AGENT_TOKEN` (Bearer), `ARCHAI_DESIGN_AGENT_TIMEOUT` (sn, varsayılan 60, en çok 300) |
+
+API: `POST /api/projects/{pid}/designs` (multipart: `photos` ≤ 5, `brief`, `n` 3–5, `provider`, `claude_consent`),
+`GET /api/projects/{pid}/designs`, `GET …/designs/{did}/preview/{vid}`, `POST …/designs/{did}/select` `{"variant":"v2"}`.
+Veri `out/projects/<pid>/designs/<did>/` altındadır; **yüklenen fotoğraflar diske yazılmaz**.
+
+**Kendi ajanınızı takmak (http sözleşmesi).** Ajanınız tek bir uç nokta sunar; ArchAI ona şunu gönderir:
+
+```json
+POST $ARCHAI_DESIGN_AGENT_URL        Content-Type: application/json   [Authorization: Bearer <TOKEN>]
+{"brief": "serbest metin", "photos": ["<base64 JPEG>", "…"], "n": 4,
+ "project": {"levels": 2, "room_count": 12, "rooms": [{"name": "Zemin Kat/Daire A/Salon", "area": 24.5}]}}
+```
+
+ve şu yanıtı bekler (`variants` en çok 12 öğe incelenir, ilk `n` geçerli olan alınır):
+
+```json
+{"variants": [{
+  "title": "Sıcak Minimal",                       "summary": "1–2 cümle (≤ 500 karakter)",
+  "floor": "oak_wood_planks",                      "wall_paint": "bej",
+  "furniture_style": "skandinav",                  "decor": true,
+  "palette": ["#e3d5bf", "#c49c6c", "#8aa0b3"],
+  "patch": {"floors": {"wet": "large_grey_tiles"}},
+  "preview": "<base64 PNG/JPEG/WEBP, isteğe bağlı>"}]}
+```
+
+Geçerli değerler: `floor` / `patch.floors.wet` ∈ `laminate_floor_02, herringbone_parquet, oak_wood_planks, weathered_planks,
+rough_wood, wood_floor, marble_tiles, large_grey_tiles, terrazzo_tiles, long_white_tiles`; `wall_paint` ∈ `kirik_beyaz, saf_beyaz,
+bej, acik_gri, adacayi, gok, terakota, antrasit`; `furniture_style` ∈ `modern, skandinav, klasik, endustriyel, minimalist, sicak, dogal`
+(katalog `webapp/static/interior.js` ile aynıdır; bir test eşleşmeyi bekçiler). Bunlar dışındaki değerler varsayılana düşer, tanınmayan
+alanlar atılır, `id` sunucuda atanır. Yanıt ≤ 16 MB, yönlendirme (redirect) izlenmez, adres yalnızca ortam değişkeninden okunur;
+önizleme ≤ 3 MB ve ≤ 4096 px olmalı, doğrulanıp 960 px JPEG olarak yeniden kodlanır (geçersizse yerelde çizilir). Hata / zaman aşımı → 502.
+
 ## Resimden plan tanıma
 
 `archai/plan_image.py` (yalnız numpy + PIL): çizgi maskesi → çift çizgi eşleştirme (eş seçiminde örtüşme önce),
@@ -106,6 +151,9 @@ ARCHAI_TOKEN=$(openssl rand -hex 16) uv run uvicorn webapp.app:app --host 0.0.0.
 
 - Tüm çıktılar **avan proje** seviyesindedir (paftalar, teklif, şartname, Excel bunu yazar): statik, tesisat ve
   ruhsat projeleri yetkili mimar/mühendis imzası gerektirir.
+- Tasarım ajanı: maliyete yalnız zemin kaplaması (ZEM-01 varyantı) yansır; duvar boyası fiyat listesinde varyantsız olduğundan
+  maliyeti değiştirmez. Mobilya stili yalnız modelli parçaları (berjer, sehpa, sandalye) değiştirir; metindeki eşya istekleri
+  (kitaplık vb.) özette listelenir, otomatik yerleştirilmez. Fotoğraf yalnız renk paleti için okunur (kural sağlayıcı).
 - Resim plan: kapı açılış yönü okunmaz; kasası olmayan geçişler (duvar çizilmemiş açıklık) kapı sayılmaz;
   PDF önce resim olarak dışa aktarılmalı; mahal adı ve mobilya için Claude görsel okuması gerekir.
 

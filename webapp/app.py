@@ -835,4 +835,7 @@ class _nolock:
         return False
 
 
+from webapp.design_routes import router as design_router  # noqa: E402
+app.include_router(design_router)  # Tasarım ajanı
+
 app.mount("/", StaticFiles(directory=Path(__file__).parent / "static", html=True), name="static")

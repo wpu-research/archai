@@ -1,0 +1,30 @@
+/* Tasarım ajanı sekmesi */
+.da textarea{width:100%;min-height:110px;resize:vertical;padding:9px 10px;border:1px solid var(--line);border-radius:8px;background:rgba(2,6,11,.6);color:var(--ink);font:400 13px var(--sans)}
+.da textarea:focus{outline:0;border-color:var(--cy);box-shadow:0 0 0 3px var(--cy-soft)}
+.da .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.da .thumbs{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+.da .thumbs figure{position:relative;margin:0;width:74px;height:56px;border-radius:8px;overflow:hidden;border:1px solid var(--line-hi)}
+.da .thumbs img{width:100%;height:100%;object-fit:cover;display:block}
+.da .thumbs button{position:absolute;top:2px;right:2px;width:20px;height:20px;padding:0;border-radius:50%;background:rgba(4,8,14,.85);color:var(--ink);font-size:11px}
+.da .check{display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-size:12px;color:var(--mute);text-transform:none;letter-spacing:0}
+.da .check input{width:auto;margin-top:2px}
+.da .go{margin-top:14px;padding:11px 18px;border:1px solid var(--cy);color:var(--cy);background:var(--cy-soft);font:600 12px var(--mono);letter-spacing:.14em;border-radius:9px}
+.da .go:disabled{opacity:.5;cursor:wait}
+.da .cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:14px;margin-top:6px}
+.da .card{border:1px solid var(--line);border-radius:12px;overflow:hidden;background:linear-gradient(160deg,rgba(62,232,255,.05),transparent 60%);display:flex;flex-direction:column}
+.da .card.sel{border-color:var(--ok);box-shadow:0 0 0 1px var(--ok) inset}
+.da .card img{width:100%;aspect-ratio:1.6;object-fit:cover;display:block;background:#0b1522}
+.da .card .b{padding:11px 12px;display:flex;flex-direction:column;gap:7px;flex:1}
+.da .card h4{margin:0;font:600 14px var(--sans)}
+.da .card p{margin:0;font-size:12px;color:var(--mute);line-height:1.45}
+.da .pal{display:flex;gap:5px}.da .pal i{width:22px;height:22px;border-radius:6px;border:1px solid rgba(255,255,255,.25)}
+.da .facts{font:500 10.5px var(--mono);letter-spacing:.06em;color:var(--mute);display:grid;gap:2px}
+.da .facts b{color:var(--ink);font-weight:500}
+.da .cost{font:600 13px var(--mono)}.da .cost.up{color:var(--warn)}.da .cost.down{color:var(--ok)}
+.da .pick{margin-top:auto;padding:9px;border:1px solid var(--cy);color:var(--cy);border-radius:8px;font:600 11.5px var(--mono);letter-spacing:.12em;background:transparent}
+.da .pick:hover{background:var(--cy-soft)}.da .pick:disabled{opacity:.6;cursor:wait}
+.da .card.sel .pick{border-color:var(--ok);color:var(--ok)}
+.da .prev{display:flex;gap:6px;flex-wrap:wrap;margin:6px 0 14px}
+.da .err{color:var(--bad);font:500 12px var(--mono);margin-top:10px}
+.da .ok{color:var(--ok);font:500 12px var(--mono);margin-top:10px}
+@media (max-width:700px){.da .row{grid-template-columns:1fr}}
