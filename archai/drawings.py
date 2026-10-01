@@ -22,7 +22,7 @@ from ezdxf.enums import TextEntityAlignment as TA
 from shapely.geometry import Polygon
 from shapely.ops import unary_union
 
-from .notice import AVAN_SHORT
+from .notice import AVAN_SHORT, IMAR_SHORT
 from .quantities import polygon_area
 
 logging.getLogger("ezdxf").setLevel(logging.WARNING)
@@ -198,6 +198,7 @@ class Sheet:
         val(257.5, ty - 18, self.title, 4.0 if len(self.title) < 26 else 3.2, TA.MIDDLE_CENTER)
         val(257.5, ty - 30, AVAN_SHORT, 1.8, TA.MIDDLE_CENTER)
         val(257.5, ty - 34, "Statik, tesisat ve ruhsat projesi yetkili mimar/mühendis imzası gerektirir", 1.3, TA.MIDDLE_CENTER)
+        val(257.5, ty - 37, IMAR_SHORT, 1.3, TA.MIDDLE_CENTER)
         for i, (k, v) in enumerate([("ÖLÇEK", f"1/{self.S}"), ("TARİH", info.get("date") or f"{date.today():%d.%m.%Y}"),
                                     ("PAFTA NO", self.number), ("REVİZYON", info.get("rev", "00"))]):
             yy = ty - i * TB_H / 4
