@@ -837,6 +837,10 @@ class _nolock:
         return False
 
 
+from webapp.video_routes import router as video_router  # noqa: E402 — müşteri videosu uç noktaları
+
+app.include_router(video_router)
+
 from webapp.design_routes import router as design_router  # noqa: E402
 app.include_router(design_router)  # Tasarım ajanı
 

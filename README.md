@@ -35,6 +35,20 @@ uv run pytest -q
   **ÖRNEK DÖŞE**; düzen proje başına `interior.json`'a kaydedilir
 - Varlıklar CC0 (Poly Haven), repoda değil: `uv run python scripts/fetch_assets.py` (~29 MB)
 
+## Müşteri videosu
+
+Proje ekranında **🎬 MÜŞTERİ VİDEOSU** → seçenekler (kısa ≈30 sn / standart 60–90 sn, 720p/1080p, Cycles, müzik, altyazı) →
+ilerleme çubuğu → oynatıcı + mp4 indirme. Video proje verisinden otomatik kurulur: dış orbit, kat kat açılış, görünüm modları,
+kapı bitişikliğinden üretilen duvardan geçmeyen yürüyüş, gün-gece, (isteğe bağlı) Cycles görüntüleri, pafta / metraj / maliyet /
+teklif kartları (yalnız proje sayıları), firma kartı (ayarlarda firma bilgisi/`out/logo.png` varsa; yoksa atlanır), avan notu,
+Türkçe altyazı, sentezli müzik, kapak karesi ve `.srt`. API: `POST /api/projects/{id}/video`, `GET /api/video-jobs/{jid}`,
+`POST …/cancel`, `GET …/download`. Komut satırı: `python scripts/musteri_videosu.py <proje_id> --short`.
+
+Gerekenler: `ffmpeg`, Playwright'lı bir Python (`pip install playwright && playwright install chromium`; sunucu venv'inde yoksa PATH'teki
+`python3` ya da `ARCHAI_VIDEO_PYTHON` kullanılır), iç mekân modelleri/HDRI için `scripts/fetch_assets.py`, Cycles için Blender, hızlı çekim
+için GPU (ANGLE-GL; yoksa SwiftShader yedeği çok yavaştır ve uyarı verir). Ortam: `ARCHAI_VIDEO_CONCURRENCY` (1), `ARCHAI_VIDEO_MAX_QUEUE` (4),
+`ARCHAI_VIDEO_TIMEOUT` (3600 sn), `ARCHAI_VIDEO_KEEP_PER_PROJECT` (3), `ARCHAI_VIDEO_MAX_GB` (8), `ARCHAI_VIDEO_MIN_FREE_GB` (3).
+
 ## Tasarım ajanı
 
 Proje sekmesi **07 TASARIM AJANI**: 1–5 fotoğraf (mekân / ilham) + serbest Türkçe metin (stil, renk, bütçe, kullanım, eşya

@@ -223,6 +223,7 @@ summary{cursor:pointer;padding:9px 0;font:500 12px var(--mono);letter-spacing:.0
     <div><b>ARCHAI</b><small>PARAMETRİK PROJE · TEKLİF MOTORU</small></div>
   </div>
   <div class="sp"></div>
+  <button class="ghost" id="vidbtn" style="display:none" title="Bu projeden tek tıkla müşteriye sunulacak tanıtım videosu üret">🎬 MÜŞTERİ VİDEOSU</button>
   <div class="chip opt">ARAZİ → PLAN → ÇİZİM → METRAJ → TEKLİF</div>
   <div class="chip" id="status"><span class="dot"></span><span id="stxt">SİSTEM HAZIR</span></div>
 </header>
@@ -951,5 +952,6 @@ const afterLoad=async()=>{
 const safeAfter=()=>afterLoad().catch(e=>console.warn('başlangıç parametresi uygulanamadı',e));
 if(location.hash.length>1)openP(decodeURIComponent(location.hash.slice(1))).then(safeAfter,demo); else{demo();safeAfter();}
 </script>
+<script type="module" src="video.js"></script>
 </body>
 </html>

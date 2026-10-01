@@ -1,4 +1,10 @@
-# Tanıtım videosu üretim hattı
+# Tanıtım videosu üretim hattı (ÖRNEK / elle ayarlı)
+
+> **Not:** Bu klasör, ArchAI'nin kendi tanıtım videosunu tek bir projeye (sabit kapı koordinatı, sabit yürüyüş anahtarları,
+> sabit proje adı) göre elle ayarlayarak üreten ESKİ hattır; olduğu gibi korunur ve çalışmaya devam eder.
+> **Herhangi bir projeden tek tıkla müşteri videosu** için genel hat artık `archai/video/` paketindedir
+> (`archai/customer_video.py`, arayüzde "Müşteri Videosu" düğmesi, `POST /api/projects/{pid}/video`,
+> komut satırı: `python scripts/musteri_videosu.py <proje_id>`). Buradaki betikler o hattın ilk örnekleridir.
 
 ArchAI'nin tanıtım videosunu sıfırdan bir projeden üretir. Çıktılar (mp4, kareler) git'e girmez; `out/promo/` altında oluşur.
 
