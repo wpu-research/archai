@@ -835,4 +835,7 @@ class _nolock:
         return False
 
 
+from webapp.video_routes import router as video_router  # noqa: E402 — müşteri videosu uç noktaları
+
+app.include_router(video_router)
 app.mount("/", StaticFiles(directory=Path(__file__).parent / "static", html=True), name="static")
