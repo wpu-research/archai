@@ -844,6 +844,25 @@ def _room_polys(rects, lines):
     return out
 
 
+def roof_parapet(outline, z, t=EXT_T, h=0.9):
+    """Çatı korkuluğu: kat konturunun her (eksene paralel) kenarı için içe doğru bir kutu.
+    Önceki sürüm tek kutuyu yanlış köşeden başlatıyor ve T/L kütlelerde binanın dışına taşıyordu."""
+    from shapely.geometry import Point, Polygon
+    poly, out = Polygon(outline), []
+    pts = [tuple(p) for p in outline]
+    for i, ((x0, y0), (x1, y1)) in enumerate(zip(pts, pts[1:] + pts[:1])):
+        if abs(y0 - y1) < 1e-6 and abs(x0 - x1) > 1e-6:                      # yatay kenar
+            lo, hi = sorted((x0, x1)); inside_up = poly.contains(Point((lo + hi) / 2, y0 + t / 2))
+            origin, size = [round(lo, 3), round(y0 if inside_up else y0 - t, 3), z], [round(hi - lo, 3), t, h]
+        elif abs(x0 - x1) < 1e-6 and abs(y0 - y1) > 1e-6:                    # dikey kenar
+            lo, hi = sorted((y0, y1)); inside_right = poly.contains(Point(x0 + t / 2, (lo + hi) / 2))
+            origin, size = [round(x0 if inside_right else x0 - t, 3), round(lo, 3), z], [t, round(hi - lo, 3), h]
+        else:
+            continue                                                         # eğik kenar: atla
+        out.append({"type": "box", "name": f"cati_parapet{i}", "tag": "wall", "level": "Çatı", "origin": origin, "size": size})
+    return out
+
+
 def generate(parcel, zoning, program):
     m = massing(parcel, zoning, program)
     width, depth = m["footprint"]
@@ -901,8 +920,7 @@ def generate(parcel, zoning, program):
             units.append({"level": lvl, "unit": tag, "type": m["unit_type"]})
     elements.append({"type": "slab", "name": "cati", "tag": "roof", "role": "roof", "level": "Çatı",
                      "points": outline, "z": m["floors"] * fh, "thickness": slab_t})
-    elements.append({"type": "box", "name": "cati_parapet", "tag": "wall", "level": "Çatı",
-                     "origin": [outline[0][0], outline[0][1], m["floors"] * fh], "size": [width + EXT_T, EXT_T, 0.9]})
+    elements += roof_parapet(outline, m["floors"] * fh)
 
     # uygunluk kontrolü
     A = m["parcel_area"]
