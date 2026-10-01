@@ -120,7 +120,7 @@ mobilya parametrik kataloğa yerleşir. Geometri hiçbir zaman görüntü modeli
 | `archai/dxf_import.py` | DXF → eleman listesi |
 | `archai/quantities.py` | eleman listesinden analitik metraj (aks uzunluğu, net duvar, açıklık, mahal) |
 | `archai/costing.py` | birim fiyat × metraj; varyant, override, kalem kapatma, ek kalem, genel gider / kâr / KDV, yaklaşık m² yöntemi |
-| `archai/data/prices_default.json` | **ÖRNEK** birim fiyat listesi — güncel ÇŞİDB birim fiyatları veya firma listesiyle değiştirilmeli |
+| `archai/data/prices_default.json` | İş kalemi kataloğu (94 kalem). **Kalemler, birimler ve miktar kuralları gerçek iş kalemlerine göredir; birim fiyatlar ÖRNEKTİR** — güncel ÇŞİDB birim fiyatları veya firma listesiyle değiştirilmeli |
 | `archai/spec.py`, `archai/reports.py` | şartname, Excel, teklif |
 | `archai/drawings.py` | DXF/PDF teknik çizimler |
 | `archai/project.py` | uçtan uca akış |
@@ -128,6 +128,29 @@ mobilya parametrik kataloğa yerleşir. Geometri hiçbir zaman görüntü modeli
 | `blender_addon/`, `mcp_server/` | Blender köprüsü ve MCP araçları (ajan modelleme, colormap, GLB) |
 
 Blender 4.5 LTS: `~/Applications/blender-4.5.14-linux-x64/` (başka yer için `ARCHAI_BLENDER`).
+
+## Maliyet kalemleri (katalog)
+
+Katalog iş gruplarına göre sıralıdır: **Genel giderler** (şantiye, İSG, iskele, deney, sigorta, temizlik) · **Kaba inşaat**
+(hafriyat/dolgu, grobeton, temel yalıtımı, drenaj, radye; betonarme **beton + donatı (ton) + kalıp** ayrı; merdiven ve korkuluk;
+duvarlar; mantolama levhası + taban sıvası; teras çatı eğim betonu / ısı / su yalıtımı / koruma şapı / parapet / oluk) ·
+**İnce inşaat** (iç sıva, alçı, boya, tavan, şap + ses yalıtımı, zemin, ıslak hacim su yalıtımı + seramik, balkon, ortak alan,
+mutfak dolabı, vitrifiye, dış cephe son kat sıva + boya) · **Doğrama** (pencere doğraması ve ısıcam ayrı, iç/çelik/dış kapı ayrı,
+eşik) · **Dış mekân** · **Tesisat** (sıhhi, hidrofor, ısıtma, kombi, doğalgaz, havalandırma, elektrik kalemleri, zayıf akım,
+topraklama/paratoner, yangın, asansör) · **Teklif dışı hizmetler** (zemin etüdü, proje, yapı denetim, ruhsat/harç, abonelik, beyaz eşya).
+
+- **Islak hacim sınıfı** mahal adından okunur (`quantities.room_wet`): `bath` (banyo, duş), `wc` (WC, lavabo, çamaşır),
+  `spa` (sauna, hamam: kaplama ve su yalıtımı alır, vitrifiye takımı almaz), `kitchen`, `balcony`. Banyo/WC duvarı boya yerine
+  seramik, zemini ZEM-01 yerine SER-01 alır; kalemler birbirini kapsar ve toplam yüzeyi tam bölüştürür (testle korunur).
+- **Konut birimi sayısı** mahal adlarındaki "Daire X" etiketlerinden sayılır; etiket yoksa 1 (villa, kabin, tek planlı DXF).
+  Kombi, doğalgaz, daire panosu ve zayıf akım bu sayıyla çarpılır; DXF'ten çok katlı içe aktarmada gerekirse miktarı elle düzeltin.
+- **AVAN yaklaşık (`*`)** kalemler ön tasarımdan oran yöntemiyle hesaplanır (donatı kg/m³, kalıp m²/m², mutfak dolabı uzunluğu vb.);
+  oranlar kalem adında yazılıdır. Kesin miktar statik/mekanik/elektrik projesiyle kesinleşir.
+- **Opsiyonel / teklif dışı** kalemler (`"default_enabled": false`: dış cephe kaplaması, panjur, kartonpiyer, bahçe duvarı ve
+  tüm `HIZ-*`) tabloda görünür ama kapalıdır; kutusu işaretlenince (`adjust.enabled`) hesaba girer, teklif ve şartnameye o zaman yazılır.
+- Eski projelerdeki `PEN-01: alu_triple` varyantı otomatik `PEN-01: alu` + `PEN-03: uclu_cam` olur. Birleşik kalemler için daha önce
+  elle yazılmış birim fiyatlar artık dar kapsamlı kaleme uygulanır; eski projelerde gözden geçirin.
+- Tasarım ajanı yalnız `ZEM-01` varyantını (daire içi zemin) değiştirir; ıslak hacim seramiği (`SER-01`) ve boya (`BOY-01`) maliyete varyantsız girer.
 
 ## Güvenlik ve çalıştırma
 

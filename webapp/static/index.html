@@ -900,7 +900,7 @@ function render(){
       <div><p class="sec-t">ÖZET METRAJ</p><table>${rows.map(x=>`<tr><td>${esc(x[0])}</td><td class="n">${n2(x[1])}</td><td class="mono" style="color:var(--mute)">${x[2]}</td></tr>`).join('')}</table></div></div>`;
   }else if(tab==='maliyet'){
     out.innerHTML=`<div class="scroll"><table><tr><th></th><th>Poz</th><th>İmalat</th><th class="n">Miktar</th><th>Birim</th><th class="n">Birim fiyat ₺</th><th class="n">Tutar</th></tr>
-      ${c.rows.map(x=>`<tr style="${x.enabled?'':'opacity:.4'}"><td><input type="checkbox" style="width:16px;accent-color:var(--cy)" ${x.enabled?'checked':''} data-dis="${esc(x.code)}" aria-label="${esc(x.code)} dahil"></td><td class="code">${esc(x.code)}</td>
+      ${c.rows.map((x,i)=>(i===0||c.rows[i-1].group!==x.group?`<tr><td colspan="7" class="mono" style="padding-top:16px;color:var(--cy);letter-spacing:.14em">${esc(x.group.toUpperCase())}</td></tr>`:'')+`<tr style="${x.enabled?'':'opacity:.4'}"><td><input type="checkbox" style="width:16px;accent-color:var(--cy)" ${x.enabled?'checked':''} data-dis="${esc(x.code)}" aria-label="${esc(x.code)} dahil"></td><td class="code">${esc(x.code)}${x.default_enabled===false?' <span title="Opsiyonel / teklif dışı: işaretlenirse hesaba girer" style="color:var(--mute)">○</span>':''}</td>
       <td>${x.variants.length?`<select data-var="${esc(x.code)}">${x.variants.map(v=>`<option value="${esc(v.id)}" ${v.id===x.variant?'selected':''}>${esc(x.name.split(' — ')[0])} — ${esc(v.name)}</option>`).join('')}</select>`:esc(x.name)}</td>
       <td class="n">${x.auto_quantity==null?n2(x.quantity):`<input class="num" data-qty="${esc(x.code)}" value="${esc(x.quantity)}" title="Otomatik: ${esc(n2(x.auto_quantity))}">`}</td><td class="mono" style="color:var(--mute)">${esc(x.unit)}</td>
       <td class="n">${x.auto_quantity==null?n2(x.unit_price):`<input class="num" data-up="${esc(x.code)}" value="${esc(x.unit_price)}">`}</td><td class="n">${tl(x.amount)}</td></tr>`).join('')}</table></div>
@@ -916,7 +916,10 @@ function render(){
     $$('[data-up]').forEach(i=>i.onchange=()=>{set('overrides',i.dataset.up,parseFloat(i.value));push();});
     $$('[data-qty]').forEach(i=>i.onchange=()=>{set('qty_overrides',i.dataset.qty,parseFloat(i.value));push();});
     $$('[data-var]').forEach(i=>i.onchange=()=>{set('variants',i.dataset.var,i.value);if(adj.overrides)delete adj.overrides[i.dataset.var];push();});
-    $$('[data-dis]').forEach(i=>i.onchange=()=>{const d=new Set(adj.disabled||[]);i.checked?d.delete(i.dataset.dis):d.add(i.dataset.dis);adj.disabled=[...d];push();});
+    $$('[data-dis]').forEach(i=>i.onchange=()=>{const c=i.dataset.dis,d=new Set(adj.disabled||[]),en=new Set(adj.enabled||[]);
+      const opt=((P.cost||{}).rows||[]).find(r=>r.code===c)?.default_enabled===false;   // opsiyonel kalem `enabled` ile açılır
+      if(i.checked){d.delete(c);if(opt)en.add(c);}else{d.add(c);en.delete(c);}
+      adj.disabled=[...d];adj.enabled=[...en];push();});
     $$('[data-pct]').forEach(i=>i.onchange=()=>{adj[i.dataset.pct]=parseFloat(i.value);push();});
     if($('#apc'))$('#apc').onchange=e=>{adj.approx_class=e.target.value;push();};
     $('#addx').onclick=()=>{const nm=prompt('Kalem adı');if(!nm)return;const q=parseFloat(prompt('Miktar','1'))||1,p=parseFloat(prompt('Birim fiyat (₺)','0'))||0,u=prompt('Birim','götürü')||'götürü';

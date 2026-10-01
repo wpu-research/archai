@@ -46,7 +46,8 @@ def test_cost_adjustments(imported):
     base = costing.estimate(q)
     assert base["total"] > 0 and base["per_m2"] > 0
     row = next(r for r in base["rows"] if r["code"] == "ZEM-01")
-    assert row["quantity"] == pytest.approx(q["summary"]["net_room_area"], abs=0.01)
+    wet = sum(l["metrics"]["area"] for l in q["lines"] if l["type"] == "room" and l["wet"] in ("bath", "wc", "balcony"))
+    assert row["quantity"] == pytest.approx(q["summary"]["net_room_area"] - wet, abs=0.01)   # banyo/WC/balkon ayrı kalem
     # varyant: seramik > laminat
     cer = costing.estimate(q, adjust={"variants": {"ZEM-01": "seramik"}})
     assert cer["subtotal"] - base["subtotal"] == pytest.approx(row["quantity"] * (1350 - 950), abs=1)

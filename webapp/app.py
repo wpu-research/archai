@@ -272,9 +272,8 @@ class AdjustIn(BaseModel):
 
     @model_validator(mode="after")
     def _enabled_wins(self):
-        if self.enabled:  # açıkça dahil edilen kalemler kapalı listesinden çıkar
+        if self.enabled:  # açıkça dahil edilen kalemler kapalı listesinden çıkar; `enabled` opsiyonel kalemler için kalır
             self.disabled = [c for c in (self.disabled or []) if c not in set(self.enabled)]
-            self.enabled = None
         return self
 
 

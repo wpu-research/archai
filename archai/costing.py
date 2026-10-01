@@ -4,7 +4,9 @@ Ayarlar (adjust) sözlüğü:
   overrides   {code: unit_price}      — kalemin birim fiyatını değiştir
   variants    {code: variant_id}      — varyantlı kalemde seçim (ör. ZEM-01: "seramik")
   disabled    [code, ...]             — kalemi hesaptan çıkar
-  enabled     [code, ...]             — disabled listesinde olsa da kalemi dahil et
+  enabled     [code, ...]             — disabled listesinde olsa da kalemi dahil et; kataloğda
+                                        "default_enabled": false olan (opsiyonel / teklif dışı) kalemler yalnız burada
+                                        listelenirse hesaba girer
   qty_overrides {code: miktar}        — metrajı elle düzelt
   extra_items [{code, group, name, unit, unit_price, quantity}]  — elle kalem
   overhead_pct / profit_pct / vat_pct — oranlar
@@ -22,6 +24,23 @@ DEFAULT_PRICES = Path(__file__).parent / "data" / "prices_default.json"
 
 def load_prices(path=None):
     return json.loads(Path(path or DEFAULT_PRICES).read_text(encoding="utf-8"))
+
+
+# Kalem bölme öncesi kaydedilmiş fiyat ayarlarındaki eski pencere varyantı iki kaleme (doğrama + cam) ayrılır.
+# Not: eski birleşik kalemler (iç sıva+alçı+boya vb.) için kaydedilmiş elle birim fiyatlar artık dar kapsamlı
+# kaleme uygulanır; sürüm işareti olmadığından otomatik ayıklanmaz — eski projelerde fiyatlar yeniden gözden geçirilmeli.
+LEGACY_VARIANTS = {("PEN-01", "alu_triple"): {"PEN-01": "alu", "PEN-03": "uclu_cam"}}
+
+
+def migrate_adjust(adjust):
+    """Eski (kalem bölmeden önceki) varyant adlarını güncel katalğa çevirir. Değişiklik yoksa aynı nesne döner."""
+    var = adjust.get("variants") if isinstance(adjust, dict) else None
+    if not isinstance(var, dict) or not any((c, v) in LEGACY_VARIANTS for c, v in var.items()):
+        return adjust
+    new_var = {}
+    for c, v in var.items():
+        new_var.update(LEGACY_VARIANTS.get((c, v), {c: v}))
+    return {**adjust, "variants": new_var}
 
 
 def _filters(rule):
@@ -42,9 +61,11 @@ ADJUST_KEYS = {"overrides", "variants", "disabled", "enabled", "qty_overrides", 
 
 
 def validate_adjust(adjust, prices=None):
-    """Fiyat ayarı sözlüğünü doğrula; ihlalde Türkçe mesajlı ValueError. Geçerliyse aynı sözlüğü döndürür."""
+    """Fiyat ayarı sözlüğünü doğrula; ihlalde Türkçe mesajlı ValueError. Geçerliyse aynı sözlüğü döndürür
+    (eski katalogdan kalan varyant adları varsa `migrate_adjust` ile çevrilmiş kopyası)."""
     if adjust is None:
         return {}
+    adjust = migrate_adjust(adjust)
     if not isinstance(adjust, dict):
         raise ValueError("fiyat ayarı (adjust) bir sözlük olmalı")
     unknown = set(adjust) - ADJUST_KEYS
@@ -115,9 +136,10 @@ def estimate(qres, prices=None, adjust=None):
         rule = it["qty"]
         auto_qty = Q.quantity(lines, rule["metric"], rule.get("factor", 1.0), **_filters(rule))
         qty = adj.get("qty_overrides", {}).get(code, auto_qty)
-        enabled = code not in adj.get("disabled", []) or code in adj.get("enabled", [])
+        default_on = it.get("default_enabled", True)
+        enabled = (default_on and code not in adj.get("disabled", [])) or code in adj.get("enabled", [])
         rows.append({
-            "approx": bool(it.get("approx")),
+            "approx": bool(it.get("approx")), "default_enabled": default_on,
             "code": code, "group": it["group"], "name": it["name"] + (f" — {variant['name']}" if variant else ""),
             "unit": it["unit"], "quantity": round(qty, 2), "auto_quantity": round(auto_qty, 2),
             "unit_price": unit_price, "amount": round(qty * unit_price, 2) if enabled else 0.0,

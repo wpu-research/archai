@@ -23,6 +23,19 @@ def test_quick_project_and_adjust():
     assert r2.json()["cost"]["total"] != p["cost"]["total"]
 
 
+def test_optional_items_toggle_through_api():
+    """Opsiyonel / teklif dışı kalemler `enabled` ile açılır, `disabled` listesine alınınca kapanır; belgelerde görünür."""
+    p = c.post("/api/projects", json={"name": "opsiyon", "quick": {"gross_area": 450, "floors": 3, "unit_type": "2+1"}}).json()
+    u = f"/api/projects/{p['id']}/adjust"
+    row = lambda pr, code: next(x for x in pr["cost"]["rows"] if x["code"] == code)
+    assert row(p, "HIZ-04")["default_enabled"] is False and not row(p, "HIZ-04")["enabled"]
+    on = c.put(u, json={"enabled": ["HIZ-04"]}).json()
+    assert row(on, "HIZ-04")["enabled"] and row(on, "HIZ-04")["amount"] > 0 and on["cost"]["total"] > p["cost"]["total"]
+    assert on["brief"]["adjust"]["enabled"] == ["HIZ-04"]
+    off = c.put(u, json={"disabled": ["HIZ-04"]}).json()                 # arayüz kapatınca enabled'ı da boşaltır
+    assert not row(off, "HIZ-04")["enabled"] and off["cost"]["total"] == p["cost"]["total"]
+
+
 def test_dxf_upload(test_dxf):
     with open(test_dxf, "rb") as f:
         r = c.post("/api/projects/dxf", files={"file": ("plan.dxf", f)}, data={"name": "dxf api", "floors": "2"})

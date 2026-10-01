@@ -38,7 +38,7 @@ def polygon_perimeter(pts):
 def _line(e, type_, metrics, **extra):
     return {"element": e.get("name", type_), "type": type_, "tag": e.get("tag"),
             "role": e.get("role"), "level": e.get("level", "0"), "kind": extra.get("kind"),
-            "exterior": e.get("exterior"),
+            "exterior": e.get("exterior"), "wet": extra.get("wet"),
             "metrics": {k: round(v, 4) for k, v in metrics.items()}}
 
 
@@ -56,7 +56,8 @@ def _wall(e):
         open_area += a
         lines.append(_line({**e, "name": f"{e.get('name', 'wall')}/{kind}{i}"}, "opening",
                            {"count": 1, "width": o["width"], "height": h, "area": a,
-                            "perimeter": 2 * (o["width"] + h), "reveal_area": 2 * (o["width"] + h) * T},
+                            "perimeter": 2 * (o["width"] + h), "reveal_area": 2 * (o["width"] + h) * T,
+                            "thickness": T},
                            kind=kind))
     gross = L * H / (2 if e.get("profile") == "gable" else 1)
     net = max(gross - open_area, 0.0)
@@ -93,6 +94,33 @@ def room_kind(e):
     return "room"
 
 
+BATH_RE = re.compile(r"banyo|duş|dus\b", re.I)
+SPA_RE = re.compile(r"hamam|sauna", re.I)
+WC_RE = re.compile(r"(?<![a-zçğıöşü])wc(?![a-zçğıöşü])|tuvalet|lavabo|klozet|çamaşır|camasir", re.I)
+KITCHEN_RE = re.compile(r"mutfak|kitchen", re.I)
+BALCONY_RE = re.compile(r"balkon|teras|veranda", re.I)
+
+
+def room_wet(e):
+    """Islak/özel yüzey sınıfı (yalnız daire içi mahal): bath (banyo, duş) | wc (WC, lavabo, çamaşır) |
+    spa (sauna, hamam: ıslak hacim kaplaması ve su yalıtımı alır, vitrifiye takımı almaz) | kitchen |
+    balcony (balkon, teras) | None. Ad kat/daire önekinden sonraki son parçadan okunur."""
+    if room_kind(e) != "room":
+        return None
+    name = e.get("name", "").split("/")[-1]
+    if BATH_RE.search(name):
+        return "bath"
+    if SPA_RE.search(name):
+        return "spa"
+    if WC_RE.search(name):
+        return "wc"
+    if KITCHEN_RE.search(name):
+        return "kitchen"
+    if BALCONY_RE.search(name):
+        return "balcony"
+    return None
+
+
 def _room(e, deduct=None):
     """deduct: {"wall": m² (kapı/pencere boşlukları, bu mahalin yüzü), "door_w": m (kapı genişlikleri)}."""
     pts = [tuple(p) for p in e["points"]]
@@ -104,8 +132,9 @@ def _room(e, deduct=None):
     return [_line({**e, "role": e.get("role", "room")}, "room",
                   {"area": A, "perimeter": P, "ceiling_area": A,
                    "skirting_length": max(P - d.get("door_w", 0.0), 0.0),
-                   "wall_finish_gross": gross, "wall_finish_area": max(gross - d.get("wall", 0.0), 0.0), "count": 1},
-                  kind=room_kind(e))]
+                   "wall_finish_gross": gross, "wall_finish_area": max(gross - d.get("wall", 0.0), 0.0),
+                   "waterproof_area": A + P * 0.30, "count": 1},   # su yalıtımı: taban + 30 cm duvar dönüşü
+                  kind=room_kind(e), wet=room_wet(e))]
 
 
 def _room_deductions(elements):
@@ -184,6 +213,7 @@ def _cyl(e):
 def _stairs(e):
     n, w, rise, run = e.get("steps", 10), e.get("width", 1.2), e.get("rise", 0.17), e.get("run", 0.28)
     return [_line(e, "stairs", {"count": 1, "steps": n, "tread_area": n * w * run, "stair_length": n * w,
+                                "rail_length": math.hypot(n * run, n * rise),
                                 "rise_total": n * rise, "volume": w * run * rise * n * (n + 1) / 2})]
 
 
@@ -191,9 +221,21 @@ def _count(e):
     return [_line(e, e["type"], {"count": 1})]
 
 
+DAIRE_RE = re.compile(r"daire\s*([a-z0-9]+)", re.I)
+
+
+def dwelling_units(elements):
+    """Konut birimi sayısı: mahal adlarındaki "Daire X" etiketlerinden (kat, etiket) çifti; etiket yoksa tek birim
+    (villa, kabin, tek planlı DXF); hiç daire içi mahal yoksa 0."""
+    rooms = [e for e in elements if e.get("type") == "room" and room_kind(e) == "room"]
+    tags = {(e.get("level"), m.group(1).lower()) for e in rooms if (m := DAIRE_RE.search(e.get("name", "")))}
+    return len(tags) or (1 if rooms else 0)
+
+
 def _building(elements):
-    """Temel/kazı metrajı için tek bina satırı: en alt kat döşemesinin oturum alanı.
-    kind = temel tipi (döşemedeki `foundation`, varsayılan "raft"; ayaklı temel için "piers")."""
+    """Temel/kazı/bina bazlı metraj için tek bina satırı: en alt kat döşemesinin oturum alanı.
+    kind = temel tipi (döşemedeki `foundation`, varsayılan "raft"; ayaklı temel için "piers").
+    Kazı, dolgu, grobeton, temel yalıtımı, radye kalıbı, drenaj ve peyzaj miktarları AVAN oran yöntemidir."""
     floors = [e for e in elements if e.get("type") == "slab"
               and (e.get("role") or SLAB_ROLE_BY_TAG.get(e.get("tag", "floor"))) == "floor"]
     if not floors:
@@ -204,9 +246,22 @@ def _building(elements):
     per = sum(polygon_perimeter([tuple(p) for p in e["points"]]) for e in base)
     n = len({e.get("level") for e in floors})
     raft_t = min(1.0, 0.30 + 0.04 * n)   # AVAN: radye kalınlığı kat adedine göre (1 kat 0,34 m … 10 kat 0,70 m)
+
+    def _role(e):
+        return e.get("role") or SLAB_ROLE_BY_TAG.get(e.get("tag", "floor"))
+    site = sum(polygon_area([tuple(p) for p in e["points"]]) for e in elements
+               if e.get("type") == "slab" and _role(e) == "site")
+    paving = sum(polygon_area([tuple(p) for p in e["points"]]) for e in elements
+                 if e.get("type") == "slab" and _role(e) == "paving")
     e0 = {"name": "bina_oturum", "tag": base[0].get("tag"), "role": "foundation", "level": base[0].get("level", "0")}
     return [_line(e0, "building", {"footprint": fp, "perimeter": per, "count": 1, "floors": n, "raft_thickness": raft_t,
-                                   "raft_volume": fp * raft_t, "excavation_volume": fp * (raft_t + 1.0)},
+                                   "raft_volume": fp * raft_t, "excavation_volume": fp * (raft_t + 1.0),
+                                   "lean_volume": fp * 0.10,                               # grobeton 10 cm
+                                   "backfill_volume": per * 1.0 * (raft_t + 0.5),           # çevre çalışma payı 1,0 m
+                                   "foundation_waterproof_area": fp + per * (raft_t + 0.3),  # taban + perde dönüşü
+                                   "raft_formwork": per * raft_t,                           # radye kenar kalıbı
+                                   "dwelling_units": dwelling_units(elements),
+                                   "landscape_area": max(site - fp - paving, 0.0) if site else 0.0},
                   kind=base[0].get("foundation", "raft"))]
 
 
@@ -340,13 +395,15 @@ def _thick_ok(l, min_thickness, max_thickness):
 
 
 def select(lines, type=None, tag=None, role=None, kind=None, level=None, min_thickness=None,
-           max_thickness=None, exterior=None, legacy=None):
+           max_thickness=None, exterior=None, legacy=None, wet=None):
     """exterior: True/False → satırın `exterior` alanıyla eşleşir. Alan yoksa (eski eleman listesi) `legacy`
-    sözlüğündeki kalınlık filtreleri kullanılır ({"min_thickness": 0.2} gibi); legacy verilmemişse satır dışlanır."""
+    sözlüğündeki kalınlık filtreleri kullanılır ({"min_thickness": 0.2} gibi); legacy verilmemişse satır dışlanır.
+    wet: ıslak hacim sınıfı ("bath", "wc", "spa", "kitchen", "balcony"); None içeren liste ([None, "kitchen"]) ıslak
+    olmayan mahalleri de seçer."""
     out = []
     for l in lines:
         if not (_match(l["type"], type) and _match(l["tag"], tag) and _match(l["role"], role)
-                and _match(l["kind"], kind) and _match(l["level"], level)):
+                and _match(l["kind"], kind) and _match(l["level"], level) and _match(l.get("wet"), wet)):
             continue
         if not _thick_ok(l, min_thickness, max_thickness):
             continue

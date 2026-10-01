@@ -83,8 +83,11 @@ def test_common_areas_and_shaft(c22):
     lift = sum(l["metrics"]["area"] for l in rl if l["kind"] == "lift")
     common = sum(l["metrics"]["area"] for l in rl if l["kind"] == "common")
     unit = sum(l["metrics"]["area"] for l in rl if l["kind"] == "room")
-    assert lift > 0 and common > 0
-    assert rows["ZEM-01"]["quantity"] == pytest.approx(unit, abs=0.05)
+    unit_dry = sum(l["metrics"]["area"] for l in rl if l["kind"] == "room" and l["wet"] in (None, "kitchen"))
+    unit_wet = sum(l["metrics"]["area"] for l in rl if l["kind"] == "room" and l["wet"] in ("bath", "wc"))
+    assert lift > 0 and common > 0 and unit_wet > 0
+    assert rows["ZEM-01"]["quantity"] == pytest.approx(unit_dry, abs=0.05)         # banyo/WC kendi kalemine (SER-01)
+    assert rows["ZEM-01"]["quantity"] + rows["SER-01"]["quantity"] == pytest.approx(unit, abs=0.05)
     assert rows["ORT-01"]["quantity"] == pytest.approx(common, abs=0.05)
     for code in ("SIV-01", "TAV-01", "SAP-01", "SUP-01"):
         rule = next(it for it in costing.load_prices()["items"] if it["code"] == code)["qty"]
@@ -116,9 +119,12 @@ def test_structural_items_present_and_flagged(c22):
         assert rows[code]["quantity"] > 0 and rows[code]["approx"], code
     gfa = q["summary"]["gross_floor_area"]
     assert rows["KOL-01"]["quantity"] == pytest.approx(0.12 * gfa, abs=0.05)
-    # m² maliyeti: önce 22.779 TL/m² (KDV dahil); taşıyıcı kalemler eklendi, dış duvar fazlası düştü → ±%25 içinde
-    per_m2 = costing.estimate(q)["per_m2"]
-    assert 22779 * 0.75 <= per_m2 <= 22779 * 1.25
+    # m² maliyeti: kalem bölme öncesi 22.779 TL/m² (KDV dahil, 30 kalem). Katalog eksiksiz iş kalemleriyle (genel gider,
+    # betonarme donatı/kalıp, ıslak hacim, vitrifiye, mutfak, ısıtma, yangın…) tamamlandı; bağımsız çapa: aynı
+    # katalogdaki yaklaşık birim maliyet (IV-A, KDV hariç) — metraj bazlı toplam ona ±%15 yakın olmalı.
+    c = costing.estimate(q)
+    anchor = c["approx"]["classes"]["IV-A"]
+    assert anchor * 0.85 <= c["per_m2_before_vat"] <= anchor * 1.15
 
 
 def test_cabin_uses_pier_foundation():
