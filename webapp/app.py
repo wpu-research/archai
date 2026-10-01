@@ -227,6 +227,8 @@ class Zoning(BaseModel):
     rear: _num(0, 100) | None = None
     max_floors: Annotated[int, Field(ge=1, le=30)] | None = None
     floor_height: _num(2.2, 6) | None = None
+    max_height: _num(gt=2.2, hi=200) | None = None       # yençok / saçak kotu sınırı (m)
+    emsal_disi_pct: _num(0, 30) | None = None            # emsale girmeyen ortak alan payı (% brüt)
 
 
 class Program(BaseModel):

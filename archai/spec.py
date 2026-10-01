@@ -4,10 +4,11 @@ Metinler şablondur; firma kendi şartname kütüphanesiyle değiştirmeli/geni�
 "Ölçü ve ödeme" bölümü, kalemin metraj kuralıyla aynı yöntemi anlatır.
 """
 
-from .notice import AVAN_NOTE
+from .notice import AVAN_NOTE, IMAR_NOTE
 
 GENERAL = [
     AVAN_NOTE,
+    IMAR_NOTE,
     "Bu şartname, projede yer alan imalatların malzeme, uygulama, ölçü ve ödeme esaslarını tanımlar.",
     "Tüm imalatlar onaylı uygulama projelerine, yürürlükteki yönetmeliklere ve ilgili TS / TS EN standartlarına uygun yapılacaktır.",
     "Kullanılacak malzemelerin numuneleri ve teknik föyleri uygulamadan önce idare/mal sahibi onayına sunulacaktır.",
