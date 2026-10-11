@@ -5,7 +5,12 @@
 - 08:30 orada ol · 09:00 check-in kapanır · 09:30 hacking · 12:30 öğle.
 - Toplu taşıma (otopark yok, Dotshub vale ~850 TL).
 - Krediler check-in sonrası: Manus, Apify, fal.ai. Manus ve FAL etkinliğin teknoloji partneri.
-- Site jüri, kriter, ödül, sunum süresi ya da önceden yazılmış kod kuralı vermiyor → check-in'de sor.
+- **Yer: DotsHub + Feriye binaları, Beşiktaş** (tam adres Luma kayıt e-postasında). Etkinlik: https://luma.com/6rsu5afk
+- 15:00 teslim kilitlenir → geliştirme süresi ~5,5 saat.
+- Ön eleme: 2 dk sunum+demo, 1 dk soru (jüri başına 7–8 takım, 1 finalist). Final (ilk 6): 3 dk + 1 dk soru.
+- Kriterler (her biri %20, 1–5 puan): sorun ve değer (öncesi/sonrası) · hackathon sırasında yapılan iş + çalışan demo · Manus ve araç koordinasyonu · yarın yayına alınabilirlik · sunum.
+- Ödüller: Manus Pro 3/2/1 ay. Herkese 50 $ fal.ai kredisi.
+- Önceden yazılmış kod kuralı yazılı değil → check-in'de sor. Kriter "hackathon sırasında yapılan"ı puanlıyor: ArchAI = mevcut marka, gün içinde yapılan = pazarlama ve satış iş akışı.
 - İletişim: info@istanbulignitedbyslushd.com
 
 ## Fikir
