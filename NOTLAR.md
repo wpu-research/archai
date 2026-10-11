@@ -57,3 +57,13 @@ Apify (arsa ilanları) → ArchAI hızlı teklif (plan, metraj, maliyet, teklif)
 - 0:35 Canlı/kayıt demo: Manus'a "Kartal'da 5 kat imarlı arsaları bul, fizibilite çıkar" → paket.
 - 1:30 Öncesi/sonrası: günler → dakikalar; ilan başına maliyet; yarın yayına alınabilir.
 - 1:50 Kapanış + "avan / ön fizibilite" notu.
+
+## Teslim (15:00'te kilitlenir)
+- Luma'da teslimin ne olduğu ve nereye yapılacağı yazmıyor; check-in sonrası gelecek "hackathon guide"da olacak. Sabah ilk iş oku.
+- Hazır tutulacak teslim paketi:
+  1. Manus görev paylaşım/replay linki (akışın Manus'ta çalıştığının kanıtı — "Manus kullanımı" kriteri)
+  2. Çıktı linki: Manus'un yayınladığı arsa/fizibilite sayfası
+  3. 60–90 sn demo videosu (canlı demo bozulursa da bu oynatılır)
+  4. Kısa açıklama (TR + EN): sorun, ne yapıldı, öncesi/sonrası, kullanılan araçlar
+  5. 2–3 ekran görüntüsü, takım/proje adı
+- Teslimi 14:30'da yap, 15:00'i bekleme. 15:00'ten sonra yalnız sunum çalışılır.
