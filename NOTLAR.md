@@ -34,3 +34,26 @@ Apify (arsa ilanları) → ArchAI hızlı teklif (plan, metraj, maliyet, teklif)
 
 - ArchAI'nin mevcut `mcp_server/server.py`'si (Blender, `exec_python` içeriyor) ASLA dışarı açılmayacak.
 - Bilgi: 10.000 Manus kredisi + fal ve Apify kredileri check-in sonrası.
+
+## Hazır olan (11 Ekim gecesi)
+- `server.py`: ArchAI için uzak MCP. Araçlar: `hizli_fizibilite`, `arsa_fizibilite`, `proje_ozet`.
+  Dönen özet: daire sayısı, brüt m², KDV dahil maliyet ve m² fiyatı, imzalı dosya linkleri (teklif, metraj, şartname, pafta PDF),
+  `gorunus_png` (antetsiz, kırpılmış cephe → fal görüntüden görüntüye).
+- `./baslat.sh`: ArchAI + MCP + Cloudflare hızlı tüneli; Manus'a girilecek URL ve token'ı yazar. `./durdur.sh` kapatır.
+- `scripts/test_client.py [URL]`: uçtan uca test. Tünel üzerinden geçti; tokensız istek 401, bozuk imza 404.
+- Tünel adresi her başlatmada değişir → Manus'taki connector URL'sini güncelle.
+
+## Yarın (09:30–15:00)
+1. 09:30–10:00 Kredileri al. Manus'a Apify, fal ve ArchAI connector'larını ekle, üçünün de araç listesini gördüğünü doğrula.
+2. 10:00–11:30 Manus akışı: Apify'dan İstanbul satılık arsa ilanları → en uygun 3–5 ilan → `arsa_fizibilite`
+   → fal ile `gorunus_png`'den fotogerçekçi cephe → müteahhit için tek sayfalık fizibilite + kişisel mesaj.
+3. 11:30–12:30 Bir ilanla tam çalışan örnek. Firma bilgisini gir (paftalarda şu an "Örnek Yapı İnşaat" yazıyor).
+4. 13:00–14:15 Kalite: çıktı sayfası/landing (Manus), ekran kaydı.
+5. 14:15–15:00 2 dakikalık sunum + yedek video. 15:00'te teslim kilitlenir.
+
+## Sunum (2 dk)
+- 0:00 Sorun: müteahhit bir arsaya bakmak için mimardan avan ve maliyet bekliyor (günler).
+- 0:20 ArchAI tek cümle: m²/imar → plan, metraj, maliyet, teklif.
+- 0:35 Canlı/kayıt demo: Manus'a "Kartal'da 5 kat imarlı arsaları bul, fizibilite çıkar" → paket.
+- 1:30 Öncesi/sonrası: günler → dakikalar; ilan başına maliyet; yarın yayına alınabilir.
+- 1:50 Kapanış + "avan / ön fizibilite" notu.

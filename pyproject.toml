@@ -1,0 +1,6 @@
+[project]
+name = "hackaton-archai"
+version = "0.1.0"
+description = "ArchAI'yi Manus'a uzak MCP olarak açan ince katman"
+requires-python = ">=3.11"
+dependencies = ["mcp==2.2.0", "httpx>=0.27", "uvicorn>=0.30", "pillow>=10"]
