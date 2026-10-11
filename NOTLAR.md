@@ -24,3 +24,13 @@ Apify (arsa ilanları) → ArchAI hızlı teklif (plan, metraj, maliyet, teklif)
 ## Riskler
 - ArchAI ağa açılırsa kimliksiz + XSS (konsey raporu P0) → token şart.
 - Teklif rakamları "avan / ön fizibilite" diye sunulacak (dış duvar şişmesi %7–10, taşıyıcı sistem kalemi yok).
+
+## Manus bağlantıları (Ayarlar → Connectors → Custom MCP → Direct configuration, transport HTTP)
+| Ad | URL | Header |
+|---|---|---|
+| Apify | `https://mcp.apify.com` | Apify girişi / token |
+| fal | `https://mcp.fal.ai/mcp` | `Authorization: Bearer <FAL_KEY>` (OAuth için `https://mcp.fal.ai/mcp-relay`) |
+| ArchAI | bu klasördeki MCP + Cloudflare Tunnel (yazılacak) | `Authorization: Bearer <token>` |
+
+- ArchAI'nin mevcut `mcp_server/server.py`'si (Blender, `exec_python` içeriyor) ASLA dışarı açılmayacak.
+- Bilgi: 10.000 Manus kredisi + fal ve Apify kredileri check-in sonrası.
