@@ -23,6 +23,14 @@ async def main():
             d = res.structured_content or json.loads(res.content[0].text)
             print(json.dumps({k: v for k, v in d.items() if k != "pafta_png"}, ensure_ascii=False, indent=1))
             g = httpx.get(d["gorunus_png"]); print("görünüş png:", g.status_code, g.headers.get("content-type"), len(g.content))
+            pid = d["proje_id"]
+            m2r = (await s.call_tool("bolge_m2_fiyati", {"ilanlar": [{"fiyat_tl": f, "m2": 100} for f in
+                  (6_500_000, 7_200_000, 7_800_000, 8_100_000, 9_000_000, 25_000_000)]}))
+            print(m2r.is_error if hasattr(m2r,"is_error") else "", m2r.content[0].text[:300]); m2 = m2r.structured_content or json.loads(m2r.content[0].text)
+            print("bölge m²:", m2)
+            for t, a in (("karlilik", {"arsa_fiyati_tl": 30_000_000}), ("kat_karsiligi", {})):
+                r = await s.call_tool(t, {"proje_id": pid, "satis_m2_fiyati_tl": m2["satis_m2_fiyati_tl"], **a})
+                print(t, json.dumps(r.structured_content or r.content[0].text, ensure_ascii=False))
             bad = httpx.get(d["gorunus_png"].replace("s=", "s=x")); print("bozuk imza:", bad.status_code)
 
 asyncio.run(main())

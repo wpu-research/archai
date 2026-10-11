@@ -10,6 +10,7 @@ import hmac
 import os
 import io
 import re
+import statistics
 from pathlib import Path
 from typing import Literal
 
@@ -64,9 +65,20 @@ def _link(url_path: str) -> str:
     return f"{PUBLIC}/f/{rel}?s={_sign(rel)}"
 
 
+def _daireler(p: dict) -> set[str]:
+    return {x["name"].rsplit("/", 1)[0] for x in p["rooms"] if "/Daire " in x["name"]}
+
+
+def _satilabilir_m2(p: dict) -> float:
+    """Brüt alanın daire payı: ortak alanlar (hol, merdiven, asansör) net alan oranında düşülür."""
+    net = sum(x["area"] for x in p["rooms"])
+    daire = sum(x["area"] for x in p["rooms"] if "/Daire " in x["name"])
+    return p["summary"]["gross_floor_area"] * (daire / net if net else 0)
+
+
 def _summary(p: dict) -> dict:
     c, s, r = p["cost"], p["summary"], p["report"]
-    daireler = {x["name"].rsplit("/", 1)[0] for x in p["rooms"] if "/Daire " in x["name"]}
+    daireler = _daireler(p)
     sheets = {sh["name"]: _link(sh["png"]) for sh in p.get("sheets", [])}
     return {
         "proje_id": p["id"],
@@ -76,6 +88,7 @@ def _summary(p: dict) -> dict:
         "daire_tipi": r.get("unit_type"),
         "daire_sayisi": len(daireler),
         "brut_insaat_m2": round(s["gross_floor_area"], 1),
+        "satilabilir_brut_m2": round(_satilabilir_m2(p), 1),
         "maliyet_kdv_dahil_tl": round(c["total"]),
         "maliyet_m2_kdv_dahil_tl": round(c["per_m2"]),
         "imar_uyarilari": r.get("warnings", []),
@@ -129,16 +142,98 @@ async def arsa_fizibilite(ad: str, cephe_m: float, derinlik_m: float, taks: floa
                           "zoning": zoning, "program": {"unit_type": daire_tipi}})
 
 
-@mcp.tool()
-async def proje_ozet(proje_id: str) -> dict:
-    """Daha önce üretilmiş bir projenin özetini ve dosya linklerini döner."""
+async def _get(proje_id: str) -> dict:
     if not PID_RE.fullmatch(proje_id):
         raise ValueError("geçersiz proje_id")
     async with httpx.AsyncClient(timeout=30) as cl:
         resp = await cl.get(f"{ARCHAI}/api/projects/{proje_id}")
     if resp.status_code != 200:
         raise ValueError(f"ArchAI {resp.status_code}: {resp.text[:300]}")
-    return _summary(resp.json())
+    return resp.json()
+
+
+@mcp.tool()
+async def proje_ozet(proje_id: str) -> dict:
+    """Daha önce üretilmiş bir projenin özetini ve dosya linklerini döner."""
+    return _summary(await _get(proje_id))
+
+
+@mcp.tool()
+def bolge_m2_fiyati(ilanlar: list[dict]) -> dict:
+    """Aynı semtteki satılık daire ilanlarından (her biri {"fiyat_tl": ..., "m2": ...}, m2 = brüt)
+    m² satış fiyatını çıkarır. Uç değerler (en ucuz ve en pahalı %10) atılır, medyan döner.
+    Sonucu `karlilik` ve `kat_karsiligi` araçlarına `satis_m2_fiyati_tl` olarak ver.
+    """
+    birim = sorted(float(i["fiyat_tl"]) / float(i["m2"]) for i in ilanlar
+                   if float(i.get("m2") or 0) >= 30 and float(i.get("fiyat_tl") or 0) > 0)
+    if len(birim) < 3:
+        raise ValueError("en az 3 geçerli ilan gerekli (fiyat_tl > 0, m2 >= 30)")
+    k = len(birim) // 10
+    kirpik = birim[k:len(birim) - k]
+    return {"satis_m2_fiyati_tl": round(statistics.median(kirpik)), "ilan_sayisi": len(birim),
+            "min_tl_m2": round(kirpik[0]), "max_tl_m2": round(kirpik[-1])}
+
+
+def _ekonomi(p: dict, satis_m2: float, ek_gider_pct: float) -> tuple[float, float, float]:
+    gelir = _satilabilir_m2(p) * satis_m2
+    insaat = p["cost"]["total"]
+    return gelir, insaat, insaat * ek_gider_pct / 100
+
+
+def _pct(a: float, b: float) -> float:
+    return round(100 * a / b, 1) if b else 0.0
+
+
+@mcp.tool()
+async def karlilik(proje_id: str, arsa_fiyati_tl: float, satis_m2_fiyati_tl: float,
+                   ek_gider_pct: float = 10) -> dict:
+    """Arsa satın alınarak yapılırsa tahmini kâr: satış geliri − (arsa + inşaat + ek giderler).
+
+    ek_gider_pct: inşaat maliyetinin yüzdesi olarak ruhsat, proje, pazarlama, finansman (varsayılan %10).
+    Birden çok arsayı `kar_tl` ya da `getiri_pct` ile sırala.
+    """
+    p = await _get(proje_id)
+    gelir, insaat, ek = _ekonomi(p, satis_m2_fiyati_tl, ek_gider_pct)
+    yatirim = arsa_fiyati_tl + insaat + ek
+    kar = gelir - yatirim
+    return {"proje_id": proje_id, "satilabilir_brut_m2": round(_satilabilir_m2(p), 1),
+            "satis_geliri_tl": round(gelir), "arsa_tl": round(arsa_fiyati_tl), "insaat_tl": round(insaat),
+            "ek_gider_tl": round(ek), "toplam_yatirim_tl": round(yatirim), "kar_tl": round(kar),
+            "kar_marji_pct": _pct(kar, gelir), "getiri_pct": _pct(kar, yatirim),
+            "basabas_satis_m2_tl": round(yatirim / _satilabilir_m2(p)) if _satilabilir_m2(p) else None,
+            "not": AVAN + " Satış fiyatı ilan ortalamasıdır; vergi ve satış süresi dahil değildir."}
+
+
+@mcp.tool()
+async def kat_karsiligi(proje_id: str, satis_m2_fiyati_tl: float, arsa_sahibi_payi_pct: float = 45,
+                        hedef_marj_pct: float = 20, ek_gider_pct: float = 10) -> dict:
+    """Kat karşılığı anlaşma: arsa sahibine daire verilir, müteahhit kalan daireleri satar (arsa parası yok).
+
+    Verilen payla daire paylaşımını ve müteahhidin kârını hesaplar; ayrıca müteahhidin hedef marjını
+    koruyarak arsa sahibine verilebilecek en yüksek payı (`onerilen_*`) döner. Daireler eşit büyüklükte kabul edilir.
+    """
+    p = await _get(proje_id)
+    n = len(_daireler(p))
+    if not n:
+        raise ValueError("projede daire yok")
+    gelir, insaat, ek = _ekonomi(p, satis_m2_fiyati_tl, ek_gider_pct)
+    maliyet = insaat + ek
+
+    def durum(sahip: int) -> dict:
+        mgelir = gelir * (n - sahip) / n
+        return {"arsa_sahibi_daire": sahip, "muteahhit_daire": n - sahip,
+                "arsa_sahibi_payi_pct": _pct(sahip, n), "muteahhit_satis_geliri_tl": round(mgelir),
+                "muteahhit_kar_tl": round(mgelir - maliyet), "muteahhit_marj_pct": _pct(mgelir - maliyet, mgelir)}
+
+    istenen = durum(min(n, int(n * arsa_sahibi_payi_pct / 100 + 0.5)))
+    # (1-p)·gelir·(1-h) >= maliyet  →  p <= 1 - maliyet / ((1-h)·gelir)
+    ust = 1 - maliyet / ((1 - hedef_marj_pct / 100) * gelir) if gelir else 0
+    onerilen = durum(max(0, min(n, int(n * ust)))) if ust > 0 else None
+    return {"proje_id": proje_id, "daire_sayisi": n, "daire_basi_deger_tl": round(gelir / n),
+            "insaat_ve_ek_gider_tl": round(maliyet), "istenen_pay": istenen,
+            "onerilen": onerilen, "hedef_marj_pct": hedef_marj_pct,
+            "uyari": None if onerilen else "bu satış fiyatında hedef marjla kat karşılığı yapılamaz",
+            "not": AVAN}
 
 
 app = mcp.streamable_http_app(
