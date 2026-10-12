@@ -132,7 +132,33 @@ async def render(request: Request):
         return JSONResponse({"hata": str(e)[:300]}, status_code=502)
 
 
+DEMO = KOK / "demo"
+ASSET_RE = re.compile(r"p\d_[a-z]+\.(jpg|mp4)")
+
+
+async def demo_sayfa(request: Request):
+    if not _yerel(request):
+        return Response(status_code=404)
+    return FileResponse(KOK / "demo.html")
+
+
+async def demo_veri(request: Request):
+    if not _yerel(request):
+        return Response(status_code=404)
+    return FileResponse(DEMO / "demo.json")
+
+
+async def demo_dosya(request: Request):
+    ad = request.path_params["ad"]
+    if not _yerel(request) or not ASSET_RE.fullmatch(ad) or not (DEMO / "assets" / ad).exists():
+        return Response(status_code=404)
+    return FileResponse(DEMO / "assets" / ad)
+
+
 def kur(app) -> None:
+    app.add_route("/demo", demo_sayfa, methods=["GET"])
+    app.add_route("/demo/demo.json", demo_veri, methods=["GET"])
+    app.add_route("/demo/assets/{ad}", demo_dosya, methods=["GET"])
     app.add_route("/console", sayfa, methods=["GET"])
     app.add_route("/console/api/baslat", baslat, methods=["POST"])
     app.add_route("/console/api/durum", durum, methods=["GET"])

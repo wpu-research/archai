@@ -38,11 +38,20 @@ async def klip(img: str, prompt: str, ad: str, out: Path) -> Path:
     return out / f"{ad}.mp4"
 
 
+VILLA = __import__("os").environ.get("FILM_TIP") == "villa"
+BINA = ("2-storey modern luxury villa with a swimming pool and landscaped garden in Istanbul (Çekmeköy), white and "
+        "warm stone facade, large glass windows" if VILLA else "4-storey apartment building in an Istanbul neighbourhood")
+
+
 async def main(pid: str, dis: Path, salon: Path):
     out = KOK / "logs" / f"film_{pid}"
     out.mkdir(parents=True, exist_ok=True)
     kayit = json.loads(S.KAYIT.read_text()).get(pid, {}) if S.KAYIT.exists() else {}
-    cephe = kayit.get("render_url") or (await S.render_cephe(pid))["render_url"]
+    cephe = None if VILLA else (kayit.get("render_url") or (await S.render_cephe(pid))["render_url"])
+    if VILLA:  # villa için cephe: 3D dış görünüşten fotogerçekçi göz hizası
+        cephe = await foto(data_uri(dis), "Turn this 3D model into a photorealistic eye-level photo of the same " + BINA +
+                           ", seen from the garden next to the pool. Keep the shape and window layout. Golden hour, "
+                           "architectural photography, no text, no people.")
 
     salon_f, yatak_f, kus_f = await asyncio.gather(
         foto(data_uri(salon), "Turn this empty 3D room into a photorealistic, fully furnished modern living room with an "
@@ -51,8 +60,7 @@ async def main(pid: str, dis: Path, salon: Path):
         foto(data_uri(salon), "Turn this empty 3D room into a photorealistic, cozy furnished modern bedroom: double bed with "
              "linen bedding, nightstands, soft lamp, wardrobe, warm wood floor. Keep the window position and room "
              "proportions. Through the window: a realistic Istanbul city view with trees, not a flat field. Soft morning light, interior design photography, no text."),
-        foto(data_uri(dis), "Turn this 3D massing model into a photorealistic aerial photo of the same 4-storey apartment "
-             "building in an Istanbul neighbourhood, keep the shape, floor count and window layout. The facade must be warm light-beige plaster, not white. " + STIL),
+        foto(data_uri(dis), "Turn this 3D massing model into a photorealistic aerial photo of the same " + BINA + ", keep the shape, floor count and window layout. The facade must be warm light-beige plaster, not white. " + STIL),
     )
     print("kareler:", json.dumps({"cephe": cephe, "salon": salon_f, "yatak": yatak_f, "kus": kus_f}), flush=True)
 

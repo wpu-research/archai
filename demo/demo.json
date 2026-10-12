@@ -1,0 +1,108 @@
+{
+ "satis_m2": 93651,
+ "kartlar": [
+  {
+   "proje_id": "20261012-110110-villa-cekmekoy-ornek-proje-6187",
+   "tur": "villa",
+   "baslik": "Villa Çekmeköy — Örnek Proje",
+   "kat": 2,
+   "daire": 0,
+   "daire_tipi": "Villa 4+2",
+   "brut_m2": 447.1,
+   "maliyet": 15892883,
+   "m2_maliyet": 35545,
+   "cekme": null,
+   "gorseller": {
+    "cephe": "/demo/assets/p0_cephe.jpg",
+    "salon": "/demo/assets/p0_salon.jpg",
+    "yatak": "/demo/assets/p0_yatak.jpg",
+    "kus": "/demo/assets/p0_kus.jpg"
+   },
+   "film": "/demo/assets/p0_film.mp4",
+   "model_3d": "http://127.0.0.1:8765/v/20261012-110110-villa-cekmekoy-ornek-proje-6187/?s=ce212583c1fc651652c1bf9f7f56c17e&vm=real",
+   "gezinti_3d": "http://127.0.0.1:8765/v/20261012-110110-villa-cekmekoy-ornek-proje-6187/?s=ce212583c1fc651652c1bf9f7f56c17e&vm=real&walk=Salon&tour=1",
+   "dosyalar": {
+    "teklif_docx": "http://127.0.0.1:8765/f/20261012-110110-villa-cekmekoy-ornek-proje-6187/teklif.docx?s=b66285e501bffb7ad36e5278b7410de5",
+    "metraj_maliyet_xlsx": "http://127.0.0.1:8765/f/20261012-110110-villa-cekmekoy-ornek-proje-6187/metraj_maliyet.xlsx?s=b02818c5717d4278857deafed07fe85a",
+    "teknik_sartname_docx": "http://127.0.0.1:8765/f/20261012-110110-villa-cekmekoy-ornek-proje-6187/teknik_sartname.docx?s=45b2710828001245ef5b87395e0f1208",
+    "cizimler_pdf": "http://127.0.0.1:8765/f/20261012-110110-villa-cekmekoy-ornek-proje-6187/cizimler/cizimler.pdf?s=59acc2b1ecf055fccbfb99094e21b490"
+   }
+  },
+  {
+   "proje_id": "20261012-102742-kartal-ada-12412-parsel-28-312-d725",
+   "tur": "arsa",
+   "baslik": "Kartal — Ada 12412 / Parsel 28 (312 m²)",
+   "kat": 4,
+   "daire": 4,
+   "daire_tipi": "1+1",
+   "brut_m2": 465.1,
+   "maliyet": 15776593,
+   "m2_maliyet": 33919,
+   "cekme": null,
+   "gorseller": {
+    "cephe": "/demo/assets/p1_cephe.jpg",
+    "salon": "/demo/assets/p1_salon.jpg",
+    "yatak": "/demo/assets/p1_yatak.jpg",
+    "kus": "/demo/assets/p1_kus.jpg"
+   },
+   "film": "/demo/assets/p1_film.mp4",
+   "model_3d": "http://127.0.0.1:8765/v/20261012-102742-kartal-ada-12412-parsel-28-312-d725/?s=3a86878bfe3f6043f38223e931116ff2&vm=real",
+   "gezinti_3d": "http://127.0.0.1:8765/v/20261012-102742-kartal-ada-12412-parsel-28-312-d725/?s=3a86878bfe3f6043f38223e931116ff2&vm=real&furnish=1&walk=salon&tour=1",
+   "dosyalar": {
+    "teklif_docx": "http://127.0.0.1:8765/f/20261012-102742-kartal-ada-12412-parsel-28-312-d725/teklif.docx?s=3ff9d4a715e436e0514661a34db6ae15",
+    "metraj_maliyet_xlsx": "http://127.0.0.1:8765/f/20261012-102742-kartal-ada-12412-parsel-28-312-d725/metraj_maliyet.xlsx?s=c298ca2748c17d55f3fdc04aff0b5ac4",
+    "teknik_sartname_docx": "http://127.0.0.1:8765/f/20261012-102742-kartal-ada-12412-parsel-28-312-d725/teknik_sartname.docx?s=dea610bb8dde9fd4755b5655765daaf3",
+    "cizimler_pdf": "http://127.0.0.1:8765/f/20261012-102742-kartal-ada-12412-parsel-28-312-d725/cizimler/cizimler.pdf?s=c4dc8b79d928a915d36ac9d520eb0317"
+   },
+   "satin_alma": {
+    "arsa_tl": 23500000,
+    "getiri_pct": -32.4,
+    "kar_tl": -13230007
+   },
+   "kat_karsiligi": {
+    "sahip": 1,
+    "muteahhit": 3,
+    "marj_pct": 16.2,
+    "kar_tl": 3363932
+   }
+  },
+  {
+   "proje_id": "20261012-102738-kartal-ada-10891-parsel-10-224-92e6",
+   "tur": "arsa",
+   "baslik": "Kartal — Ada 10891 / Parsel 10 (224 m²)",
+   "kat": 4,
+   "daire": 4,
+   "daire_tipi": "1+1",
+   "brut_m2": 368.7,
+   "maliyet": 14388208,
+   "m2_maliyet": 39023,
+   "cekme": null,
+   "gorseller": {
+    "cephe": "/demo/assets/p2_cephe.jpg",
+    "salon": "/demo/assets/p2_salon.jpg",
+    "yatak": "/demo/assets/p2_yatak.jpg",
+    "kus": "/demo/assets/p2_kus.jpg"
+   },
+   "film": "/demo/assets/p2_film.mp4",
+   "model_3d": "http://127.0.0.1:8765/v/20261012-102738-kartal-ada-10891-parsel-10-224-92e6/?s=fa8b90eec6e8a0e8a81f949754cc000c&vm=real",
+   "gezinti_3d": "http://127.0.0.1:8765/v/20261012-102738-kartal-ada-10891-parsel-10-224-92e6/?s=fa8b90eec6e8a0e8a81f949754cc000c&vm=real&furnish=1&walk=salon&tour=1",
+   "dosyalar": {
+    "teklif_docx": "http://127.0.0.1:8765/f/20261012-102738-kartal-ada-10891-parsel-10-224-92e6/teklif.docx?s=8e9b772b6dca0dd2a149e28c31bb1945",
+    "metraj_maliyet_xlsx": "http://127.0.0.1:8765/f/20261012-102738-kartal-ada-10891-parsel-10-224-92e6/metraj_maliyet.xlsx?s=1774706e5a9018cb2be715ca5e5ce200",
+    "teknik_sartname_docx": "http://127.0.0.1:8765/f/20261012-102738-kartal-ada-10891-parsel-10-224-92e6/teknik_sartname.docx?s=0b265e3779b236a827183836c36ce1cb",
+    "cizimler_pdf": "http://127.0.0.1:8765/f/20261012-102738-kartal-ada-10891-parsel-10-224-92e6/cizimler/cizimler.pdf?s=f34f7021629fb77c73cc7ac7453a4b49"
+   },
+   "satin_alma": {
+    "arsa_tl": 15000000,
+    "getiri_pct": -21.6,
+    "kar_tl": -6666845
+   },
+   "kat_karsiligi": {
+    "sahip": 1,
+    "muteahhit": 3,
+    "marj_pct": 12.7,
+    "kar_tl": 2293109
+   }
+  }
+ ]
+}
