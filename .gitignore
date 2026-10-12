@@ -3,3 +3,5 @@
 __pycache__/
 logs/
 demo/assets/
+teslim/*.webm
+teslim/*.mp4
