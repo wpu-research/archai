@@ -10,19 +10,20 @@ Bağlı araçlar: **Apify** (ilan toplama), **ArchAI** (fizibilite, kârlılık,
    Her ilandan yalnız şunları al: `title`, `url`, `price`, `grossSize` (m²), `neighborhood`, `latitude`, `longitude`,
    `attributes` içinden "İmar Durumu", "Kaks (Emsal)", "Gabari ", "Ada No", "Parsel No", "Tapu Durumu".
    **`sellerName` ve telefon alanlarını hiç kullanma.**
-   Ele: "İmar Durumu" Konut veya Ticari + Konut olmayanlar, emsali "Belirtilmemiş" olanlar, 150 m²'den küçükler, "Hisseli Tapu" olanlar.
+   Ele: "İmar Durumu" Konut veya Ticari + Konut olmayanlar, emsali "Belirtilmemiş" olanlar, 200 m²'den küçükler, "Hisseli Tapu" olanlar.
 2. **Bölge satış fiyatı (Apify):** Aynı actor'ı şu girdiyle çalıştır:
    `{"listingType":"Sale","propertyCategory":"Residential","propertyType":["Apartment"],"city":"Istanbul","district":["Kartal"],"buildingAge":["0 (Ready)","0 (Under construction)"],"extractPhoneNumbers":false,"maxResults":20}`
    Her ilanın `price` ve `grossSize` değerini ArchAI `bolge_m2_fiyati` aracına ver.
 3. **Fizibilite (ArchAI):** Her arsa için `arsa_fizibilite` çağır: KAKS = ilandaki emsal; TAKS ilanda yok → 0,40 kabul et;
    gabari sayıysa kat = gabari ÷ 3 (aşağı yuvarla), değilse aracın varsayılanı; cephe yoksa kare kabul et
-   (cephe = derinlik = √m²). Bu varsayımları raporda yaz. Sonra `karlilik` (arsa fiyatı + bölge m² fiyatı) ve `kat_karsiligi` çağır.
+   (cephe = derinlik = √m²). Çekme mesafesi verme; araç sığdırmak için kendisi küçültür ve `cekme_varsayimi`'nda yazar.
+   `uygun: false` dönen arsayı ele. Bu varsayımları raporda yaz. Sonra `karlilik` (arsa fiyatı + bölge m² fiyatı) ve `kat_karsiligi` çağır.
 4. **Sıralama:** Arsaları `getiri_pct`'ye göre sırala, en iyi 3 tanesini seç.
 5. **Görsel (fal):** Seçilen her arsa için `gorunus_png` görselini görüntüden görüntüye bir modelle fotogerçekçi
    bina fotoğrafına çevir (pencere düzeni ve kat sayısı korunsun, yazı ve ölçü çizgisi olmasın).
    En iyi arsa için bu fotoğraftan 5 saniyelik yavaş kamera hareketli bir video üret.
 6. **Paket:** Her arsa için tek sayfalık, mobil uyumlu bir web sayfası yayınla:
-   render, ilan linki, daire sayısı, maliyet, tahmini kâr ve getiri, kat karşılığı önerisi, teklif/pafta indirme linkleri,
+   render, **"3D'de gez" butonu (`gezinti_3d_link`) ve "3D model" butonu (`model_3d_link`)**, ilan linki, daire sayısı, maliyet, tahmini kâr ve getiri, kat karşılığı önerisi, teklif/pafta indirme linkleri,
    ArchAI logosu/adı. Ana sayfada 3 arsayı karşılaştıran bir tablo olsun.
 7. **Mesajlar:** Her arsa için (a) müteahhide kısa WhatsApp mesajı, (b) arsa sahibine kat karşılığı teklif mesajı yaz.
    **Gönderme**, yalnız taslak olarak sayfaya ekle.

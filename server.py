@@ -101,6 +101,8 @@ def _summary(p: dict) -> dict:
         },
         "gorunus_png": f"{PUBLIC}/g/{p['id']}.png?s={_sign('g/' + p['id'])}",
         "pafta_png": sheets,
+        "model_3d_link": _view_link(p["id"]),  # tarayıcıda döndürülebilir 3D bina
+        "gezinti_3d_link": _view_link(p["id"]) + "&furnish=1&walk=salon",  # döşenmiş salonda birinci şahıs gezinti
         "not": AVAN,
     }
 
@@ -144,11 +146,24 @@ async def arsa_fizibilite(ad: str, cephe_m: float, derinlik_m: float, taks: floa
     avan proje + metraj + maliyet + teklif üretir. İlandaki arsa m² verilip ölçü yoksa kare kabul et
     (cephe = derinlik = √alan) ve bunu kullanıcıya söyle.
     """
-    zoning = {"taks": taks, "kaks": kaks, "front": on_cekme_m, "side": yan_cekme_m, "rear": arka_cekme_m}
-    if maks_kat:
-        zoning["max_floors"] = maks_kat
-    return await _create({"name": ad[:120], "parcel": {"width": cephe_m, "depth": derinlik_m},
-                          "zoning": zoning, "program": {"unit_type": daire_tipi}})
+    # Çekme verilmediyse (varsayılan 5/3/3) küçük parseller için kademeli dene: ilanlarda çekme yazmıyor,
+    # Kartal gibi semtlerde küçük parsellerde daha küçük çekme veya bitişik nizam yaygın.
+    kademeler = [(on_cekme_m, yan_cekme_m, arka_cekme_m)]
+    if kademeler[0] == (5, 3, 3):
+        kademeler += [(3, 2, 2), (3, 0, 2)]
+    for on, yan, arka in kademeler:
+        zoning = {"taks": taks, "kaks": kaks, "front": on, "side": yan, "rear": arka}
+        if maks_kat:
+            zoning["max_floors"] = maks_kat
+        sonuc = await _create({"name": ad[:120], "parcel": {"width": cephe_m, "depth": derinlik_m},
+                               "zoning": zoning, "program": {"unit_type": daire_tipi}})
+        if sonuc.get("uygun") is not False:
+            sonuc["cekme_varsayimi"] = (f"ön {on} m, yan {yan} m, arka {arka} m"
+                                        + ("" if (on, yan, arka) == kademeler[0] else
+                                           " (5/3/3 sığmadığı için küçültüldü; imar durumu belgesiyle teyit edilmeli)"))
+            return sonuc
+    sonuc["denenen_cekmeler"] = [f"{a}/{b}/{c}" for a, b, c in kademeler]
+    return sonuc
 
 
 async def _get(proje_id: str) -> dict:
@@ -288,8 +303,95 @@ async def facade(request: Request):
     return Response(buf.getvalue(), media_type="image/png")
 
 
+# --- salt-okunur 3D görüntüleyici: /v/<pid>/?s=<imza> ---------------------------------------------
+# ArchAI arayüzü /v/<pid>/ altında sunulur (göreli statik yollar oraya düşer). Sayfa mutlak /api ve /files
+# isteklerini kendisi yapar; bunlara yalnız imzalı linkten alınan çerezdeki proje için, yalnız GET ile izin verilir.
+VCOOKIE = "archai_v"
+STATIC_RE = re.compile(r"(?:(?:assets|vendor)/[A-Za-z0-9_./-]+|[a-z]+\.(?:js|css))")
+VIEWER_HEAD = """<script>if(location.hash!=='#{pid}')history.replaceState(null,'',location.pathname+location.search+'#{pid}');</script>
+<style>main.grid>aside,#vidbtn,.chip.opt,.truebtn,#edit,#wedit,#tabs [data-t="3d"],#tabs [data-t="tasarim"]{{display:none!important}}
+main.grid{{grid-template-columns:1fr!important}}
+.avan-not{{position:fixed;left:0;right:0;bottom:0;z-index:50;padding:6px 12px;font:12px/1.4 system-ui;text-align:center;
+color:#cfe;background:rgba(4,16,28,.85)}}</style>"""
+VIEWER_BODY = '<div class="avan-not">ArchAI · avan / ön fizibilite görselidir, ruhsat projesi değildir.</div>'
+
+
+def _vpid(request: Request) -> str | None:
+    """Çerezdeki görüntüleme izni geçerliyse proje kimliği."""
+    pid, _, sig = request.cookies.get(VCOOKIE, "").partition(".")
+    if PID_RE.fullmatch(pid) and hmac.compare_digest(sig, _sign("v/" + pid)):
+        return pid
+    return None
+
+
+async def _proxy(path: str) -> Response:
+    async with httpx.AsyncClient(timeout=60) as cl:
+        resp = await cl.get(f"{ARCHAI}/{path}")
+    if resp.status_code != 200:
+        return Response(status_code=404)
+    headers = {k: v for k, v in resp.headers.items() if k.lower() in ("content-type", "cache-control")}
+    return Response(resp.content, headers=headers)
+
+
+async def viewer(request: Request):
+    pid = request.path_params["pid"]
+    sig = request.query_params.get("s", "")
+    if not (PID_RE.fullmatch(pid) and hmac.compare_digest(sig, _sign("v/" + pid))):
+        return Response(status_code=404)
+    if not request.url.path.endswith("/"):  # göreli statik yollar /v/<pid>/ altına düşsün
+        return Response(status_code=307, headers={"location": f"/v/{pid}/?{request.url.query}"})
+    async with httpx.AsyncClient(timeout=30) as cl:
+        ok = (await cl.get(f"{ARCHAI}/api/projects/{pid}")).status_code == 200
+        html = (await cl.get(f"{ARCHAI}/index.html")).text
+    if not ok:
+        return Response(status_code=404)
+    html = html.replace("</head>", VIEWER_HEAD.format(pid=pid) + "</head>", 1)
+    html = html.replace("</body>", VIEWER_BODY + "</body>", 1)
+    r = Response(html, media_type="text/html")
+    r.set_cookie(VCOOKIE, f"{pid}.{sig}", max_age=7 * 86400, httponly=True, secure=True, samesite="lax", path="/")
+    return r
+
+
+async def viewer_static(request: Request):
+    path = request.path_params["path"]
+    if ".." in path or not STATIC_RE.fullmatch(path):
+        return Response(status_code=404)
+    return await _proxy(path)
+
+
+async def viewer_api(request: Request):
+    pid, path = _vpid(request), request.url.path
+    if request.method != "GET":
+        return JSONResponse({"detail": "salt-okunur görünüm"}, status_code=403)
+    if path == "/api/settings":
+        return JSONResponse({"company": {"name": "ArchAI"}})
+    if path == "/api/projects":
+        return JSONResponse([])  # arşiv listesi dışarı verilmez
+    if pid and path in (f"/api/projects/{pid}", f"/api/projects/{pid}/interior",
+                        f"/api/projects/{pid}/elements", f"/api/projects/{pid}/real"):
+        return await _proxy(path.lstrip("/"))
+    return JSONResponse({"detail": "salt-okunur görünüm"}, status_code=403)
+
+
+async def viewer_files(request: Request):
+    pid = _vpid(request)
+    rel = request.path_params["rel"]
+    if not pid or ".." in rel or not rel.startswith(pid + "/"):
+        return Response(status_code=404)
+    return await _proxy("files/" + rel)
+
+
+def _view_link(pid: str) -> str:
+    return f"{PUBLIC}/v/{pid}/?s={_sign('v/' + pid)}&vm=real"
+
+
 app.add_route("/f/{rel:path}", files, methods=["GET"])
 app.add_route("/g/{pid}.png", facade, methods=["GET"])
+app.add_route("/v/{pid}", viewer, methods=["GET"])
+app.add_route("/v/{pid}/", viewer, methods=["GET"])
+app.add_route("/v/{pid}/{path:path}", viewer_static, methods=["GET"])
+app.add_route("/api/{rest:path}", viewer_api, methods=["GET", "POST", "PUT", "DELETE", "PATCH"])
+app.add_route("/files/{rel:path}", viewer_files, methods=["GET"])
 
 
 class BearerAuth:
