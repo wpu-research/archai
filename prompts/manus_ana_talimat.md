@@ -7,13 +7,18 @@ bulmak ve her biri için satışa hazır bir fizibilite paketi hazırlamak.
 Bağlı araçlar: **Apify** (ilan toplama), **ArchAI** (fizibilite, kârlılık, kat karşılığı), **fal** (görsel/video).
 
 ## Adımlar
-1. **Arsa ilanları (Apify):** [semt, ör. Kartal / İstanbul] için satılık **konut imarlı arsa** ilanlarından
-   en fazla [20] tanesini topla: başlık, link, fiyat, m², imar bilgisi (TAKS, KAKS/emsal, kat), varsa cephe.
-   İmar bilgisi olmayanları ele.
-2. **Bölge satış fiyatı (Apify):** Aynı semtteki satılık **sıfır / yeni** daire ilanlarından en az 15 tanesinin
-   fiyat ve brüt m²'sini topla, ArchAI `bolge_m2_fiyati` aracına ver.
-3. **Fizibilite (ArchAI):** Her arsa için `arsa_fizibilite` çağır (cephe yoksa kare kabul et: cephe = derinlik = √m²,
-   bunu raporda belirt). Sonra `karlilik` (arsa fiyatı + bölge m² fiyatı) ve `kat_karsiligi` çağır.
+1. **Arsa ilanları (Apify):** `clearpath/sahibinden-real-estate` actor'ını şu girdiyle çalıştır:
+   `{"listingType":"Sale","propertyCategory":"Land","city":"Istanbul","district":["[Kartal]"],"sortBy":"Newest","extractPhoneNumbers":false,"maxResults":[20]}`
+   Her ilandan yalnız şunları al: `title`, `url`, `price`, `grossSize` (m²), `neighborhood`, `latitude`, `longitude`,
+   `attributes` içinden "İmar Durumu", "Kaks (Emsal)", "Gabari ", "Ada No", "Parsel No", "Tapu Durumu".
+   **`sellerName` ve telefon alanlarını hiç kullanma.**
+   Ele: "İmar Durumu" Konut veya Ticari + Konut olmayanlar, emsali "Belirtilmemiş" olanlar, 150 m²'den küçükler, "Hisseli Tapu" olanlar.
+2. **Bölge satış fiyatı (Apify):** Aynı actor'ı şu girdiyle çalıştır:
+   `{"listingType":"Sale","propertyCategory":"Residential","propertyType":["Apartment"],"city":"Istanbul","district":["[Kartal]"],"buildingAge":["0 (Ready)","0 (Under construction)"],"extractPhoneNumbers":false,"maxResults":20}`
+   Her ilanın `price` ve `grossSize` değerini ArchAI `bolge_m2_fiyati` aracına ver.
+3. **Fizibilite (ArchAI):** Her arsa için `arsa_fizibilite` çağır: KAKS = ilandaki emsal; TAKS ilanda yok → 0,40 kabul et;
+   gabari sayıysa kat = gabari ÷ 3 (aşağı yuvarla), değilse aracın varsayılanı; cephe yoksa kare kabul et
+   (cephe = derinlik = √m²). Bu varsayımları raporda yaz. Sonra `karlilik` (arsa fiyatı + bölge m² fiyatı) ve `kat_karsiligi` çağır.
 4. **Sıralama:** Arsaları `getiri_pct`'ye göre sırala, en iyi [3] tanesini seç.
 5. **Görsel (fal):** Seçilen her arsa için `gorunus_png` görselini görüntüden görüntüye bir modelle fotogerçekçi
    bina fotoğrafına çevir (pencere düzeni ve kat sayısı korunsun, yazı ve ölçü çizgisi olmasın).
