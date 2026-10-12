@@ -106,7 +106,10 @@ async def durum(request: Request):
                 k = json.loads(S.KAYIT.read_text())[pid]
             except Exception:
                 continue
-        kartlar.append({"proje_id": pid, **k})
+        oz = dict(k["ozet"])
+        oz["model_3d_link"] = S._view_link(pid)
+        oz["gezinti_3d_link"] = S._view_link(pid) + "&furnish=1&walk=salon&tour=1"
+        kartlar.append({"proje_id": pid, **k, "ozet": oz})
     def skor(k):
         o = ((k.get("kat_karsiligi") or {}).get("onerilen") or {})
         return (o.get("muteahhit_marj_pct", -1e9), (k.get("karlilik") or {}).get("getiri_pct", -1e9))

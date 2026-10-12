@@ -119,7 +119,7 @@ def _summary(p: dict) -> dict:
         "gorunus_png": f"{PUBLIC}/g/{p['id']}.png?s={_sign('g/' + p['id'])}",
         "pafta_png": sheets,
         "model_3d_link": _view_link(p["id"]),  # tarayıcıda döndürülebilir 3D bina
-        "gezinti_3d_link": _view_link(p["id"]) + "&furnish=1&walk=salon",  # döşenmiş salonda birinci şahıs gezinti
+        "gezinti_3d_link": _view_link(p["id"]) + "&furnish=1&walk=salon&tour=1",  # döşenmiş salonda birinci şahıs gezinti
         "not": AVAN,
     }
 
@@ -386,7 +386,22 @@ VIEWER_HEAD = """<script>if(location.hash!=='#{pid}')history.replaceState(null,'
 main.grid{{grid-template-columns:1fr!important}}
 .avan-not{{position:fixed;left:0;right:0;bottom:0;z-index:50;padding:6px 12px;font:12px/1.4 system-ui;text-align:center;
 color:#cfe;background:rgba(4,16,28,.85)}}</style>"""
-VIEWER_BODY = '<div class="avan-not">ArchAI · avan / ön fizibilite görselidir, ruhsat projesi değildir.</div>'
+VIEWER_BODY = """<div class="avan-not">ArchAI · avan / ön fizibilite görselidir, ruhsat projesi değildir.</div>
+<div id="yukle" style="position:fixed;inset:0;z-index:99;display:grid;place-items:center;background:#050b14;color:#3ee8ff;
+font:600 14px/1.6 system-ui;letter-spacing:.2em;text-align:center;transition:opacity .6s">ARCHAI<br>
+<span style="color:#7d97ab;font-weight:400;letter-spacing:.1em">3D proje hazırlanıyor…</span></div>
+<script>(()=>{const q=new URLSearchParams(location.search),y=document.getElementById('yukle'),t0=Date.now();
+const ok=()=>{const h=document.getElementById('hname');return h&&h.textContent&&!['—','ArchAI'].includes(h.textContent.trim());};
+const iv=setInterval(()=>{if((ok()&&Date.now()-t0>(q.get('walk')?4500:2500))||Date.now()-t0>20000){clearInterval(iv);
+y.style.opacity=0;setTimeout(()=>y.remove(),700);}},250);
+if(q.get('tour')||q.get('cinema')){const w=document.getElementById('whelp');if(w)w.style.display='none';}
+if(q.get('cinema')){const st=document.createElement('style');st.textContent='header.bar,main.grid>section>.glass:not(#vp),'+
+'.hud,.whud .hud,.cross,.avan-not,.idrawer,.ihint{display:none!important}#vp{position:fixed!important;inset:0;width:100vw!important;height:100vh!important;max-height:none!important;border-radius:0!important;'+
+'z-index:40;margin:0}body{overflow:hidden}';document.head.appendChild(st);setTimeout(()=>dispatchEvent(new Event('resize')),300);}
+if(q.get('tour')&&!q.get('cinema')){const b=document.createElement('a');b.textContent='◉ Serbest gez';q.delete('tour');
+b.href=location.pathname+'?'+q+location.hash;b.style.cssText='position:fixed;right:16px;bottom:44px;z-index:60;padding:10px 14px;'+
+'border-radius:10px;background:#0e2033;color:#3ee8ff;border:1px solid #1d6b80;font:13px system-ui;text-decoration:none';
+document.body.appendChild(b);}})();</script>"""
 
 
 def _vpid(request: Request) -> str | None:
