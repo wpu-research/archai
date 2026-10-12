@@ -19,14 +19,16 @@
     "kus": "/demo/assets/p0_kus.jpg"
    },
    "film": "/demo/assets/p0_film.mp4",
-   "model_3d": "http://127.0.0.1:8765/v/20261012-110110-villa-cekmekoy-ornek-proje-6187/?s=ce212583c1fc651652c1bf9f7f56c17e&vm=real",
+   "model_3d": "http://127.0.0.1:8765/v/20261012-110110-villa-cekmekoy-ornek-proje-6187/?s=ce212583c1fc651652c1bf9f7f56c17e&vm=real&oda=Salon",
+   "ilan": null,
    "gezinti_3d": "http://127.0.0.1:8765/v/20261012-110110-villa-cekmekoy-ornek-proje-6187/?s=ce212583c1fc651652c1bf9f7f56c17e&vm=real&walk=Salon&tour=1",
    "dosyalar": {
     "teklif_docx": "http://127.0.0.1:8765/f/20261012-110110-villa-cekmekoy-ornek-proje-6187/teklif.docx?s=b66285e501bffb7ad36e5278b7410de5",
     "metraj_maliyet_xlsx": "http://127.0.0.1:8765/f/20261012-110110-villa-cekmekoy-ornek-proje-6187/metraj_maliyet.xlsx?s=b02818c5717d4278857deafed07fe85a",
     "teknik_sartname_docx": "http://127.0.0.1:8765/f/20261012-110110-villa-cekmekoy-ornek-proje-6187/teknik_sartname.docx?s=45b2710828001245ef5b87395e0f1208",
     "cizimler_pdf": "http://127.0.0.1:8765/f/20261012-110110-villa-cekmekoy-ornek-proje-6187/cizimler/cizimler.pdf?s=59acc2b1ecf055fccbfb99094e21b490"
-   }
+   },
+   "paylasim_3d": "https://bean-marina-highly-authentication.trycloudflare.com/v/20261012-110110-villa-cekmekoy-ornek-proje-6187/?s=ce212583c1fc651652c1bf9f7f56c17e&vm=real&oda=Salon"
   },
   {
    "proje_id": "20261012-102742-kartal-ada-12412-parsel-28-312-d725",
@@ -46,14 +48,21 @@
     "kus": "/demo/assets/p1_kus.jpg"
    },
    "film": "/demo/assets/p1_film.mp4",
-   "model_3d": "http://127.0.0.1:8765/v/20261012-102742-kartal-ada-12412-parsel-28-312-d725/?s=3a86878bfe3f6043f38223e931116ff2&vm=real",
-   "gezinti_3d": "http://127.0.0.1:8765/v/20261012-102742-kartal-ada-12412-parsel-28-312-d725/?s=3a86878bfe3f6043f38223e931116ff2&vm=real&walk=salon&tour=1",
+   "model_3d": "http://127.0.0.1:8765/v/20261012-102742-kartal-ada-12412-parsel-28-312-d725/?s=3a86878bfe3f6043f38223e931116ff2&vm=real&oda=Kat%203/Daire%201/Salon",
+   "ilan": {
+    "site": "sahibinden.com",
+    "no": "1214782421",
+    "baslik": "Soğanlık Demirlipark Yanı Satılık İmarlı 8 Dairelik Arsa",
+    "url": "https://www.sahibinden.com/ilan/emlak-arsa-satilik-soganlik-demirlipark-yani-satilik-imarli-8-dairelik-arsa-1214782421/detay"
+   },
+   "gezinti_3d": "http://127.0.0.1:8765/v/20261012-102742-kartal-ada-12412-parsel-28-312-d725/?s=3a86878bfe3f6043f38223e931116ff2&vm=real&walk=Kat%203/Daire%201/Salon&tour=1",
    "dosyalar": {
     "teklif_docx": "http://127.0.0.1:8765/f/20261012-102742-kartal-ada-12412-parsel-28-312-d725/teklif.docx?s=3ff9d4a715e436e0514661a34db6ae15",
     "metraj_maliyet_xlsx": "http://127.0.0.1:8765/f/20261012-102742-kartal-ada-12412-parsel-28-312-d725/metraj_maliyet.xlsx?s=c298ca2748c17d55f3fdc04aff0b5ac4",
     "teknik_sartname_docx": "http://127.0.0.1:8765/f/20261012-102742-kartal-ada-12412-parsel-28-312-d725/teknik_sartname.docx?s=dea610bb8dde9fd4755b5655765daaf3",
     "cizimler_pdf": "http://127.0.0.1:8765/f/20261012-102742-kartal-ada-12412-parsel-28-312-d725/cizimler/cizimler.pdf?s=c4dc8b79d928a915d36ac9d520eb0317"
    },
+   "paylasim_3d": "https://bean-marina-highly-authentication.trycloudflare.com/v/20261012-102742-kartal-ada-12412-parsel-28-312-d725/?s=3a86878bfe3f6043f38223e931116ff2&vm=real&oda=Kat%203/Daire%201/Salon",
    "satin_alma": {
     "arsa_tl": 23500000,
     "getiri_pct": -32.4,
@@ -84,7 +93,13 @@
     "kus": "/demo/assets/p2_kus.jpg"
    },
    "film": "/demo/assets/p2_film.mp4",
-   "model_3d": "http://127.0.0.1:8765/v/20261012-102738-kartal-ada-10891-parsel-10-224-92e6/?s=fa8b90eec6e8a0e8a81f949754cc000c&vm=real",
+   "model_3d": "http://127.0.0.1:8765/v/20261012-102738-kartal-ada-10891-parsel-10-224-92e6/?s=fa8b90eec6e8a0e8a81f949754cc000c&vm=real&oda=salon",
+   "ilan": {
+    "site": "sahibinden.com",
+    "no": "1345303063",
+    "baslik": "Kartal'da 1 daire fiyatına 224m2 arsa ve 2+1 müstakil ev",
+    "url": "https://www.sahibinden.com/ilan/emlak-arsa-satilik-kartal-da-1-daire-fiyatina-224m2-arsa-ve-2-plus1-mustakil-ev-1345303063/detay"
+   },
    "gezinti_3d": "http://127.0.0.1:8765/v/20261012-102738-kartal-ada-10891-parsel-10-224-92e6/?s=fa8b90eec6e8a0e8a81f949754cc000c&vm=real&walk=salon&tour=1",
    "dosyalar": {
     "teklif_docx": "http://127.0.0.1:8765/f/20261012-102738-kartal-ada-10891-parsel-10-224-92e6/teklif.docx?s=8e9b772b6dca0dd2a149e28c31bb1945",
@@ -92,6 +107,7 @@
     "teknik_sartname_docx": "http://127.0.0.1:8765/f/20261012-102738-kartal-ada-10891-parsel-10-224-92e6/teknik_sartname.docx?s=0b265e3779b236a827183836c36ce1cb",
     "cizimler_pdf": "http://127.0.0.1:8765/f/20261012-102738-kartal-ada-10891-parsel-10-224-92e6/cizimler/cizimler.pdf?s=f34f7021629fb77c73cc7ac7453a4b49"
    },
+   "paylasim_3d": "https://bean-marina-highly-authentication.trycloudflare.com/v/20261012-102738-kartal-ada-10891-parsel-10-224-92e6/?s=fa8b90eec6e8a0e8a81f949754cc000c&vm=real&oda=salon",
    "satin_alma": {
     "arsa_tl": 15000000,
     "getiri_pct": -21.6,

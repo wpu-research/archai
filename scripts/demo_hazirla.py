@@ -7,6 +7,7 @@ import asyncio
 import json
 import re
 import shutil
+from urllib.parse import quote
 import sys
 from pathlib import Path
 
@@ -22,12 +23,17 @@ YEREL = "http://127.0.0.1:8765"
 SATIS_M2 = 93651  # Manus raporu: Kartal sıfır daire bolge_m2_fiyati (20 ilan)
 
 PROJELER = [
-    {"pid": "20261012-110110-villa-cekmekoy-ornek-proje-6187", "tur": "villa", "baslik": "Villa Çekmeköy — Örnek Proje",
+    {"pid": "20261012-110110-villa-cekmekoy-ornek-proje-6187", "tur": "villa", "baslik": "Villa Çekmeköy — Örnek Proje", "oda": "Salon",
      "ilan": None},
     {"pid": "20261012-102742-kartal-ada-12412-parsel-28-312-d725", "tur": "arsa",
-     "baslik": "Kartal — Ada 12412 / Parsel 28 (312 m²)", "arsa_tl": 23_500_000},
+     "baslik": "Kartal — Ada 12412 / Parsel 28 (312 m²)", "arsa_tl": 23_500_000,
+     "ilan": {"site": "sahibinden.com", "no": "1214782421", "baslik": "Soğanlık Demirlipark Yanı Satılık İmarlı 8 Dairelik Arsa",
+              "url": "https://www.sahibinden.com/ilan/emlak-arsa-satilik-soganlik-demirlipark-yani-satilik-imarli-8-dairelik-arsa-1214782421/detay"},
+     "oda": "Kat 3/Daire 1/Salon"},
     {"pid": "20261012-102738-kartal-ada-10891-parsel-10-224-92e6", "tur": "arsa",
-     "baslik": "Kartal — Ada 10891 / Parsel 10 (224 m²)", "arsa_tl": 15_000_000},
+     "baslik": "Kartal — Ada 10891 / Parsel 10 (224 m²)", "arsa_tl": 15_000_000,
+     "ilan": {"site": "sahibinden.com", "no": "1345303063", "baslik": "Kartal'da 1 daire fiyatına 224m2 arsa ve 2+1 müstakil ev",
+              "url": "https://www.sahibinden.com/ilan/emlak-arsa-satilik-kartal-da-1-daire-fiyatina-224m2-arsa-ve-2-plus1-mustakil-ev-1345303063/detay"}},
 ]
 
 
@@ -76,10 +82,13 @@ async def main():
                     "brut_m2": o["brut_insaat_m2"], "maliyet": o["maliyet_kdv_dahil_tl"],
                     "m2_maliyet": o["maliyet_m2_kdv_dahil_tl"], "cekme": o.get("cekme_varsayimi"),
                     "gorseller": gorseller, "film": f"/demo/assets/{kisa}_film.mp4" if film.exists() else None,
-                    "model_3d": S._view_link(pid).replace(S.PUBLIC, YEREL),
+                    "model_3d": S._view_link(pid).replace(S.PUBLIC, YEREL) + "&oda=" + quote(pr.get("oda", "salon")),
+                    "ilan": pr.get("ilan"),
                     "gezinti_3d": S._view_link(pid).replace(S.PUBLIC, YEREL) +
-                    ("&walk=Salon&tour=1" if pr["tur"] == "villa" else "&walk=salon&tour=1"),
-                    "dosyalar": dosyalar}
+                    "&walk=" + quote(pr.get("oda", "salon")) + "&tour=1",
+                    "dosyalar": dosyalar,
+                    # dışarıdan açılabilen (tünel) salt-okunur 3D tur: sosyal medya açıklamasına girer
+                    "paylasim_3d": S._view_link(pid) + "&oda=" + quote(pr.get("oda", "salon"))}
             if pr["tur"] == "arsa":
                 kr = await S.karlilik(pid, pr["arsa_tl"], SATIS_M2)
                 kk = await S.kat_karsiligi(pid, SATIS_M2, 25, 15)

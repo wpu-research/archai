@@ -15,7 +15,7 @@ main{display:grid;grid-template-columns:350px 1fr;gap:20px;padding:20px 28px}
 .panel{background:linear-gradient(180deg,#0c1a2b,#09131f);border:1px solid var(--line);border-radius:16px;padding:18px}
 h3{margin:0 0 12px;font-size:12px;letter-spacing:.2em;color:var(--cy);font-weight:600}
 h2{margin:6px 0 14px;font-size:13px;letter-spacing:.2em;color:var(--mu);font-weight:600}
-input{width:100%;background:#06101b;border:1px solid var(--line);color:var(--tx);border-radius:10px;padding:12px;font:inherit}
+select,input{width:100%;background:#06101b;border:1px solid var(--line);color:var(--tx);border-radius:10px;padding:12px;font:inherit}
 button,.btn{cursor:pointer;border:1px solid var(--line);background:#0e2033;color:var(--tx);border-radius:10px;padding:9px 13px;font:inherit;
 text-decoration:none;display:inline-flex;align-items:center;gap:6px;font-size:13px}
 button.go{width:100%;margin-top:10px;padding:14px;background:linear-gradient(90deg,#11c6e6,#2df0b0);color:#032;font-weight:700;border:0;letter-spacing:.08em}
@@ -50,7 +50,7 @@ border:1px solid var(--line)}
 .nums small{color:var(--mu);font-size:10px;letter-spacing:.08em;display:block}.nums b{font-size:14px}
 .pos{color:var(--gr)}.neg{color:var(--rd)}.note{color:var(--mu);font-size:11px}
 .vs{display:grid;grid-template-columns:1fr 1fr;gap:6px}.vs div{border-radius:8px;padding:7px 8px;font-size:12px}
-.vs .x{background:#2a0f14;border:1px solid #5a1d26}.vs .o{background:#0c2a1e;border:1px solid #1f6b4c}
+.vs .zarar{background:#2a0f14;border:1px solid #5a1d26}.vs .kar{background:#0c2a1e;border:1px solid #1f6b4c}
 .empty{color:var(--mu);text-align:center;padding:36px;border:1px dashed var(--line);border-radius:16px}
 .foot{color:var(--mu);font-size:11px;text-align:center;padding:10px}
 .modal{position:fixed;inset:0;background:#000c;display:none;place-items:center;z-index:50;padding:30px}
@@ -61,6 +61,17 @@ border:1px solid var(--line)}
 .rep th{color:var(--mu);font-weight:600}.rep .num{text-align:right}.rep .hl{background:#0c2a1e}
 .wa{background:#0b2a1f;border:1px solid #1f6b4c;border-radius:12px;padding:10px 12px;font-size:13px;white-space:pre-wrap;margin:6px 0}
 .ok{color:var(--gr)}
+.soc{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}.soc button{border-radius:999px}.soc button.on{border-color:var(--cy);color:var(--cy)}
+.post{background:#fff;color:#111;border-radius:14px;max-width:520px;overflow:hidden;font:14px/1.45 system-ui;margin-top:6px}
+.post .ph{display:flex;align-items:center;gap:10px;padding:10px 12px;font-weight:600}.post .ph i{width:32px;height:32px;border-radius:50%;
+background:linear-gradient(135deg,#11c6e6,#2df0b0);display:grid;place-items:center;font-style:normal;color:#032;font-size:12px}
+.post .ph small{display:block;font-weight:400;color:#666;font-size:12px}
+.post .gal{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2px;aspect-ratio:16/10;background:#000}
+.post .gal img{width:100%;height:100%;object-fit:cover}
+.post .gal.dikey{grid-template-columns:1fr;grid-template-rows:1fr;aspect-ratio:9/12}.post .gal.dikey img:not(:first-child){display:none}
+.post .cap{padding:10px 12px;white-space:pre-wrap}.post .cap a{color:#0a66c2;word-break:break-all}
+.post .act{display:flex;gap:8px;align-items:center;padding:0 12px 12px}.post .act .yay{margin-left:auto;background:#0a66c2;color:#fff;border:0}
+.post .act .yay.ok{background:#1f8f5a}.post .cnt{color:#666;font-size:12px}
 </style>
 </head>
 <body>
@@ -74,16 +85,16 @@ border:1px solid var(--line)}
 <main>
   <aside style="display:grid;gap:20px;align-content:start">
     <div class="panel">
-      <h3>YENİ KAMPANYA</h3>
+      <h3>YENİ ARAMA</h3>
       <label class="note">Semt (İstanbul)</label>
-      <input id="semt" value="Kartal">
-      <button class="go" id="go">▶ KAMPANYAYI BAŞLAT</button>
+      <select id="semt"></select>
+      <button class="go" id="go">▶ YENİ ARAMA BAŞLAT</button>
       <p class="note">Manus satılık arsa ilanlarını Apify ile tarar, ArchAI her arsa için avan proje + metraj + maliyet + teklif çıkarır,
         fal render ve tanıtım filmi üretir, Manus müteahhide ve arsa sahibine özel kampanya hazırlar.</p>
     </div>
     <div class="panel">
       <h3>MANUS CANLI AKIŞ</h3>
-      <div class="feed" id="feed"><div class="note">Kampanya başlatılmadı.</div></div>
+      <div class="feed" id="feed"><div class="note">Arama başlatılmadı.</div></div>
     </div>
   </aside>
   <section>
@@ -100,7 +111,7 @@ border:1px solid var(--line)}
       <div><small>RENDER · FİLM</small><b id="k4">0 · 0</b></div>
       <div><small>GEÇEN SÜRE</small><b id="k5">—</b></div>
     </div>
-    <h2 id="kh" style="display:none">KARTAL KAMPANYASI · SEÇİLEN ARSALAR</h2>
+    <h2 id="kh" style="display:none">ARAMA SONUCU · SEÇİLEN ARSALAR</h2>
     <div class="grid" id="kampanya"></div>
     <h2>PORTFÖY · ÖRNEK PROJE</h2>
     <div class="grid" id="portfoy"></div>
@@ -119,6 +130,8 @@ const $=s=>document.querySelector(s);
 const tl=n=>n==null?'—':'₺'+Math.round(n).toLocaleString('tr-TR');
 const pct=n=>'%'+String(n).replace('.',',');
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const SEMT_L=['Kartal','Pendik','Maltepe','Ataşehir','Ümraniye','Üsküdar','Kadıköy','Tuzla','Sancaktepe','Çekmeköy','Sultanbeyli',
+  'Beylikdüzü','Esenyurt','Başakşehir','Büyükçekmece','Küçükçekmece','Bahçelievler','Bakırköy','Beşiktaş','Sarıyer','Şişli','Eyüpsultan'];
 const HIZ=+(new URLSearchParams(location.search).get('hiz')||1);
 const wait=ms=>new Promise(r=>setTimeout(r,ms/HIZ));
 let D=null, t0=0;
@@ -151,9 +164,39 @@ function kampanyaModal(i){
    <p class="note">Manus tarafından hazırlandı · gönderilmedi, onayınızı bekliyor.</p>
    <b>WhatsApp → müteahhit</b><div class="wa">${esc(t.mut)}</div>
    <b>WhatsApp → arsa sahibi (kat karşılığı teklifi)</b><div class="wa">${esc(t.sahip)}</div>
+   <b>Sosyal medyaya yükle</b> <span class="note">· gönderiler hazırlanır, onaylanmadan yayınlanmaz</span>
+   <div class="soc">${PLATFORM.map((pl,j)=>`<button class="btn ${j?'':'on'}" onclick="gonderi(${i},${j},this)">${pl.ikon} ${pl.ad}</button>`).join('')}</div>
+   <div id="gonderi"></div>
    ${i===1?`<b>Instagram Reels / LinkedIn</b><div class="wa">${esc(SOSYAL.reels)}\n\n${SOSYAL.tags}</div>
    <b>Carousel (3 kare)</b>${SOSYAL.carousel.map(c=>`<div class="wa">${esc(c.replace('{SA}',pct(k.satin_alma.getiri_pct)+' zarar').replace('{KK}',pct(k.kat_karsiligi.marj_pct)))}</div>`).join('')}`:''}`;
-  $('#kmodal').classList.add('on');
+  $('#kmodal').classList.add('on'); gonderi(i,0);
+}
+
+const PLATFORM=[
+  {ad:'Instagram',yayin:"Instagram'da yayınla",ikon:'📷',hesap:'archai.tr',dikey:false,tur:'Carousel · 4 görsel + film'},
+  {ad:'LinkedIn',yayin:"LinkedIn'de yayınla",ikon:'💼',hesap:'ArchAI',dikey:false,tur:'Gönderi · 4 görsel'},
+  {ad:'Facebook',yayin:"Facebook'ta yayınla",ikon:'📘',hesap:'ArchAI Türkiye',dikey:false,tur:'Gönderi · albüm'},
+  {ad:'X',yayin:"X'te yayınla",ikon:'𝕏',hesap:'@archai_tr',dikey:false,tur:'Gönderi · 4 görsel'},
+  {ad:'TikTok / Reels',yayin:"TikTok / Reels'te yayınla",ikon:'🎬',hesap:'archai.tr',dikey:true,tur:'Dikey video · 38 sn film'}];
+
+function metin(k,pl){
+  const kk=k.kat_karsiligi||{}, sa=k.satin_alma||{}, kisa=k.baslik.replace('Kartal — ','');
+  const bas={Instagram:'Bu bina 20 dakika önce yoktu. 🏗️',LinkedIn:'Bir arsa ilanından satışa hazır fizibilite paketine: dakikalar içinde.',
+    Facebook:'Kartal\'da yeni bir fırsat 👇','X':'Arsa ilanı → avan proje + maliyet + 3D tur. Dakikalar içinde. 🧵','TikTok / Reels':'Bu bina 20 dakika önce yoktu 👀'}[pl.ad];
+  return `${bas}\n\n📍 Kartal ${kisa}\n🏢 ${k.kat} kat · ${k.daire} daire\n💰 Tahmini inşaat maliyeti ${tl(k.maliyet)}\n`+
+    `📊 Satın alma ${pct(sa.getiri_pct)} → kat karşılığında müteahhit marjı ${pct(kk.marj_pct)}\n\n🔗 ${k.paylasim_3d}\n`+
+    (k.ilan?`📄 İlan: ${k.ilan.url}\n`:'')+`\n`+
+    `Avan / ön fizibilitedir.\n#ArchAI #müteahhit #katkarşılığı #Kartal #yapayzeka`;
+}
+function gonderi(i,j,btn){
+  const k=D.kartlar[i], pl=PLATFORM[j], g=k.gorseller||{};
+  if(btn){btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');}
+  const cap=esc(metin(k,pl)).replace(/(https?:\/\/\S+)/g,u=>`<a href="${u}" target="_blank">${/sahibinden/.test(u)?'sahibinden ilanı ↗':'3D turu aç ↗'}</a>`);
+  $('#gonderi').innerHTML=`<div class="post"><div class="ph"><i>AI</i><div>${pl.hesap}<small>${pl.ad} · ${pl.tur}</small></div></div>
+    <div class="gal ${pl.dikey?'dikey':''}">${['cephe','salon','yatak','kus'].filter(a=>g[a]).map(a=>`<img src="${g[a]}">`).join('')}</div>
+    <div class="cap">${cap}</div>
+    <div class="act"><span class="cnt">Görseller: ${Object.keys(g).length} · Film: ${k.film?'38 sn':'—'}</span>
+      <button class="btn yay" onclick="this.textContent='✓ Taslak kaydedildi · onay bekliyor';this.classList.add('ok');this.disabled=true">${pl.yayin}</button></div></div>`;
 }
 
 function kart(k,i,goster){
@@ -163,8 +206,8 @@ function kart(k,i,goster){
     :`<div><small>İNŞAAT MALİYETİ</small><b>${tl(k.maliyet)}</b></div>
       <div><small>KAT KARŞ. SAHİP/MÜT.</small><b>${kk.sahip} / ${kk.muteahhit} daire</b></div>
       <div><small>MÜTEAHHİT MARJI</small><b class="pos">${pct(kk.marj_pct)}</b></div>`;
-  const vs=villa?'':`<div class="vs"><div class="x">Satın alma (arsa ${tl(sa.arsa_tl)})<br><b class="neg">getiri ${pct(sa.getiri_pct)}</b></div>
-      <div class="o">Kat karşılığı<br><b class="pos">müteahhit kârı ${tl(kk.kar_tl)}</b></div></div>`;
+  const vs=villa?'':`<div class="vs"><div class="zarar">Satın alma (arsa ${tl(sa.arsa_tl)})<br><b class="neg">getiri ${pct(sa.getiri_pct)}</b></div>
+      <div class="kar">Kat karşılığı<br><b class="pos">müteahhit kârı ${tl(kk.kar_tl)}</b></div></div>`;
   return `<div class="card" id="kart${i}">
     <div class="img">${goster?'':'<div class="sk">ARCHAI ÇİZİYOR…</div>'}
       <img src="${g.cephe||''}" style="opacity:${goster?1:0}" onclick="buyut(this.src)">
@@ -175,8 +218,8 @@ function kart(k,i,goster){
       ${k.cekme?`<div class="note">Çekme: ${esc(k.cekme)}</div>`:''}
       <div class="row">
         <button class="btn gr fb" style="${goster&&k.film?'':'display:none'}" onclick="film(${i})">▶ Tanıtım filmi</button>
-        <a class="btn cy" target="_blank" href="${k.gezinti_3d}">◉ 3D'de gez</a>
-        <a class="btn cy" target="_blank" href="${k.model_3d}">⌂ 3D model</a>
+        <a class="btn cy" target="_blank" href="${k.model_3d}">⌂ 3D Model</a>
+        ${k.ilan?`<a class="btn" target="_blank" href="${k.ilan.url}" title="${esc(k.ilan.baslik)}">↗ İlan · ${k.ilan.site} #${k.ilan.no}</a>`:''}
         ${villa?'':`<button class="btn am kb" style="${goster?'':'display:none'}" onclick="kampanyaModal(${i})">✉ Kampanya</button>`}
       </div>
       <div class="row"><a class="btn" href="${f.teklif_docx}">Teklif</a><a class="btn" target="_blank" href="${f.cizimler_pdf}">Paftalar</a>
@@ -198,9 +241,9 @@ function say(id,hedef,ms=1500,fmt=v=>v){const e=$(id),t=performance.now();(funct
 
 async function senaryo(){
   const semt=$('#semt').value||'Kartal', A=D.kartlar[1], B=D.kartlar[2];
-  $('#go').disabled=true;$('#go').textContent='MANUS ÇALIŞIYOR…';t0=Date.now();
+  $('#go').disabled=true;$('#semt').disabled=true;$('#go').textContent='MANUS ÇALIŞIYOR…';t0=Date.now();
   $('#gchip').textContent='Manus: running';$('#gchip').className='chip run';
-  st(1,'act');msg(`Görev alındı: <b>${esc(semt)}</b> için satılık konut imarlı arsalar taranıyor. Telefon ve satıcı bilgisi toplanmayacak.`);
+  st(1,'act');msg(`Görev alındı: <b>${esc(semt)}</b> ve çevresinde satılık konut imarlı arsalar taranıyor. Telefon ve satıcı bilgisi toplanmayacak.`);
   await wait(2600);
   msg(`Apify <b>clearpath/sahibinden-real-estate</b>: <b>40 arsa ilanı</b> + bölge fiyatı için <b>20 sıfır daire</b> ilanı toplandı.`);say('#k1',60);
   await wait(2600);
@@ -217,6 +260,8 @@ async function senaryo(){
   msg(`<b>karlilik</b>: 8 arsanın tamamında satın alma senaryosu <b class="neg">zararda</b> (ör. 312 m²: ${pct(A.satin_alma.getiri_pct)}). `+
       `<b>kat_karsiligi</b> öne çıkarıldı → 312 m²: ${A.kat_karsiligi.sahip}/${A.kat_karsiligi.muteahhit} daire, müteahhit marjı <b class="pos">${pct(A.kat_karsiligi.marj_pct)}</b>.`);
   $('#k3').textContent=pct(A.kat_karsiligi.marj_pct);st(2,'done');
+  msg(`Kaynak ilanlar: <a href="${A.ilan.url}" target="_blank">${A.ilan.site} #${A.ilan.no}</a> (312 m², ${tl(A.satin_alma.arsa_tl)}) · `+
+      `<a href="${B.ilan.url}" target="_blank">${B.ilan.site} #${B.ilan.no}</a> (224 m², ${tl(B.satin_alma.arsa_tl)}).`);
   await wait(2800);
   st(3,'act');msg(`fal <b>render_cephe</b>: ArchAI cephe çizimlerinden fotogerçekçi görseller üretiliyor…`);
   await wait(2200);renderGoster(1);$('#k4').textContent='3 · 0';
@@ -256,8 +301,8 @@ function rapor(){
   <p>202 m² aday <code>uygun:false</code> döndü (çekme sonrası yapılaşma alanı yetersiz). Küçük parsellerde çekme 5/3/3 → 3/2/2 kademeli denendi ve raporlandı.</p>
   <h2>4 · İŞ MODELİ</h2>
   <p>Sekiz arsanın <b>tamamında satın alma zararda</b>. Doğru model <b>kat karşılığı</b>. Arsa sahibine gerçek pay ayrılan teklif:</p>
-  <table><tr><th>Arsa</th><th>Paylaşım (sahip / müteahhit)</th><th class="num">Müteahhit kârı</th><th class="num">Müteahhit marjı</th></tr>
-  ${[A,B].map(k=>`<tr class="hl"><td>${esc(k.baslik)}</td><td>${k.kat_karsiligi.sahip} / ${k.kat_karsiligi.muteahhit} daire</td>
+  <table><tr><th>Arsa</th><th>Kaynak ilan</th><th>Paylaşım (sahip / müteahhit)</th><th class="num">Müteahhit kârı</th><th class="num">Müteahhit marjı</th></tr>
+  ${[A,B].map(k=>`<tr class="hl"><td>${esc(k.baslik)}</td><td><a href="${k.ilan.url}" target="_blank">${k.ilan.site} #${k.ilan.no}</a></td><td>${k.kat_karsiligi.sahip} / ${k.kat_karsiligi.muteahhit} daire</td>
     <td class="num">${tl(k.kat_karsiligi.kar_tl)}</td><td class="num pos">${pct(k.kat_karsiligi.marj_pct)}</td></tr>`).join('')}</table>
   <h2>5 · GÖRSEL, 3D VE KAMPANYA</h2>
   <ul><li>Her arsa için fal <b>fotogerçekçi cephe</b> + salon, yatak odası ve kuşbakışı kareleri.</li>
@@ -280,6 +325,7 @@ function rapor(){
 }
 
 (async()=>{
+  $('#semt').innerHTML=SEMT_L.map(x=>`<option>${x}</option>`).join('');
   D=await (await fetch('/demo/demo.json')).json();
   $('#portfoy').innerHTML=kart(D.kartlar[0],0,true);
   $('#go').onclick=senaryo; $('#repbtn').onclick=rapor;
