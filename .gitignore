@@ -5,3 +5,6 @@ logs/
 demo/assets/
 teslim/*.webm
 teslim/*.mp4
+teslim/kareler/
+teslim/kareler.txt
+teslim/*.mp3
