@@ -719,6 +719,8 @@ function initWalk(){
   cv.addEventListener('mousedown',e=>{if(WK.on&&!document.pointerLockElement&&!IN.active())WK.drag=[e.clientX,e.clientY];});
   document.addEventListener('mouseup',()=>WK.drag=null);
   const typing=()=>['INPUT','SELECT','TEXTAREA'].includes(document.activeElement?.tagName);
+  // tur modu: ilk kullanıcı girdisinde durur, normal yürüme başlar
+  ['keydown','pointerdown','touchstart','wheel'].forEach(ev=>document.addEventListener(ev,()=>{if(WK.tour){WK.tour=false;document.getElementById('serbest')?.remove();}},{capture:true}));
   document.addEventListener('keydown',e=>{if(!WK.on||typing())return;
     if(e.code==='Escape'&&!document.pointerLockElement){if(!IN.active())exitWalk();return;}
     if(e.code==='KeyE'||e.code==='PageUp')changeLevel(1); if(e.code==='KeyQ'||e.code==='PageDown')changeLevel(-1);
