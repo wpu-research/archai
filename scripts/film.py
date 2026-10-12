@@ -47,10 +47,10 @@ async def main(pid: str, dis: Path, salon: Path):
     salon_f, yatak_f, kus_f = await asyncio.gather(
         foto(data_uri(salon), "Turn this empty 3D room into a photorealistic, fully furnished modern living room with an "
              "open kitchen: sofa, rug, coffee table, plants, warm wood floor, kitchen counter on the side. Keep the window "
-             "position and room proportions. Bright natural daylight, interior design photography, no text."),
+             "position and room proportions. Through the window: a realistic Istanbul city view with trees and buildings, not a flat field. Bright natural daylight, interior design photography, no text."),
         foto(data_uri(salon), "Turn this empty 3D room into a photorealistic, cozy furnished modern bedroom: double bed with "
              "linen bedding, nightstands, soft lamp, wardrobe, warm wood floor. Keep the window position and room "
-             "proportions. Soft morning light, interior design photography, no text."),
+             "proportions. Through the window: a realistic Istanbul city view with trees, not a flat field. Soft morning light, interior design photography, no text."),
         foto(data_uri(dis), "Turn this 3D massing model into a photorealistic aerial photo of the same 4-storey apartment "
              "building in an Istanbul neighbourhood, keep the shape, floor count and window layout. The facade must be warm light-beige plaster, not white. " + STIL),
     )
