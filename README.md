@@ -1,5 +1,8 @@
 # ArchAI
 
+> **Hackathon (12 Ekim 2026):** [ArchAI Growth Engine](growth_engine/README.md) — Manus × Apify × fal ile ArchAI'yi
+> kendi kendini pazarlayan bir satış motoruna çevirdik. Bugünkü kod: `growth_engine/` ve bu daldaki ArchAI commit'leri.
+
 Arazi ve imar bilgisi (ya da sadece m²) veya mevcut bir DXF plandan:
 **plan → teknik çizimler → metraj → maliyet / fiyat ayarlama → teknik şartname → teklif → 3D / AI video.**
 

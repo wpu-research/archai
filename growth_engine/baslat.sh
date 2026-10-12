@@ -7,7 +7,7 @@ LOG=./logs; mkdir -p "$LOG"
 CF=${CLOUDFLARED:-$HOME/.local/bin/cloudflared}
 
 if ! curl -s -m 2 http://127.0.0.1:8000/api/settings >/dev/null; then
-  (cd ../ArchAI && nohup uv run uvicorn webapp.app:app --host 127.0.0.1 --port 8000 >"$OLDPWD/$LOG/archai.log" 2>&1 &)
+  (cd .. && nohup uv run uvicorn webapp.app:app --host 127.0.0.1 --port 8000 >"$OLDPWD/$LOG/archai.log" 2>&1 &)
   echo "ArchAI başlatılıyor…"; sleep 6
 fi
 
