@@ -1,0 +1,34 @@
+[Script Info]
+ScriptType: v4.00+
+PlayResX: 1920
+PlayResY: 1080
+
+[V4+ Styles]
+Format: Name, Fontname, Fontsize, PrimaryColour, SecondaryColour, OutlineColour, BackColour, Bold, Italic, Underline, StrikeOut, ScaleX, ScaleY, Spacing, Angle, BorderStyle, Outline, Shadow, Alignment, MarginL, MarginR, MarginV, Encoding
+Style: Alt,DejaVu Sans,38,&H00FFFFFF,&H00FFFFFF,&H00000000,&H9E0B1624,1,0,0,0,100,100,0,0,3,13,0,2,140,140,70,1
+Style: Ust,DejaVu Sans,38,&H00FFFFFF,&H00FFFFFF,&H00000000,&H9E0B1624,1,0,0,0,100,100,0,0,3,13,0,2,140,140,255,1
+
+[Events]
+Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
+Dialogue: 0,0:00:04.30,0:00:08.36,Ust,,0,0,0,,{\fad(150,200)}ArchAI. Arsadan teklife, dakikalar içinde.\N{\fs26\b0\c&HD8E9F3&}ArchAI. From land to quote, in minutes.
+Dialogue: 0,0:00:08.50,0:00:15.02,Ust,,0,0,0,,{\fad(150,200)}Sıfırdan başlıyoruz: parsel, imar durumu ve daire programı. ArchAI binayı kendisi kuruyor.\N{\fs26\b0\c&HD8E9F3&}Start from scratch: plot, zoning and unit mix. ArchAI designs the building itself.
+Dialogue: 0,0:00:17.80,0:00:20.79,Ust,,0,0,0,,{\fad(150,200)}Paftalar otomatik: plan, kesit, görünüş.\N{\fs26\b0\c&HD8E9F3&}Drawings are automatic: plans, sections, elevations.
+Dialogue: 0,0:00:22.50,0:00:28.05,Ust,,0,0,0,,{\fad(150,200)}Metraj ve maliyet kalem kalem hesaplanıyor, her değişiklikte anında güncelleniyor.\N{\fs26\b0\c&HD8E9F3&}Quantities and costs are computed item by item and update instantly.
+Dialogue: 0,0:00:31.70,0:00:37.43,Ust,,0,0,0,,{\fad(150,200)}Teklif mektubu, teknik şartname ve formüllü metraj tablosu, firma bilgisiyle hazır.\N{\fs26\b0\c&HD8E9F3&}Quote letter, specifications and a formula-driven bill of quantities — branded and ready.
+Dialogue: 0,0:00:41.00,0:00:46.50,Ust,,0,0,0,,{\fad(150,200)}Binayı her açıdan inceleyin: tel kafes, X-ray, katı ya da gerçekçi görünüm.\N{\fs26\b0\c&HD8E9F3&}Inspect the building from every angle: wireframe, X-ray, solid or realistic.
+Dialogue: 0,0:00:50.20,0:00:54.16,Ust,,0,0,0,,{\fad(150,200)}İç mekân düzenleyiciyle tek tıkla döşeyin, dekor ekleyin.\N{\fs26\b0\c&HD8E9F3&}Furnish and decorate with one click in the interior editor.
+Dialogue: 0,0:00:59.40,0:01:06.47,Ust,,0,0,0,,{\fad(150,200)}Zemin ve boya değişince metraj anında güncelleniyor. Bölme duvar yıkılır, taşıyıcı duvar korunur.\N{\fs26\b0\c&HD8E9F3&}Change floors and paint, quantities follow. Remove partitions — load-bearing walls stay.
+Dialogue: 0,0:01:08.60,0:01:16.79,Ust,,0,0,0,,{\fad(150,200)}Binanın içinde gezin: kapıları açın, odaları dolaşın. Süpürgelik, kapı kanatları, pencereler; hepsi modelde.\N{\fs26\b0\c&HD8E9F3&}Walk inside: open doors, tour the rooms. Skirting, door leaves, windows — all in the model.
+Dialogue: 0,0:01:27.00,0:01:29.42,Ust,,0,0,0,,{\fad(150,200)}Gün ışığı ve gece aydınlatması.\N{\fs26\b0\c&HD8E9F3&}Daylight and night lighting.
+Dialogue: 0,0:01:31.70,0:01:37.56,Ust,,0,0,0,,{\fad(150,200)}Ve tek tuşla gerçek render: Blender Cycles ile dış cephe, salon ve yatak odası.\N{\fs26\b0\c&HD8E9F3&}And one-click photoreal renders with Blender Cycles: facade, living room, bedroom.
+Dialogue: 0,0:01:45.50,0:01:49.74,Ust,,0,0,0,,{\fad(150,200)}Elinizde sadece plan resmi mi var? ArchAI onu da tanıyor.\N{\fs26\b0\c&HD8E9F3&}Only have a floor-plan image? ArchAI reads it too.
+Dialogue: 0,0:01:50.30,0:01:53.13,Ust,,0,0,0,,{\fad(150,200)}Arsadan gerçek render'a, tek akışta.\N{\fs26\b0\c&HD8E9F3&}From land to photoreal render, in one flow.
+Dialogue: 0,0:02:00.01,0:02:02.06,Alt,,0,0,0,,{\fad(150,200)}ArchAI Growth Console.\N{\fs26\b0\c&HD8E9F3&}ArchAI Growth Console.
+Dialogue: 0,0:02:04.11,0:02:10.99,Alt,,0,0,0,,{\fad(150,200)}Semti seçiyoruz. Manus, Apify ile sahibinden'den kırk arsa ve yirmi sıfır daire ilanı topluyor.\N{\fs26\b0\c&HD8E9F3&}Pick a district. Manus uses Apify to collect 40 plots and 20 new apartments from sahibinden.
+Dialogue: 0,0:02:13.91,0:02:22.75,Alt,,0,0,0,,{\fad(150,200)}Otuz bir ilan imar ve tapu kurallarıyla eleniyor. ArchAI kalan arsalar için proje, metraj, maliyet ve teklif üretiyor.\N{\fs26\b0\c&HD8E9F3&}31 listings are filtered out. ArchAI designs, quantifies, costs and quotes the rest.
+Dialogue: 0,0:02:24.41,0:02:27.59,Alt,,0,0,0,,{\fad(150,200)}Satın alırsan zarar, kat karşılığıyla kâr.\N{\fs26\b0\c&HD8E9F3&}Buying loses money; land-for-flats profits.
+Dialogue: 0,0:02:28.31,0:02:37.39,Alt,,0,0,0,,{\fad(150,200)}Bu bina bu sabah yoktu. Kaynak gerçek bir sahibinden ilanı. fal, ArchAI projesinden fotogerçekçi bir tanıtım filmi üretti.\N{\fs26\b0\c&HD8E9F3&}This building didn't exist this morning. Source: a real listing. fal turned the project into a photoreal film.
+Dialogue: 0,0:02:42.11,0:02:48.63,Alt,,0,0,0,,{\fad(150,200)}Manus müteahhide ve arsa sahibine teklif, sosyal medyaya gönderi hazırlıyor. Onaysız yayın yok.\N{\fs26\b0\c&HD8E9F3&}Manus drafts offers and social posts. Nothing goes out without approval.
+Dialogue: 0,0:02:49.71,0:02:51.71,Alt,,0,0,0,,{\fad(150,200)}Günler yerine dakikalar.\N{\fs26\b0\c&HD8E9F3&}Minutes instead of days.
+Dialogue: 0,0:02:52.81,0:02:54.97,Alt,,0,0,0,,{\fad(150,200)}Ve projenin 3D modeli.\N{\fs26\b0\c&HD8E9F3&}And the project's 3D model.
+Dialogue: 0,0:02:57.31,0:03:03.88,Alt,,0,0,0,,{\fad(150,200)}Müteahhit binanın içinde yürüyor, eşya ekliyor. ArchAI; Manus, Apify ve fal ile.\N{\fs26\b0\c&HD8E9F3&}Walk the building, add furniture. ArchAI with Manus, Apify and fal.

@@ -8,3 +8,6 @@ teslim/*.mp4
 teslim/kareler/
 teslim/kareler.txt
 teslim/*.mp3
+teslim/ses/
+teslim/_*.png
+teslim/_p2_temiz.mp4
