@@ -10,6 +10,8 @@ import hashlib
 import hmac
 import os
 import io
+import json
+import time
 import re
 import statistics
 from pathlib import Path
@@ -54,6 +56,20 @@ mcp = MCPServer(
         "dönen 'gorunus_png' linkini görüntüden görüntüye bir modele (ör. fal.ai) ver."
     ),
 )
+
+
+KAYIT = Path(__file__).with_name("logs") / "kampanya.json"
+
+
+def _kaydet(pid: str, alan: str, veri) -> None:
+    """Konsol için: proje başına son araç sonuçlarını yerel bir JSON'a yazar."""
+    KAYIT.parent.mkdir(exist_ok=True)
+    d = json.loads(KAYIT.read_text()) if KAYIT.exists() else {}
+    d.setdefault(pid, {})[alan] = veri
+    d[pid]["guncel"] = time.time()
+    tmp = KAYIT.with_suffix(".tmp")
+    tmp.write_text(json.dumps(d, ensure_ascii=False))
+    tmp.replace(KAYIT)
 
 
 def _sign(path: str) -> str:
@@ -122,7 +138,9 @@ async def _create(brief: dict) -> dict:
                          "(ör. ön 3, yan 2, arka 2) tanıyorsa onunla bir kez yeniden dene ve bunu raporda belirt."}
     if resp.status_code != 200:
         raise ValueError(f"ArchAI {resp.status_code}: {resp.text[:500]}")
-    return _summary(resp.json())
+    ozet = _summary(resp.json())
+    _kaydet(ozet["proje_id"], "ozet", ozet)
+    return ozet
 
 
 DaireTipi = Literal["1+1", "2+1", "3+1", "4+1"]
@@ -162,6 +180,7 @@ async def arsa_fizibilite(ad: str, cephe_m: float, derinlik_m: float, taks: floa
             sonuc["cekme_varsayimi"] = (f"ön {on} m, yan {yan} m, arka {arka} m"
                                         + ("" if (on, yan, arka) == kademeler[0] else
                                            " (5/3/3 sığmadığı için küçültüldü; imar durumu belgesiyle teyit edilmeli)"))
+            _kaydet(sonuc["proje_id"], "ozet", sonuc)
             return sonuc
     sonuc["denenen_cekmeler"] = [f"{a}/{b}/{c}" for a, b, c in kademeler]
     return sonuc
@@ -217,15 +236,18 @@ async def render_cephe(proje_id: str) -> dict:
         raise ValueError("geçersiz proje_id")
     src = f"{PUBLIC}/g/{proje_id}.png?s={_sign('g/' + proje_id)}"
     res = await _fal(FAL_IMAGE, {"prompt": RENDER_PROMPT, "image_url": src}, 120)
+    _kaydet(proje_id, "render_url", res["images"][0]["url"])
     return {"proje_id": proje_id, "render_url": res["images"][0]["url"], "kaynak_cizim": src, "model": FAL_IMAGE}
 
 
 @mcp.tool()
-async def tanitim_videosu(render_url: str) -> dict:
+async def tanitim_videosu(render_url: str, proje_id: str = "") -> dict:
     """`render_cephe` görselinden fal.ai ile 5 sn'lik yavaş kamera hareketli tanıtım videosu üretir (1-4 dk sürer)."""
     if not render_url.startswith("https://"):
         raise ValueError("render_url https olmalı")
     res = await _fal(FAL_VIDEO, {"prompt": VIDEO_PROMPT, "image_url": render_url, "duration": "5"}, 330)
+    if PID_RE.fullmatch(proje_id):
+        _kaydet(proje_id, "video_url", res["video"]["url"])
     return {"video_url": res["video"]["url"], "model": FAL_VIDEO}
 
 
@@ -267,12 +289,14 @@ async def karlilik(proje_id: str, arsa_fiyati_tl: float, satis_m2_fiyati_tl: flo
     gelir, insaat, ek = _ekonomi(p, satis_m2_fiyati_tl, ek_gider_pct)
     yatirim = arsa_fiyati_tl + insaat + ek
     kar = gelir - yatirim
-    return {"proje_id": proje_id, "satilabilir_brut_m2": round(_satilabilir_m2(p), 1),
+    sonuc = {"proje_id": proje_id, "satilabilir_brut_m2": round(_satilabilir_m2(p), 1),
             "satis_geliri_tl": round(gelir), "arsa_tl": round(arsa_fiyati_tl), "insaat_tl": round(insaat),
             "ek_gider_tl": round(ek), "toplam_yatirim_tl": round(yatirim), "kar_tl": round(kar),
             "kar_marji_pct": _pct(kar, gelir), "getiri_pct": _pct(kar, yatirim),
             "basabas_satis_m2_tl": round(yatirim / _satilabilir_m2(p)) if _satilabilir_m2(p) else None,
             "not": AVAN + " Satış fiyatı ilan ortalamasıdır; vergi ve satış süresi dahil değildir."}
+    _kaydet(proje_id, "karlilik", sonuc)
+    return sonuc
 
 
 @mcp.tool()
@@ -300,11 +324,13 @@ async def kat_karsiligi(proje_id: str, satis_m2_fiyati_tl: float, arsa_sahibi_pa
     # (1-p)·gelir·(1-h) >= maliyet  →  p <= 1 - maliyet / ((1-h)·gelir)
     ust = 1 - maliyet / ((1 - hedef_marj_pct / 100) * gelir) if gelir else 0
     onerilen = durum(max(0, min(n, int(n * ust)))) if ust > 0 else None
-    return {"proje_id": proje_id, "daire_sayisi": n, "daire_basi_deger_tl": round(gelir / n),
-            "insaat_ve_ek_gider_tl": round(maliyet), "istenen_pay": istenen,
-            "onerilen": onerilen, "hedef_marj_pct": hedef_marj_pct,
-            "uyari": None if onerilen else "bu satış fiyatında hedef marjla kat karşılığı yapılamaz",
-            "not": AVAN}
+    sonuc = {"proje_id": proje_id, "daire_sayisi": n, "daire_basi_deger_tl": round(gelir / n),
+             "insaat_ve_ek_gider_tl": round(maliyet), "istenen_pay": istenen,
+             "onerilen": onerilen, "hedef_marj_pct": hedef_marj_pct,
+             "uyari": None if onerilen else "bu satış fiyatında hedef marjla kat karşılığı yapılamaz",
+             "not": AVAN}
+    _kaydet(proje_id, "kat_karsiligi", sonuc)
+    return sonuc
 
 
 app = mcp.streamable_http_app(
@@ -455,4 +481,6 @@ class BearerAuth:
 
 
 if __name__ == "__main__":
+    import console
+    console.kur(app)
     uvicorn.run(BearerAuth(app), host="127.0.0.1", port=int(os.environ.get("PORT", 8765)))
