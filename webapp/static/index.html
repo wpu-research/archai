@@ -8,7 +8,7 @@
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 34 34'%3E%3Cpath d='M17 3 30 10.5v13L17 31 4 23.5v-13Z' fill='%2304070c' stroke='%233ee8ff' stroke-width='2'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
-<script type="importmap">{"imports":{"three":"https://cdn.jsdelivr.net/npm/three@0.169.0/build/three.module.js","three/addons/":"https://cdn.jsdelivr.net/npm/three@0.169.0/examples/jsm/"}}</script>
+<script type="importmap">{"imports":{"three":"./vendor/three/three.module.js","three/addons/":"./vendor/three/addons/"}}</script>
 <link rel="stylesheet" href="designs.css">
 <style>
 :root{
@@ -990,7 +990,8 @@ const afterLoad=async()=>{
   if(vmQ)$(`[data-vm="${CSS.escape(vmQ)}"]`)?.click();
   if(Q_.get('lv')){$('#lv').value=Q_.get('lv');applyLevels();fitVisible();}
   if(Q_.get('furnish'))$('[data-vm="real"]').click();
-  if(walkQ){await new Promise(r=>setTimeout(r,800));enterWalk();if(walkQ.includes(','))[WK.px,WK.py,WK.yaw]=walkQ.split(',').map(Number);}
+  if(walkQ){await new Promise(r=>setTimeout(r,800));enterWalk();if(walkQ.includes(','))[WK.px,WK.py,WK.yaw]=walkQ.split(',').map(Number);
+    else if(walkQ==='salon'){const r=WK.rooms.find(r=>/Salon/.test(r.name));if(r){[WK.px,WK.py]=centroid(r.points);WK.room=undefined;collide();}}}
   if(Q_.get('furnish')){await new Promise(r=>setTimeout(r,1500));await IN.autoFurnish();}
   if(Q_.get('edit'))IN.openPanel(true);};
 const safeAfter=()=>afterLoad().catch(e=>console.warn('başlangıç parametresi uygulanamadı',e));
