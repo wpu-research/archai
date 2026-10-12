@@ -78,7 +78,7 @@ async def main():
                     "gorseller": gorseller, "film": f"/demo/assets/{kisa}_film.mp4" if film.exists() else None,
                     "model_3d": S._view_link(pid).replace(S.PUBLIC, YEREL),
                     "gezinti_3d": S._view_link(pid).replace(S.PUBLIC, YEREL) +
-                    ("&walk=Salon&tour=1" if pr["tur"] == "villa" else "&furnish=1&walk=salon&tour=1"),
+                    ("&walk=Salon&tour=1" if pr["tur"] == "villa" else "&walk=salon&tour=1"),
                     "dosyalar": dosyalar}
             if pr["tur"] == "arsa":
                 kr = await S.karlilik(pid, pr["arsa_tl"], SATIS_M2)

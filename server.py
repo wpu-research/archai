@@ -119,7 +119,7 @@ def _summary(p: dict) -> dict:
         "gorunus_png": f"{PUBLIC}/g/{p['id']}.png?s={_sign('g/' + p['id'])}",
         "pafta_png": sheets,
         "model_3d_link": _view_link(p["id"]),  # tarayıcıda döndürülebilir 3D bina
-        "gezinti_3d_link": _view_link(p["id"]) + "&furnish=1&walk=salon&tour=1",  # döşenmiş salonda birinci şahıs gezinti
+        "gezinti_3d_link": _view_link(p["id"]) + "&walk=salon&tour=1",  # döşenmiş salonda birinci şahıs gezinti
         "not": AVAN,
     }
 
@@ -433,7 +433,10 @@ async def viewer(request: Request):
         html = (await cl.get(f"{ARCHAI}/index.html")).text
     if not ok:
         return Response(status_code=404)
-    html = html.replace("</head>", VIEWER_HEAD.format(pid=pid) + "</head>", 1)
+    head = VIEWER_HEAD.format(pid=pid)
+    if _yerel_istek(request):  # bu makineden açıldıysa iç mekân düzenleyici açık
+        head = head.replace("#edit,#wedit,", "", 1)
+    html = html.replace("</head>", head + "</head>", 1)
     html = html.replace("</body>", VIEWER_BODY + "</body>", 1)
     r = Response(html, media_type="text/html")
     r.set_cookie(VCOOKIE, f"{pid}.{sig}", max_age=7 * 86400, httponly=True, secure=True, samesite="lax", path="/")
@@ -447,8 +450,17 @@ async def viewer_static(request: Request):
     return await _proxy(path)
 
 
+def _yerel_istek(request: Request) -> bool:
+    """Tünelden değil, doğrudan bu makineden gelen istek (cloudflared cf-connecting-ip ekler)."""
+    return request.client.host in ("127.0.0.1", "::1") and "cf-connecting-ip" not in request.headers
+
+
 async def viewer_api(request: Request):
     pid, path = _vpid(request), request.url.path
+    if request.method == "PUT" and pid and path == f"/api/projects/{pid}/interior" and _yerel_istek(request):
+        async with httpx.AsyncClient(timeout=30) as cl:
+            r = await cl.put(f"{ARCHAI}{path}", content=await request.body(), headers={"content-type": "application/json"})
+        return Response(r.content, status_code=r.status_code, media_type="application/json")
     if request.method != "GET":
         return JSONResponse({"detail": "salt-okunur görünüm"}, status_code=403)
     if path == "/api/settings":

@@ -47,7 +47,7 @@
    },
    "film": "/demo/assets/p1_film.mp4",
    "model_3d": "http://127.0.0.1:8765/v/20261012-102742-kartal-ada-12412-parsel-28-312-d725/?s=3a86878bfe3f6043f38223e931116ff2&vm=real",
-   "gezinti_3d": "http://127.0.0.1:8765/v/20261012-102742-kartal-ada-12412-parsel-28-312-d725/?s=3a86878bfe3f6043f38223e931116ff2&vm=real&furnish=1&walk=salon&tour=1",
+   "gezinti_3d": "http://127.0.0.1:8765/v/20261012-102742-kartal-ada-12412-parsel-28-312-d725/?s=3a86878bfe3f6043f38223e931116ff2&vm=real&walk=salon&tour=1",
    "dosyalar": {
     "teklif_docx": "http://127.0.0.1:8765/f/20261012-102742-kartal-ada-12412-parsel-28-312-d725/teklif.docx?s=3ff9d4a715e436e0514661a34db6ae15",
     "metraj_maliyet_xlsx": "http://127.0.0.1:8765/f/20261012-102742-kartal-ada-12412-parsel-28-312-d725/metraj_maliyet.xlsx?s=c298ca2748c17d55f3fdc04aff0b5ac4",
@@ -85,7 +85,7 @@
    },
    "film": "/demo/assets/p2_film.mp4",
    "model_3d": "http://127.0.0.1:8765/v/20261012-102738-kartal-ada-10891-parsel-10-224-92e6/?s=fa8b90eec6e8a0e8a81f949754cc000c&vm=real",
-   "gezinti_3d": "http://127.0.0.1:8765/v/20261012-102738-kartal-ada-10891-parsel-10-224-92e6/?s=fa8b90eec6e8a0e8a81f949754cc000c&vm=real&furnish=1&walk=salon&tour=1",
+   "gezinti_3d": "http://127.0.0.1:8765/v/20261012-102738-kartal-ada-10891-parsel-10-224-92e6/?s=fa8b90eec6e8a0e8a81f949754cc000c&vm=real&walk=salon&tour=1",
    "dosyalar": {
     "teklif_docx": "http://127.0.0.1:8765/f/20261012-102738-kartal-ada-10891-parsel-10-224-92e6/teklif.docx?s=8e9b772b6dca0dd2a149e28c31bb1945",
     "metraj_maliyet_xlsx": "http://127.0.0.1:8765/f/20261012-102738-kartal-ada-10891-parsel-10-224-92e6/metraj_maliyet.xlsx?s=1774706e5a9018cb2be715ca5e5ce200",
