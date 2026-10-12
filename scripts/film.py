@@ -52,7 +52,7 @@ async def main(pid: str, dis: Path, salon: Path):
              "linen bedding, nightstands, soft lamp, wardrobe, warm wood floor. Keep the window position and room "
              "proportions. Soft morning light, interior design photography, no text."),
         foto(data_uri(dis), "Turn this 3D massing model into a photorealistic aerial photo of the same 4-storey apartment "
-             "building in an Istanbul neighbourhood, keep the shape, floor count and window layout. " + STIL),
+             "building in an Istanbul neighbourhood, keep the shape, floor count and window layout. The facade must be warm light-beige plaster, not white. " + STIL),
     )
     print("kareler:", json.dumps({"cephe": cephe, "salon": salon_f, "yatak": yatak_f, "kus": kus_f}), flush=True)
 
@@ -72,8 +72,10 @@ async def main(pid: str, dis: Path, salon: Path):
     f = ("[v0][v1]xfade=transition=fade:duration=0.8:offset=9.2[a];"
          "[a][v2]xfade=transition=fade:duration=0.8:offset=18.4[b];"
          "[b][v3]xfade=transition=fade:duration=0.8:offset=27.6,format=yuv420p[v]")
-    norm = ";".join(f"[{i}:v]scale=1280:720:force_original_aspect_ratio=decrease,pad=1280:720:(ow-iw)/2:(oh-ih)/2,"
-                    f"fps=24,settb=AVTB,setpts=PTS-STARTPTS[v{i}]" for i in range(4))
+    # dikey/kare sahnelerde siyah bant yerine bulanık arka plan
+    norm = ";".join(f"[{i}:v]split[f{i}][g{i}];[g{i}]scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,"
+                    f"gblur=sigma=30,eq=brightness=-0.08[bg{i}];[f{i}]scale=1280:720:force_original_aspect_ratio=decrease[fg{i}];"
+                    f"[bg{i}][fg{i}]overlay=(W-w)/2:(H-h)/2,fps=24,settb=AVTB,setpts=PTS-STARTPTS[v{i}]" for i in range(4))
     hedef = KOK / "logs" / f"film_{pid}.mp4"
     subprocess.run(["ffmpeg", "-v", "error", "-y", *girdi, "-filter_complex", norm + ";" + f, "-map", "[v]",
                     "-c:v", "libx264", "-crf", "20", "-movflags", "+faststart", str(hedef)], check=True)
@@ -81,5 +83,23 @@ async def main(pid: str, dis: Path, salon: Path):
     print("FİLM:", hedef, flush=True)
 
 
+def birlestir(pid: str, klipler: list[Path]) -> Path:
+    girdi = sum([["-i", str(k)] for k in klipler], [])
+    norm = ";".join(f"[{i}:v]split[f{i}][g{i}];[g{i}]scale=1280:720:force_original_aspect_ratio=increase,crop=1280:720,"
+                    f"gblur=sigma=30,eq=brightness=-0.08[bg{i}];[f{i}]scale=1280:720:force_original_aspect_ratio=decrease[fg{i}];"
+                    f"[bg{i}][fg{i}]overlay=(W-w)/2:(H-h)/2,fps=24,settb=AVTB,setpts=PTS-STARTPTS[v{i}]" for i in range(4))
+    f = ("[v0][v1]xfade=transition=fade:duration=0.8:offset=9.2[a];"
+         "[a][v2]xfade=transition=fade:duration=0.8:offset=18.4[b];"
+         "[b][v3]xfade=transition=fade:duration=0.8:offset=27.6,format=yuv420p[v]")
+    hedef = KOK / "logs" / f"film_{pid}.mp4"
+    subprocess.run(["ffmpeg", "-v", "error", "-y", *girdi, "-filter_complex", norm + ";" + f, "-map", "[v]",
+                    "-c:v", "libx264", "-crf", "20", "-movflags", "+faststart", str(hedef)], check=True)
+    return hedef
+
+
 if __name__ == "__main__":
-    asyncio.run(main(sys.argv[1], Path(sys.argv[2]), Path(sys.argv[3])))
+    if sys.argv[1] == "--birlestir":  # sahneler hazırsa yalnız birleştir
+        d = KOK / "logs" / f"film_{sys.argv[2]}"
+        print(birlestir(sys.argv[2], sorted(d.glob("[1-4]_*.mp4"))))
+    else:
+        asyncio.run(main(sys.argv[1], Path(sys.argv[2]), Path(sys.argv[3])))
