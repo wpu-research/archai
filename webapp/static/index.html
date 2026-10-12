@@ -674,6 +674,7 @@ function walkStep(dt,now){
   const k=WK.keys; let f=0,r=0;
   if(k.KeyW||k.ArrowUp)f+=1; if(k.KeyS||k.ArrowDown)f-=1; if(k.KeyD||k.ArrowRight)r+=1; if(k.KeyA||k.ArrowLeft)r-=1;
   if(WK.joy){f-=WK.joy.y;r+=WK.joy.x;}
+  if(WK.tour){f=0;r=0;WK.yaw+=dt*.12;WK.pitch=-.06;}  // ?tour=1: yerinde yavaş 360° dönüş, hareket yok
   const len=Math.hypot(f,r); if(len>1){f/=len;r/=len;}
   const sp=(k.ShiftLeft||k.ShiftRight)?RUN:WALK, sy=Math.sin(WK.yaw), cy=Math.cos(WK.yaw);
   // plan ekseninde ileri = (-sin yaw, +cos yaw), sağ = (cos yaw, sin yaw)
@@ -991,7 +992,8 @@ const afterLoad=async()=>{
   if(Q_.get('lv')){$('#lv').value=Q_.get('lv');applyLevels();fitVisible();}
   if(Q_.get('furnish'))$('[data-vm="real"]').click();
   if(walkQ){await new Promise(r=>setTimeout(r,800));enterWalk();if(walkQ.includes(','))[WK.px,WK.py,WK.yaw]=walkQ.split(',').map(Number);
-    else if(walkQ==='salon'){const r=WK.rooms.find(r=>/Salon/.test(r.name));if(r){[WK.px,WK.py]=centroid(r.points);WK.room=undefined;collide();}}}
+    else if(walkQ!=='1'){const re_=new RegExp(walkQ.replace(/[^\wçğıöşüÇĞİÖŞÜ ]/g,''),'i'),r=WK.rooms.find(r=>re_.test(r.name));if(r){[WK.px,WK.py]=centroid(r.points);WK.room=undefined;collide();}}
+    if(Q_.get('tour'))WK.tour=true;}
   if(Q_.get('furnish')){await new Promise(r=>setTimeout(r,1500));await IN.autoFurnish();}
   if(Q_.get('edit'))IN.openPanel(true);};
 const safeAfter=()=>afterLoad().catch(e=>console.warn('başlangıç parametresi uygulanamadı',e));
