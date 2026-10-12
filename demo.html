@@ -123,6 +123,11 @@ background:linear-gradient(135deg,#11c6e6,#2df0b0);display:grid;place-items:cent
   <h3 id="vtitle">TANITIM FİLMİ</h3><video id="vplayer" controls playsinline></video></div></div>
 <div class="modal" id="imodal"><div class="mbox"><button class="x" onclick="kapat('imodal')">✕</button><img id="iimg" style="width:100%;border-radius:10px"></div></div>
 <div class="modal" id="kmodal"><div class="mbox" id="kbox"></div></div>
+<div class="modal" id="pmodal"><div class="mbox" style="max-width:96vw;width:96vw;height:92vh;max-height:92vh;padding:0;overflow:hidden">
+  <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line)"><b id="ptitle" style="font-size:14px"></b>
+  <span class="note">Özet · Çizimler · Metraj · Maliyet · Belgeler · Render</span><span class="sp"></span>
+  <button class="btn" onclick="kapat('pmodal')">✕ Kapat</button></div>
+  <iframe id="pframe" style="width:100%;height:calc(92vh - 52px);border:0;background:#050b14" allow="fullscreen; pointer-lock"></iframe></div></div>
 <div class="modal" id="rmodal"><div class="mbox rep" id="rbox"></div></div>
 
 <script>
@@ -135,8 +140,9 @@ const SEMT_L=['Kartal','Pendik','Maltepe','Ataşehir','Ümraniye','Üsküdar','K
 const HIZ=+(new URLSearchParams(location.search).get('hiz')||1);
 const wait=ms=>new Promise(r=>setTimeout(r,ms/HIZ));
 let D=null, t0=0;
-function kapat(id){$('#'+id).classList.remove('on'); if(id==='vmodal')$('#vplayer').pause();}
-document.addEventListener('keydown',e=>{if(e.key==='Escape')['vmodal','imodal','kmodal','rmodal'].forEach(kapat)});
+function kapat(id){$('#'+id).classList.remove('on'); if(id==='vmodal')$('#vplayer').pause(); if(id==='pmodal')$('#pframe').src='about:blank';}
+function detay(i){const k=D.kartlar[i];$('#ptitle').textContent=k.baslik;$('#pframe').src=k.model_3d;$('#pmodal').classList.add('on');}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')['vmodal','imodal','kmodal','rmodal','pmodal'].forEach(kapat)});
 function film(i){const k=D.kartlar[i];$('#vtitle').textContent='TANITIM FİLMİ · '+k.baslik;$('#vplayer').src=k.film;$('#vmodal').classList.add('on');$('#vplayer').play();}
 function buyut(src){$('#iimg').src=src;$('#imodal').classList.add('on');}
 
@@ -210,11 +216,11 @@ function kart(k,i,goster){
       <div class="kar">Kat karşılığı<br><b class="pos">müteahhit kârı ${tl(kk.kar_tl)}</b></div></div>`;
   return `<div class="card" id="kart${i}">
     <div class="img">${goster?'':'<div class="sk">ARCHAI ÇİZİYOR…</div>'}
-      <img src="${g.cephe||''}" style="opacity:${goster?1:0}" onclick="buyut(this.src)">
+      <img src="${g.cephe||''}" style="opacity:${goster?1:0};cursor:pointer" onclick="detay(${i})" title="Projeyi aç">
       <span class="badge">${villa?'2 kat · villa · 4+2':`${k.kat} kat · ${k.daire} daire · ${k.daire_tipi}`}</span>
       <span class="badge r" style="opacity:${goster?1:0}">fal render</span></div>
     <div class="thumbs" style="${goster?'':'display:none'}">${['salon','yatak','kus'].filter(a=>g[a]).map(a=>`<img src="${g[a]}" onclick="buyut(this.src)" title="${a}">`).join('')}</div>
-    <div class="b"><h4>${esc(k.baslik)}</h4><div class="nums">${nums}</div>${vs}
+    <div class="b"><h4 style="cursor:pointer" onclick="detay(${i})" title="Projeyi aç">${esc(k.baslik)} <span class="note">↗ projeyi aç</span></h4><div class="nums">${nums}</div>${vs}
       ${k.cekme?`<div class="note">Çekme: ${esc(k.cekme)}</div>`:''}
       <div class="row">
         <button class="btn gr fb" style="${goster&&k.film?'':'display:none'}" onclick="film(${i})">▶ Tanıtım filmi</button>

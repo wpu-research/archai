@@ -434,8 +434,12 @@ async def viewer(request: Request):
     if not ok:
         return Response(status_code=404)
     head = VIEWER_HEAD.format(pid=pid)
-    if _yerel_istek(request):  # bu makineden açıldıysa iç mekân düzenleyici açık
+    yerel = _yerel_istek(request)
+    if yerel:  # bu makineden açıldıysa iç mekân düzenleyici açık
         head = head.replace("#edit,#wedit,", "", 1)
+    galeri = _galeri(pid, yerel)
+    if galeri["gorseller"]:  # 06 RENDER sekmesi: fal görselleri + tanıtım filmi
+        head = head.replace('#tabs [data-t="3d"],', "", 1) + FAL_SEKME.replace("__GALERI__", json.dumps(galeri))
     html = html.replace("</head>", head + "</head>", 1)
     html = html.replace("</body>", VIEWER_BODY + "</body>", 1)
     r = Response(html, media_type="text/html")
@@ -448,6 +452,34 @@ async def viewer_static(request: Request):
     if ".." in path or not STATIC_RE.fullmatch(path):
         return Response(status_code=404)
     return await _proxy(path)
+
+
+FAL_SEKME = """<style>.falgal{display:grid;grid-template-columns:repeat(2,1fr);gap:14px}.falgal img{width:100%;border-radius:12px;
+cursor:zoom-in;aspect-ratio:16/10;object-fit:cover}.falgal figure{margin:0}.falgal figcaption{font-size:11px;letter-spacing:.14em;color:#7d97ab;
+margin-top:6px}.falvid{width:100%;border-radius:12px;margin-bottom:16px;background:#000}</style>
+<script>window.FAL=__GALERI__;addEventListener('click',e=>{const b=e.target.closest('#tabs [data-t="3d"]');if(!b)return;
+setTimeout(()=>{const v=document.getElementById('view'),F=window.FAL,ad={cephe:'CEPHE',salon:'SALON',yatak:'YATAK ODASI',kus:'KUŞBAKIŞI'};
+v.innerHTML='<p class="sec-t">FAL · FOTOGERÇEKÇİ RENDER VE TANITIM FİLMİ</p>'+(F.film?'<video class="falvid" controls src="'+F.film+'"></video>':'')+
+'<div class="falgal">'+F.gorseller.map(g=>'<figure><img src="'+g.url+'" onclick="window.open(this.src)"><figcaption>'+(ad[g.ad]||g.ad)+
+' · FAL RENDER</figcaption></figure>').join('')+'</div>';},0);},true);</script>"""
+
+
+def _galeri(pid: str, yerel: bool) -> dict:
+    """RENDER sekmesi için: demo paketinden (yerel dosyalar) ya da kampanya kaydından fal görselleri."""
+    g = {"gorseller": [], "film": None}
+    dj = Path(__file__).with_name("demo") / "demo.json"
+    if yerel and dj.exists():
+        for k in json.loads(dj.read_text())["kartlar"]:
+            if k["proje_id"] == pid:
+                g["gorseller"] = [{"ad": a, "url": u} for a, u in k["gorseller"].items()]
+                g["film"] = k.get("film")
+                return g
+    k = json.loads(KAYIT.read_text()).get(pid, {}) if KAYIT.exists() else {}
+    if k.get("render_url"):
+        g["gorseller"] = [{"ad": "cephe", "url": k["render_url"]}]
+    if k.get("video_url"):
+        g["film"] = k["video_url"]
+    return g
 
 
 def _yerel_istek(request: Request) -> bool:
