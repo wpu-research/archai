@@ -26,6 +26,12 @@ Bağlı araçlar: **Apify** (ilan toplama), **ArchAI** (fizibilite, kârlılık,
    ArchAI logosu/adı. Ana sayfada 3 arsayı karşılaştıran bir tablo olsun.
 7. **Mesajlar:** Her arsa için (a) müteahhide kısa WhatsApp mesajı, (b) arsa sahibine kat karşılığı teklif mesajı yaz.
    **Gönderme**, yalnız taslak olarak sayfaya ekle.
+8. **Sosyal medya (içerik motoru):** En iyi arsa için fal videosu ve render'dan (a) Instagram Reels / LinkedIn gönderisi
+   için kısa açıklama metni + 5 hashtag, (b) 3 karelik bir carousel metni (sorun → ArchAI fizibilitesi → sonuç) hazırla.
+   Gönderiyi **paylaşma**, yalnız taslak olarak sayfaya ekle.
+9. **Ölçüm raporu:** Sonunda ana sayfaya bir "Sonuçlar" kutusu ekle: taranan ilan sayısı, elenen ve seçilen arsa sayısı,
+   üretilen kampanya sayısı (sayfa + mesaj + görsel), toplam süre (dakika), kullanılan Apify ve fal kredisi tahmini,
+   müşteri adayı başına maliyet. Yanına "Öncesi: bir arsa için mimar avanı ve maliyet tahmini ~3–5 gün" karşılaştırmasını koy.
 
 ## Kurallar
 - Tüm rakamlar "avan / ön fizibilite"dir, sayfada ve mesajlarda bunu açıkça yaz.
