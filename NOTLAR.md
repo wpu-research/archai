@@ -8,6 +8,9 @@
 - **Yer: DotsHub — Yıldız, Çırağan Cd. No:44, Beşiktaş** (sunum odaları DotsHub + Feriye binaları). Etkinlik: https://luma.com/6rsu5afk
 - 15:00 teslim kilitlenir → geliştirme süresi ~5,5 saat.
 - Ön eleme: 2 dk sunum+demo, 1 dk soru (jüri başına 7–8 takım, 1 finalist). Final (ilk 6): 3 dk + 1 dk soru.
+- **Açılış slaytları (12 Ekim):** Brief "10× Your Brand": kampanya / landing / marka sistemi, içerik motoru veya otomatik iş akışı,
+  canlı demoda öncesi/sonrası. Konumlandırma: **ArchAI'nin pazarlama ve satış motoru** (pazarlamayı otomatikleştir).
+  Jüri: ön eleme 15:15–16:00 (2 dk + 1 dk soru) · final ilk 6, 16:00–16:30 (3 dk + 1 dk) · 16:30 değerlendirme, 16:45 ödüller.
 - Kriterler (her biri %20, 1–5 puan): sorun ve değer (öncesi/sonrası) · hackathon sırasında yapılan iş + çalışan demo · Manus ve araç koordinasyonu · yarın yayına alınabilirlik · sunum.
 - Ödüller: Manus Pro 3/2/1 ay. Herkese 50 $ fal.ai kredisi.
 - Önceden yazılmış kod kuralı yazılı değil → check-in'de sor. Kriter "hackathon sırasında yapılan"ı puanlıyor: ArchAI = mevcut marka, gün içinde yapılan = pazarlama ve satış iş akışı.
