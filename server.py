@@ -5,6 +5,7 @@ ArchAI (127.0.0.1:8000) dışarı açılmaz; yalnız bu ince katman tünelle aç
 - /f/...    : imzalı dosya linkleri (fal.ai / Manus token'sız indirebilsin diye), yalnız çıktı dosyaları
 """
 
+import asyncio
 import hashlib
 import hmac
 import os
@@ -180,6 +181,52 @@ async def _get(proje_id: str) -> dict:
 async def proje_ozet(proje_id: str) -> dict:
     """Daha önce üretilmiş bir projenin özetini ve dosya linklerini döner."""
     return _summary(await _get(proje_id))
+
+
+# --- fal.ai: Manus'un fal connector'ı kapalı olsa da render/video bu araçlarla üretilir --------------
+FAL_KEY = os.environ.get("FAL_KEY", "")
+FAL_IMAGE = os.environ.get("FAL_IMAGE_MODEL") or "fal-ai/flux-pro/kontext"
+FAL_VIDEO = os.environ.get("FAL_VIDEO_MODEL") or "fal-ai/kling-video/v2.1/standard/image-to-video"
+RENDER_PROMPT = ("Turn this architectural elevation line drawing into a photorealistic photo of the same modern "
+                 "residential apartment building in Istanbul. Keep the exact window layout, floor count and proportions. "
+                 "Light warm plaster facade, anthracite window frames, small balconies, street level with sidewalk and "
+                 "trees, late afternoon sun, eye-level architectural photography, no text, no dimension lines.")
+VIDEO_PROMPT = ("Slow cinematic camera push-in towards the building facade, gentle parallax, trees moving slightly "
+                "in the breeze, warm late afternoon light, realistic, no text.")
+
+
+async def _fal(model: str, payload: dict, wait_s: int) -> dict:
+    if not FAL_KEY:
+        raise ValueError("FAL_KEY tanımlı değil")
+    h = {"Authorization": f"Key {FAL_KEY}"}
+    async with httpx.AsyncClient(timeout=60) as cl:
+        job = (await cl.post(f"https://queue.fal.run/{model}", headers=h, json=payload)).raise_for_status().json()
+        for _ in range(wait_s // 3):
+            st = (await cl.get(job["status_url"], headers=h)).json()
+            if st.get("status") == "COMPLETED":
+                return (await cl.get(job["response_url"], headers=h)).json()
+            await asyncio.sleep(3)
+    raise ValueError(f"fal {wait_s} sn içinde bitmedi (request_id {job.get('request_id')})")
+
+
+@mcp.tool()
+async def render_cephe(proje_id: str) -> dict:
+    """Projenin ön görünüş çiziminden fal.ai ile fotogerçekçi bina fotoğrafı üretir (~15-30 sn).
+    Dönen `render_url` kampanya sayfasında ve `tanitim_videosu` aracında kullanılır."""
+    if not PID_RE.fullmatch(proje_id):
+        raise ValueError("geçersiz proje_id")
+    src = f"{PUBLIC}/g/{proje_id}.png?s={_sign('g/' + proje_id)}"
+    res = await _fal(FAL_IMAGE, {"prompt": RENDER_PROMPT, "image_url": src}, 120)
+    return {"proje_id": proje_id, "render_url": res["images"][0]["url"], "kaynak_cizim": src, "model": FAL_IMAGE}
+
+
+@mcp.tool()
+async def tanitim_videosu(render_url: str) -> dict:
+    """`render_cephe` görselinden fal.ai ile 5 sn'lik yavaş kamera hareketli tanıtım videosu üretir (1-4 dk sürer)."""
+    if not render_url.startswith("https://"):
+        raise ValueError("render_url https olmalı")
+    res = await _fal(FAL_VIDEO, {"prompt": VIDEO_PROMPT, "image_url": render_url, "duration": "5"}, 330)
+    return {"video_url": res["video"]["url"], "model": FAL_VIDEO}
 
 
 @mcp.tool()
