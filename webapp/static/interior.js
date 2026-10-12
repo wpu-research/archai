@@ -1064,8 +1064,11 @@ export function createInterior(ctx) {
       if (/Salon/.test(n)) {
         const long = pick(solid), opp = edges.find(x => x.e === opposite[long.e]);
         add('kanepe_l', against(b, long.e, .5, .95));
-        add('tv_unitesi', against(b, opp.e, .5, .42));
-        add('tv', against(b, opp.e, .5, .1));
+        // TV duvarında kapı olabilir: ünite (~1,6 m) kapıdan en az ~1,4 m uzakta, ortaya en yakın yere
+        const doorsHere = doors, tvT = [.5, .35, .65, .25, .75, .18, .82].find(t => {
+          const q = against(b, opp.e, t, .42); return doorsHere.every(([dx, dy]) => Math.hypot(q.x - dx, q.y - dy) > 1.45); }) ?? .5;
+        add('tv_unitesi', against(b, opp.e, tvT, .42));
+        add('tv', against(b, opp.e, tvT, .1));
         const c = {x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2};
         add('hali', {...c, rot: against(b, long.e, .5, 1).rot}); add('modern_coffee_table_01', {...c, rot: against(b, long.e, .5, 1).rot});
         add('potted_plant_02', against(b, long.e, .08, dep('potted_plant_02')));

@@ -651,6 +651,10 @@ function enterWalk(){
   $('#vp').classList.add('walking');
   if(matchMedia('(pointer:coarse)').matches)$('#whelp').innerHTML='<b>SOL</b> YARI: YÜRÜ · <b>SAĞ</b> YARI: BAK · ▲▼ KAT';
   spawn(floorLevels().includes(V.nLv[+$('#lv').value-1])?V.nLv[+$('#lv').value-1]:L[0]);
+  // ?oda=<oda adı>: YÜRÜ'ye ilk basışta o odada başla (ör. "Kat 3/Daire 1/Salon")
+  const oq=new URLSearchParams(location.search).get('oda');
+  if(oq&&!WK.odaOk){WK.odaOk=true;const re_=new RegExp(oq.replace(/[^\wçğıöşüÇĞİÖŞÜ ./]/g,''),'i'),r=(V.elements||[]).find(e=>e.type==='room'&&re_.test(e.name));
+    if(r){if(r.level!==WK.lvl)prepLevel(r.level);[WK.px,WK.py]=centroid(r.points);WK.room=undefined;collide();}}
 }
 // fare kilidi: YÜRÜ'ye girince hemen alınır; kullanıcı ESC ile bırakınca gezinti de biter.
 // Bilerek bırakılan kilit (DÜZENLE, FOTO, çıkış) gezintiyi bitirmesin diye releaseLock() kullanılır.
@@ -994,7 +998,10 @@ const afterLoad=async()=>{
   if(Q_.get('lv')){$('#lv').value=Q_.get('lv');applyLevels();fitVisible();}
   if(Q_.get('furnish'))$('[data-vm="real"]').click();
   if(walkQ){await new Promise(r=>setTimeout(r,800));enterWalk();if(walkQ.includes(','))[WK.px,WK.py,WK.yaw]=walkQ.split(',').map(Number);
-    else if(walkQ!=='1'){const re_=new RegExp(walkQ.replace(/[^\wçğıöşüÇĞİÖŞÜ ]/g,''),'i'),r=WK.rooms.find(r=>re_.test(r.name));if(r){[WK.px,WK.py]=centroid(r.points);WK.room=undefined;collide();}}
+    else if(walkQ!=='1'){const re_=new RegExp(walkQ.replace(/[^\wçğıöşüÇĞİÖŞÜ ./]/g,''),'i');
+      // tüm katlarda ara ("3. Normal Kat/Daire 1/Salon" gibi); bulunan odanın katına geç
+      const r=(V.elements||[]).find(e=>e.type==='room'&&re_.test(e.name));
+      if(r){if(r.level!==WK.lvl)prepLevel(r.level);[WK.px,WK.py]=centroid(r.points);WK.room=undefined;collide();}}
     if(Q_.get('tour'))WK.tour=true;}
   if(Q_.get('furnish')){await new Promise(r=>setTimeout(r,1500));await IN.autoFurnish();}
   if(Q_.get('edit'))IN.openPanel(true);};
