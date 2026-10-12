@@ -7,8 +7,10 @@ Hackathon'da onu **kendi kendini pazarlayan bir satış motoruna** çevirdik: Ma
 ArchAI her arsayı projelendirir, fal görselleri ve tanıtım filmini üretir, Manus müteahhide ve arsa sahibine
 kampanyayı hazırlar.
 
-> Bu klasördeki her şey hackathon günü yazıldı: bugünün commit'leri için `git log --since=2026-10-11 --oneline`
-> ya da GitHub'da [commit listesi](https://github.com/wpu-research/archai-growth-engine/commits/main).
+> **Zaman çizelgesi (commit geçmişinde görülebilir):** 11 Ekim akşamı (23:17–00:03) hazırlık — notlar ve MCP katmanının
+> ilk hâli (fizibilite, kârlılık, kat karşılığı araçları). 12 Ekim'de (09:24'ten itibaren) geri kalan her şey: Apify
+> entegrasyonu, Growth Console, Manus API, 3D görüntüleyici, fal render/film hattı, demo ve teslim videoları.
+> `git log --since=2026-10-11 --oneline` ya da GitHub'da [commit listesi](https://github.com/wpu-research/archai-growth-engine/commits/main).
 > ArchAI motoru mevcut üründür; bugün ona yapılan değişiklikler aynı daldaki ArchAI commit'leridir.
 
 ## Akış
