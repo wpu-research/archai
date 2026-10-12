@@ -394,11 +394,11 @@ font:600 14px/1.6 system-ui;letter-spacing:.2em;text-align:center;transition:opa
 const ok=()=>{const h=document.getElementById('hname');return h&&h.textContent&&!['—','ArchAI'].includes(h.textContent.trim());};
 const iv=setInterval(()=>{if((ok()&&Date.now()-t0>(q.get('walk')?4500:2500))||Date.now()-t0>20000){clearInterval(iv);
 y.style.opacity=0;setTimeout(()=>y.remove(),700);}},250);
-if(q.get('tour')||q.get('cinema')){const w=document.getElementById('whelp');if(w)w.style.display='none';}
+if(q.get('cinema')){const w=document.getElementById('whelp');if(w)w.style.display='none';}
 if(q.get('cinema')){const st=document.createElement('style');st.textContent='header.bar,main.grid>section>.glass:not(#vp),'+
 '.hud,.whud .hud,.cross,.avan-not,.idrawer,.ihint{display:none!important}#vp{position:fixed!important;inset:0;width:100vw!important;height:100vh!important;max-height:none!important;border-radius:0!important;'+
 'z-index:40;margin:0}body{overflow:hidden}';document.head.appendChild(st);setTimeout(()=>dispatchEvent(new Event('resize')),300);}
-if(q.get('tour')&&!q.get('cinema')){const b=document.createElement('a');b.textContent='◉ Serbest gez';q.delete('tour');
+if(q.get('tour')&&!q.get('cinema')){const b=document.createElement('a');b.id='serbest';b.textContent='◉ Yürümek için W/A/S/D ya da ekrana dokun';q.delete('tour');
 b.href=location.pathname+'?'+q+location.hash;b.style.cssText='position:fixed;right:16px;bottom:44px;z-index:60;padding:10px 14px;'+
 'border-radius:10px;background:#0e2033;color:#3ee8ff;border:1px solid #1d6b80;font:13px system-ui;text-decoration:none';
 document.body.appendChild(b);}})();</script>"""
