@@ -108,6 +108,15 @@ def _summary(p: dict) -> dict:
 async def _create(brief: dict) -> dict:
     async with httpx.AsyncClient(timeout=300) as cl:
         resp = await cl.post(f"{ARCHAI}/api/projects", json=brief)
+    if resp.status_code == 422:
+        # arsa imar/çekme nedeniyle yapılaşmaya uygun değil: hata değil, Manus'un atlayacağı bir sonuç
+        try:
+            neden = resp.json().get("detail")
+        except ValueError:
+            neden = resp.text[:300]
+        return {"uygun": False, "neden": neden if isinstance(neden, str) else str(neden)[:300],
+                "oneri": "Bu arsayı ele ve sıradakine geç. Küçük parsellerde imar planı daha küçük çekme "
+                         "(ör. ön 3, yan 2, arka 2) tanıyorsa onunla bir kez yeniden dene ve bunu raporda belirt."}
     if resp.status_code != 200:
         raise ValueError(f"ArchAI {resp.status_code}: {resp.text[:500]}")
     return _summary(resp.json())
