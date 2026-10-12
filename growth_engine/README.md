@@ -7,7 +7,8 @@ Hackathon'da onu **kendi kendini pazarlayan bir satış motoruna** çevirdik: Ma
 ArchAI her arsayı projelendirir, fal görselleri ve tanıtım filmini üretir, Manus müteahhide ve arsa sahibine
 kampanyayı hazırlar.
 
-> Bu klasördeki her şey hackathon günü yazıldı (`git log -- growth_engine` ile commit geçmişi).
+> Bu klasördeki her şey hackathon günü yazıldı: bugünün commit'leri için `git log --since=2026-10-11 --oneline`
+> ya da GitHub'da [commit listesi](https://github.com/wpu-research/archai-growth-engine/commits/main).
 > ArchAI motoru mevcut üründür; bugün ona yapılan değişiklikler aynı daldaki ArchAI commit'leridir.
 
 ## Akış
