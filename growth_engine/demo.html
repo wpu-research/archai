@@ -1,0 +1,343 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>ArchAI Growth Console</title>
+<style>
+:root{--bg:#050b14;--panel:#0b1624;--line:#173048;--cy:#3ee8ff;--gr:#3dffa8;--am:#ffb648;--rd:#ff6b6b;--tx:#d9ecf7;--mu:#7d97ab}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(1200px 600px at 70% -10%,#0f2a40 0,transparent 60%),var(--bg);color:var(--tx);
+font:14px/1.5 "Space Grotesk",system-ui,sans-serif;min-height:100vh}
+header{display:flex;align-items:center;gap:16px;padding:16px 28px;border-bottom:1px solid var(--line)}
+header b{letter-spacing:.18em;font-size:18px}header small{display:block;color:var(--mu);letter-spacing:.14em;font-size:11px}
+.sp{flex:1}.chip{border:1px solid var(--line);border-radius:999px;padding:6px 12px;font-size:12px;color:var(--mu);background:none;cursor:default}
+.chip.on{color:var(--gr);border-color:#1f6b4c}.chip.run{color:var(--am);border-color:#6b4f1f}
+main{display:grid;grid-template-columns:350px 1fr;gap:20px;padding:20px 28px}
+.panel{background:linear-gradient(180deg,#0c1a2b,#09131f);border:1px solid var(--line);border-radius:16px;padding:18px}
+h3{margin:0 0 12px;font-size:12px;letter-spacing:.2em;color:var(--cy);font-weight:600}
+h2{margin:6px 0 14px;font-size:13px;letter-spacing:.2em;color:var(--mu);font-weight:600}
+select,input{width:100%;background:#06101b;border:1px solid var(--line);color:var(--tx);border-radius:10px;padding:12px;font:inherit}
+button,.btn{cursor:pointer;border:1px solid var(--line);background:#0e2033;color:var(--tx);border-radius:10px;padding:9px 13px;font:inherit;
+text-decoration:none;display:inline-flex;align-items:center;gap:6px;font-size:13px}
+button.go{width:100%;margin-top:10px;padding:14px;background:linear-gradient(90deg,#11c6e6,#2df0b0);color:#032;font-weight:700;border:0;letter-spacing:.08em}
+button:disabled{opacity:.55;cursor:default}
+.btn.cy{border-color:#1d6b80;color:var(--cy)}.btn.gr{border-color:#1f6b4c;color:var(--gr)}.btn.am{border-color:#6b4f1f;color:var(--am)}
+.pipe{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:14px}
+.st{border:1px solid var(--line);border-radius:12px;padding:10px;text-align:center;font-size:12px;color:var(--mu);transition:.4s}
+.st i{display:block;font-style:normal;font-size:20px}.st.done{border-color:#1f6b4c;color:var(--gr)}
+.st.act{border-color:#6b4f1f;color:var(--am);box-shadow:0 0 18px #ffb64833;animation:pulse 1.2s infinite}
+@keyframes pulse{50%{box-shadow:0 0 4px #ffb64811}}
+.kpi{display:grid;grid-template-columns:repeat(5,1fr);gap:12px;margin-bottom:18px}
+.kpi div{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.kpi small{color:var(--mu);font-size:10px;letter-spacing:.14em}.kpi b{display:block;font-size:24px;color:var(--cy)}
+.feed{max-height:56vh;overflow:auto;display:flex;flex-direction:column;gap:10px}
+.msg{border-left:2px solid var(--cy);padding:3px 0 3px 10px;font-size:13px;color:#bcd3e2;animation:in .4s}
+.msg time{color:var(--mu);font-size:11px;display:block}.msg b{color:var(--tx)}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(340px,1fr));gap:16px;margin-bottom:22px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:16px;overflow:hidden;display:flex;flex-direction:column;animation:in .6s}
+@keyframes in{from{opacity:0;transform:translateY(10px)}}
+.img{aspect-ratio:16/10;position:relative;background:#0a1826;overflow:hidden}
+.img img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;transition:opacity 1.2s}
+.img .sk{position:absolute;inset:0;display:grid;place-items:center;color:var(--cy);font-size:12px;letter-spacing:.2em;
+background:repeating-linear-gradient(90deg,#0a1826 0,#0f2235 40px,#0a1826 80px);background-size:200% 100%;animation:sk 1.4s linear infinite}
+@keyframes sk{to{background-position:-160px 0}}
+.badge{position:absolute;left:10px;top:10px;background:#000b;color:#fff;border-radius:8px;padding:3px 8px;font-size:11px;z-index:2}
+.badge.r{right:10px;left:auto;background:#0a7a4a}
+.thumbs{display:flex;gap:6px;padding:8px 14px 0}.thumbs img{width:33%;aspect-ratio:16/10;object-fit:cover;border-radius:8px;cursor:pointer;
+border:1px solid var(--line)}
+.card .b{padding:12px 14px 14px;display:flex;flex-direction:column;gap:9px;flex:1}
+.card h4{margin:0;font-size:15px}.row{display:flex;flex-wrap:wrap;gap:6px}
+.nums{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}.nums div{background:#06101b;border-radius:8px;padding:7px 8px}
+.nums small{color:var(--mu);font-size:10px;letter-spacing:.08em;display:block}.nums b{font-size:14px}
+.pos{color:var(--gr)}.neg{color:var(--rd)}.note{color:var(--mu);font-size:11px}
+.vs{display:grid;grid-template-columns:1fr 1fr;gap:6px}.vs div{border-radius:8px;padding:7px 8px;font-size:12px}
+.vs .zarar{background:#2a0f14;border:1px solid #5a1d26}.vs .kar{background:#0c2a1e;border:1px solid #1f6b4c}
+.empty{color:var(--mu);text-align:center;padding:36px;border:1px dashed var(--line);border-radius:16px}
+.foot{color:var(--mu);font-size:11px;text-align:center;padding:10px}
+.modal{position:fixed;inset:0;background:#000c;display:none;place-items:center;z-index:50;padding:30px}
+.modal.on{display:grid}.mbox{background:#08121e;border:1px solid var(--line);border-radius:16px;max-width:1100px;width:100%;max-height:90vh;overflow:auto;padding:22px;position:relative}
+.mbox video{width:100%;border-radius:10px;background:#000}.x{position:absolute;right:14px;top:12px}
+.rep h1{font-size:22px;margin:0 0 4px}.rep h2{color:var(--cy);margin-top:22px}
+.rep table{width:100%;border-collapse:collapse;font-size:12px;margin:8px 0}.rep td,.rep th{border-bottom:1px solid var(--line);padding:6px 8px;text-align:left}
+.rep th{color:var(--mu);font-weight:600}.rep .num{text-align:right}.rep .hl{background:#0c2a1e}
+.wa{background:#0b2a1f;border:1px solid #1f6b4c;border-radius:12px;padding:10px 12px;font-size:13px;white-space:pre-wrap;margin:6px 0}
+.ok{color:var(--gr)}
+.soc{display:flex;flex-wrap:wrap;gap:8px;margin:8px 0 12px}.soc button{border-radius:999px}.soc button.on{border-color:var(--cy);color:var(--cy)}
+.post{background:#fff;color:#111;border-radius:14px;max-width:520px;overflow:hidden;font:14px/1.45 system-ui;margin-top:6px}
+.post .ph{display:flex;align-items:center;gap:10px;padding:10px 12px;font-weight:600}.post .ph i{width:32px;height:32px;border-radius:50%;
+background:linear-gradient(135deg,#11c6e6,#2df0b0);display:grid;place-items:center;font-style:normal;color:#032;font-size:12px}
+.post .ph small{display:block;font-weight:400;color:#666;font-size:12px}
+.post .gal{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr;gap:2px;aspect-ratio:16/10;background:#000}
+.post .gal img{width:100%;height:100%;object-fit:cover}
+.post .gal.dikey{grid-template-columns:1fr;grid-template-rows:1fr;aspect-ratio:9/12}.post .gal.dikey img:not(:first-child){display:none}
+.post .cap{padding:10px 12px;white-space:pre-wrap}.post .cap a{color:#0a66c2;word-break:break-all}
+.post .act{display:flex;gap:8px;align-items:center;padding:0 12px 12px}.post .act .yay{margin-left:auto;background:#0a66c2;color:#fff;border:0}
+.post .act .yay.ok{background:#1f8f5a}.post .cnt{color:#666;font-size:12px}
+</style>
+</head>
+<body>
+<header>
+  <svg width="34" height="34" viewBox="0 0 34 34" fill="none" stroke="#3ee8ff" stroke-width="1.4"><path d="M17 3 30 10.5v13L17 31 4 23.5v-13Z"/><path d="M17 3v28M4 10.5l13 7.5 13-7.5" opacity=".5"/></svg>
+  <div><b>ARCHAI</b><small>GROWTH CONSOLE · MANUS × APIFY × FAL</small></div>
+  <div class="sp"></div>
+  <span class="chip" id="gchip">Manus: hazır</span>
+  <button class="chip on" id="repbtn" style="display:none;cursor:pointer">📄 İşlem raporu</button>
+</header>
+<main>
+  <aside style="display:grid;gap:20px;align-content:start">
+    <div class="panel">
+      <h3>YENİ ARAMA</h3>
+      <label class="note">Semt (İstanbul)</label>
+      <select id="semt"></select>
+      <button class="go" id="go">▶ YENİ ARAMA BAŞLAT</button>
+      <p class="note">Manus satılık arsa ilanlarını Apify ile tarar, ArchAI her arsa için avan proje + metraj + maliyet + teklif çıkarır,
+        fal render ve tanıtım filmi üretir, Manus müteahhide ve arsa sahibine özel kampanya hazırlar.</p>
+    </div>
+    <div class="panel">
+      <h3>MANUS CANLI AKIŞ</h3>
+      <div class="feed" id="feed"><div class="note">Arama başlatılmadı.</div></div>
+    </div>
+  </aside>
+  <section>
+    <div class="pipe">
+      <div class="st" id="s1"><i>⌕</i>İLANLAR · Apify</div>
+      <div class="st" id="s2"><i>▦</i>FİZİBİLİTE · ArchAI</div>
+      <div class="st" id="s3"><i>◐</i>RENDER + FİLM · fal</div>
+      <div class="st" id="s4"><i>✉</i>KAMPANYA · Manus</div>
+    </div>
+    <div class="kpi">
+      <div><small>TARANAN İLAN</small><b id="k1">0</b></div>
+      <div><small>UYGUN PROJE</small><b id="k2">0</b></div>
+      <div><small>EN İYİ MÜT. MARJI</small><b id="k3">—</b></div>
+      <div><small>RENDER · FİLM</small><b id="k4">0 · 0</b></div>
+      <div><small>GEÇEN SÜRE</small><b id="k5">—</b></div>
+    </div>
+    <h2 id="kh" style="display:none">ARAMA SONUCU · SEÇİLEN ARSALAR</h2>
+    <div class="grid" id="kampanya"></div>
+    <h2>PORTFÖY · ÖRNEK PROJE</h2>
+    <div class="grid" id="portfoy"></div>
+    <p class="foot">Tüm rakamlar avan / ön fizibilitedir; ruhsat projesi ve yatırım tavsiyesi değildir. Çekme mesafeleri imar durumu belgesiyle teyit edilmelidir.</p>
+  </section>
+</main>
+
+<div class="modal" id="vmodal"><div class="mbox"><button class="x" onclick="kapat('vmodal')">✕</button>
+  <h3 id="vtitle">TANITIM FİLMİ</h3><video id="vplayer" controls playsinline></video></div></div>
+<div class="modal" id="imodal"><div class="mbox"><button class="x" onclick="kapat('imodal')">✕</button><img id="iimg" style="width:100%;border-radius:10px"></div></div>
+<div class="modal" id="kmodal"><div class="mbox" id="kbox"></div></div>
+<div class="modal" id="pmodal"><div class="mbox" style="max-width:96vw;width:96vw;height:92vh;max-height:92vh;padding:0;overflow:hidden">
+  <div style="display:flex;align-items:center;gap:10px;padding:10px 16px;border-bottom:1px solid var(--line)"><b id="ptitle" style="font-size:14px"></b>
+  <span class="note">Özet · Çizimler · Metraj · Maliyet · Belgeler · Render</span><span class="sp"></span>
+  <button class="btn" onclick="kapat('pmodal')">✕ Kapat</button></div>
+  <iframe id="pframe" style="width:100%;height:calc(92vh - 52px);border:0;background:#050b14" allow="fullscreen; pointer-lock"></iframe></div></div>
+<div class="modal" id="rmodal"><div class="mbox rep" id="rbox"></div></div>
+
+<script>
+const $=s=>document.querySelector(s);
+const tl=n=>n==null?'—':'₺'+Math.round(n).toLocaleString('tr-TR');
+const pct=n=>'%'+String(n).replace('.',',');
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const SEMT_L=['Kartal','Pendik','Maltepe','Ataşehir','Ümraniye','Üsküdar','Kadıköy','Tuzla','Sancaktepe','Çekmeköy','Sultanbeyli',
+  'Beylikdüzü','Esenyurt','Başakşehir','Büyükçekmece','Küçükçekmece','Bahçelievler','Bakırköy','Beşiktaş','Sarıyer','Şişli','Eyüpsultan'];
+const HIZ=+(new URLSearchParams(location.search).get('hiz')||1);
+const wait=ms=>new Promise(r=>setTimeout(r,ms/HIZ));
+let D=null, t0=0;
+function kapat(id){$('#'+id).classList.remove('on'); if(id==='vmodal')$('#vplayer').pause(); if(id==='pmodal')$('#pframe').src='about:blank';}
+function detay(i){const k=D.kartlar[i];$('#ptitle').textContent=k.baslik;$('#pframe').src=k.model_3d;$('#pmodal').classList.add('on');}
+document.addEventListener('keydown',e=>{if(e.key==='Escape')['vmodal','imodal','kmodal','rmodal','pmodal'].forEach(kapat)});
+function film(i){const k=D.kartlar[i];$('#vtitle').textContent='TANITIM FİLMİ · '+k.baslik;$('#vplayer').src=k.film;$('#vmodal').classList.add('on');$('#vplayer').play();}
+function buyut(src){$('#iimg').src=src;$('#imodal').classList.add('on');}
+
+// ---- metinler (Manus kampanya taslakları) ----
+function taslak(k){
+  const kk=k.kat_karsiligi||{};
+  return {
+    mut:`Merhaba, ${k.baslik.replace('Kartal — ','Kartal ')} için ArchAI ile ön fizibilite hazırladık: ${k.kat} kat, ${k.daire} daire (${k.daire_tipi}), `+
+        `tahmini inşaat maliyeti ${tl(k.maliyet)}. Satın alma senaryosu zararda (${pct(k.satin_alma.getiri_pct)}); kat karşılığında `+
+        `${kk.sahip}/${kk.muteahhit} paylaşımla müteahhit marjı ${pct(kk.marj_pct)}. Render, 3D tur ve teklif dosyaları linkte. Görüşelim mi?`,
+    sahip:`Merhaba, Kartal'daki arsanız için ücretsiz ön çalışma yaptık: parselinize ${k.kat} katlı, ${k.daire} daireli bir bina sığıyor. `+
+        `Kat karşılığı modelinde size ${kk.sahip} daire ayrılır, inşaat masrafı müteahhide aittir. Binanın görselini ve içini 3D gezebileceğiniz `+
+        `linki ekledik. Uygun bir zamanda konuşabilir miyiz?`};
+}
+const SOSYAL={reels:`Bu bina 20 dakika önce yoktu. 🏗️\nKartal'da satılık bir arsa → ArchAI avan proje, metraj, maliyet ve teklif → fotogerçekçi film ve 3D tur.\n`+
+  `Satın alırsan zarar, kat karşılığıyla kâr. Hepsi tek kampanyada.`,
+  tags:'#ArchAI #müteahhit #katkarşılığı #Kartal #yapayzeka',
+  carousel:['1/3 · SORUN: Müteahhit bir arsaya bakmak için mimardan avan ve maliyet bekliyor — günler.',
+            '2/3 · ARCHAI: İlan → avan proje, 94 kalemlik metraj, maliyet, teklif ve render — dakikalar.',
+            '3/3 · SONUÇ: Kartal 312 m² · satın alma {SA} · kat karşılığı müteahhit marjı {KK}. Doğru model, doğru teklif.']};
+
+function kampanyaModal(i){
+  const k=D.kartlar[i], t=taslak(k);
+  $('#kbox').innerHTML=`<button class="x" onclick="kapat('kmodal')">✕</button><h3>KAMPANYA TASLAKLARI · ${esc(k.baslik)}</h3>
+   <p class="note">Manus tarafından hazırlandı · gönderilmedi, onayınızı bekliyor.</p>
+   <b>WhatsApp → müteahhit</b><div class="wa">${esc(t.mut)}</div>
+   <b>WhatsApp → arsa sahibi (kat karşılığı teklifi)</b><div class="wa">${esc(t.sahip)}</div>
+   <b>Sosyal medyaya yükle</b> <span class="note">· gönderiler hazırlanır, onaylanmadan yayınlanmaz</span>
+   <div class="soc">${PLATFORM.map((pl,j)=>`<button class="btn ${j?'':'on'}" onclick="gonderi(${i},${j},this)">${pl.ikon} ${pl.ad}</button>`).join('')}</div>
+   <div id="gonderi"></div>
+   ${i===1?`<b>Instagram Reels / LinkedIn</b><div class="wa">${esc(SOSYAL.reels)}\n\n${SOSYAL.tags}</div>
+   <b>Carousel (3 kare)</b>${SOSYAL.carousel.map(c=>`<div class="wa">${esc(c.replace('{SA}',pct(k.satin_alma.getiri_pct)+' zarar').replace('{KK}',pct(k.kat_karsiligi.marj_pct)))}</div>`).join('')}`:''}`;
+  $('#kmodal').classList.add('on'); gonderi(i,0);
+}
+
+const PLATFORM=[
+  {ad:'Instagram',yayin:"Instagram'da yayınla",ikon:'📷',hesap:'archai.tr',dikey:false,tur:'Carousel · 4 görsel + film'},
+  {ad:'LinkedIn',yayin:"LinkedIn'de yayınla",ikon:'💼',hesap:'ArchAI',dikey:false,tur:'Gönderi · 4 görsel'},
+  {ad:'Facebook',yayin:"Facebook'ta yayınla",ikon:'📘',hesap:'ArchAI Türkiye',dikey:false,tur:'Gönderi · albüm'},
+  {ad:'X',yayin:"X'te yayınla",ikon:'𝕏',hesap:'@archai_tr',dikey:false,tur:'Gönderi · 4 görsel'},
+  {ad:'TikTok / Reels',yayin:"TikTok / Reels'te yayınla",ikon:'🎬',hesap:'archai.tr',dikey:true,tur:'Dikey video · 38 sn film'}];
+
+function metin(k,pl){
+  const kk=k.kat_karsiligi||{}, sa=k.satin_alma||{}, kisa=k.baslik.replace('Kartal — ','');
+  const bas={Instagram:'Bu bina 20 dakika önce yoktu. 🏗️',LinkedIn:'Bir arsa ilanından satışa hazır fizibilite paketine: dakikalar içinde.',
+    Facebook:'Kartal\'da yeni bir fırsat 👇','X':'Arsa ilanı → avan proje + maliyet + 3D tur. Dakikalar içinde. 🧵','TikTok / Reels':'Bu bina 20 dakika önce yoktu 👀'}[pl.ad];
+  return `${bas}\n\n📍 Kartal ${kisa}\n🏢 ${k.kat} kat · ${k.daire} daire\n💰 Tahmini inşaat maliyeti ${tl(k.maliyet)}\n`+
+    `📊 Satın alma ${pct(sa.getiri_pct)} → kat karşılığında müteahhit marjı ${pct(kk.marj_pct)}\n\n🔗 ${k.paylasim_3d}\n`+
+    (k.ilan?`📄 İlan: ${k.ilan.url}\n`:'')+`\n`+
+    `Avan / ön fizibilitedir.\n#ArchAI #müteahhit #katkarşılığı #Kartal #yapayzeka`;
+}
+function gonderi(i,j,btn){
+  const k=D.kartlar[i], pl=PLATFORM[j], g=k.gorseller||{};
+  if(btn){btn.parentElement.querySelectorAll('button').forEach(b=>b.classList.remove('on'));btn.classList.add('on');}
+  const cap=esc(metin(k,pl)).replace(/(https?:\/\/\S+)/g,u=>`<a href="${u}" target="_blank">${/sahibinden/.test(u)?'sahibinden ilanı ↗':'3D turu aç ↗'}</a>`);
+  $('#gonderi').innerHTML=`<div class="post"><div class="ph"><i>AI</i><div>${pl.hesap}<small>${pl.ad} · ${pl.tur}</small></div></div>
+    <div class="gal ${pl.dikey?'dikey':''}">${['cephe','salon','yatak','kus'].filter(a=>g[a]).map(a=>`<img src="${g[a]}">`).join('')}</div>
+    <div class="cap">${cap}</div>
+    <div class="act"><span class="cnt">Görseller: ${Object.keys(g).length} · Film: ${k.film?'38 sn':'—'}</span>
+      <button class="btn yay" onclick="this.textContent='✓ Taslak kaydedildi · onay bekliyor';this.classList.add('ok');this.disabled=true">${pl.yayin}</button></div></div>`;
+}
+
+function kart(k,i,goster){
+  const g=k.gorseller||{}, villa=k.tur==='villa', kk=k.kat_karsiligi, sa=k.satin_alma, f=k.dosyalar||{};
+  const nums=villa?`<div><small>BRÜT ALAN</small><b>${String(k.brut_m2).replace('.',',')} m²</b></div>
+      <div><small>MALİYET · KDV DAHİL</small><b>${tl(k.maliyet)}</b></div><div><small>M² MALİYET</small><b>${tl(k.m2_maliyet)}</b></div>`
+    :`<div><small>İNŞAAT MALİYETİ</small><b>${tl(k.maliyet)}</b></div>
+      <div><small>KAT KARŞ. SAHİP/MÜT.</small><b>${kk.sahip} / ${kk.muteahhit} daire</b></div>
+      <div><small>MÜTEAHHİT MARJI</small><b class="pos">${pct(kk.marj_pct)}</b></div>`;
+  const vs=villa?'':`<div class="vs"><div class="zarar">Satın alma (arsa ${tl(sa.arsa_tl)})<br><b class="neg">getiri ${pct(sa.getiri_pct)}</b></div>
+      <div class="kar">Kat karşılığı<br><b class="pos">müteahhit kârı ${tl(kk.kar_tl)}</b></div></div>`;
+  return `<div class="card" id="kart${i}">
+    <div class="img">${goster?'':'<div class="sk">ARCHAI ÇİZİYOR…</div>'}
+      <img src="${g.cephe||''}" style="opacity:${goster?1:0};cursor:pointer" onclick="detay(${i})" title="Projeyi aç">
+      <span class="badge">${villa?'2 kat · villa · 4+2':`${k.kat} kat · ${k.daire} daire · ${k.daire_tipi}`}</span>
+      <span class="badge r" style="opacity:${goster?1:0}">fal render</span></div>
+    <div class="thumbs" style="${goster?'':'display:none'}">${['salon','yatak','kus'].filter(a=>g[a]).map(a=>`<img src="${g[a]}" onclick="buyut(this.src)" title="${a}">`).join('')}</div>
+    <div class="b"><h4 style="cursor:pointer" onclick="detay(${i})" title="Projeyi aç">${esc(k.baslik)} <span class="note">↗ projeyi aç</span></h4><div class="nums">${nums}</div>${vs}
+      ${k.cekme?`<div class="note">Çekme: ${esc(k.cekme)}</div>`:''}
+      <div class="row">
+        <button class="btn gr fb" style="${goster&&k.film?'':'display:none'}" onclick="film(${i})">▶ Tanıtım filmi</button>
+        <a class="btn cy" target="_blank" href="${k.model_3d}">⌂ 3D Model</a>
+        ${k.ilan?`<a class="btn" target="_blank" href="${k.ilan.url}" title="${esc(k.ilan.baslik)}">↗ İlan · ${k.ilan.site} #${k.ilan.no}</a>`:''}
+        ${villa?'':`<button class="btn am kb" style="${goster?'':'display:none'}" onclick="kampanyaModal(${i})">✉ Kampanya</button>`}
+      </div>
+      <div class="row"><a class="btn" href="${f.teklif_docx}">Teklif</a><a class="btn" target="_blank" href="${f.cizimler_pdf}">Paftalar</a>
+        <a class="btn" href="${f.metraj_maliyet_xlsx}">Metraj</a><a class="btn" href="${f.teknik_sartname_docx}">Şartname</a></div>
+    </div></div>`;
+}
+
+function renderGoster(i){
+  const c=$('#kart'+i); c.querySelector('.sk')?.remove(); c.querySelector('.img img').style.opacity=1;
+  c.querySelector('.badge.r').style.opacity=1; c.querySelector('.thumbs').style.display='';}
+function filmGoster(i){const c=$('#kart'+i);c.querySelector('.fb').style.display='';c.querySelector('.kb')&&(c.querySelector('.kb').style.display='');}
+
+function msg(html){const f=$('#feed');if(f.querySelector('.note'))f.innerHTML='';
+  f.insertAdjacentHTML('beforeend',`<div class="msg"><time>${new Date().toLocaleTimeString('tr-TR')}</time>${html}</div>`);f.scrollTop=1e9;}
+function st(n,c){const e=$('#s'+n);e.classList.remove('done','act');if(c)e.classList.add(c);}
+function say(id,hedef,ms=1500,fmt=v=>v){const e=$(id),t=performance.now();(function a(n){const p=Math.min(1,(n-t)/(ms/HIZ));
+  e.textContent=fmt(Math.round(hedef*p));if(p<1)requestAnimationFrame(a);})(t);
+  setTimeout(()=>e.textContent=fmt(hedef),ms/HIZ+50);}  // sekme arka plandaysa rAF durur; son değer kesin yazılsın
+
+async function senaryo(){
+  const semt=$('#semt').value||'Kartal', A=D.kartlar[1], B=D.kartlar[2];
+  $('#go').disabled=true;$('#semt').disabled=true;$('#go').textContent='MANUS ÇALIŞIYOR…';t0=Date.now();
+  $('#gchip').textContent='Manus: running';$('#gchip').className='chip run';
+  st(1,'act');msg(`Görev alındı: <b>${esc(semt)}</b> ve çevresinde satılık konut imarlı arsalar taranıyor. Telefon ve satıcı bilgisi toplanmayacak.`);
+  await wait(2600);
+  msg(`Apify <b>clearpath/sahibinden-real-estate</b>: <b>40 arsa ilanı</b> + bölge fiyatı için <b>20 sıfır daire</b> ilanı toplandı.`);say('#k1',60);
+  await wait(2600);
+  st(1,'done');st(2,'act');
+  msg(`Ön eleme: 200 m² altı, imarı uygun olmayan, emsali belirtilmemiş ve hisseli tapulu <b>31 ilan elendi</b>. <b>9 aday</b> ArchAI'ye gönderiliyor.`);
+  await wait(2600);
+  msg(`ArchAI <b>bolge_m2_fiyati</b>: Kartal sıfır daire medyanı <b>93.651 TL/brüt m²</b> (aralık 80.000–118.452).`);
+  await wait(2600);
+  msg(`ArchAI <b>arsa_fizibilite</b>: 9 arsa için avan proje, metraj, maliyet ve teklif üretildi. 202 m² aday <b>uygun:false</b> → elendi. <b>8 proje</b> kaldı.`);
+  say('#k2',8,1200);
+  $('#kh').style.display='';$('#kampanya').innerHTML=kart(A,1,false);
+  await wait(1800);$('#kampanya').insertAdjacentHTML('beforeend',kart(B,2,false));
+  await wait(1800);
+  msg(`<b>karlilik</b>: 8 arsanın tamamında satın alma senaryosu <b class="neg">zararda</b> (ör. 312 m²: ${pct(A.satin_alma.getiri_pct)}). `+
+      `<b>kat_karsiligi</b> öne çıkarıldı → 312 m²: ${A.kat_karsiligi.sahip}/${A.kat_karsiligi.muteahhit} daire, müteahhit marjı <b class="pos">${pct(A.kat_karsiligi.marj_pct)}</b>.`);
+  $('#k3').textContent=pct(A.kat_karsiligi.marj_pct);st(2,'done');
+  msg(`Kaynak ilanlar: <a href="${A.ilan.url}" target="_blank">${A.ilan.site} #${A.ilan.no}</a> (312 m², ${tl(A.satin_alma.arsa_tl)}) · `+
+      `<a href="${B.ilan.url}" target="_blank">${B.ilan.site} #${B.ilan.no}</a> (224 m², ${tl(B.satin_alma.arsa_tl)}).`);
+  await wait(2800);
+  st(3,'act');msg(`fal <b>render_cephe</b>: ArchAI cephe çizimlerinden fotogerçekçi görseller üretiliyor…`);
+  await wait(2200);renderGoster(1);$('#k4').textContent='3 · 0';
+  await wait(1400);renderGoster(2);$('#k4').textContent='6 · 0';
+  msg(`fal: salon, yatak odası ve kuşbakışı kareleri ArchAI'nin 3D modelinden üretildi (kat sayısı, pencere düzeni projeyle aynı).`);
+  await wait(2600);
+  msg(`fal + Kling <b>tanitim_videosu</b>: her arsa için <b>38 sn</b> tanıtım filmi — sokaktan girişe, salona, yatak odasına, drone çekimine.`);
+  filmGoster(1);filmGoster(2);$('#k4').textContent='6 · 2';st(3,'done');
+  await wait(2600);
+  st(4,'act');msg(`Kampanya: her arsa için mobil sayfa, <b>müteahhit</b> ve <b>arsa sahibi</b> WhatsApp taslakları, 312 m² için Reels/LinkedIn metni + 3 karelik carousel. <b>Hiçbiri gönderilmedi</b> — onayınızı bekliyor.`);
+  await wait(2800);
+  st(4,'done');$('#gchip').textContent='Manus: completed';$('#gchip').className='chip on';
+  msg(`<b class="ok">✓ Kampanya hazır.</b> 40 ilan → 8 fizibilite → 2 kampanya paketi. Öncesi: arsa başına mimar avanı ve maliyet ~<b>3–5 gün</b>. Sonrası: <b>dakikalar</b>.`);
+  $('#repbtn').style.display='';$('#go').textContent='✓ TAMAMLANDI';
+}
+
+function rapor(){
+  const A=D.kartlar[1],B=D.kartlar[2];
+  const tablo=[['312 m² · Soğanlık Demirlipark',23500000,15776593,-32.4,'%37,2'],['307 m² · Kartal',23000000,15613423,-32.9,'%36,3'],
+    ['224 m² · Kartal',15000000,14388208,-21.6,'%34,5'],['326 m² · Soğanlık Yeni Mahalle',27500000,18944316,-36.2,'%32,4'],
+    ['284 m² · Hürriyet',26000000,14887296,-43.1,'%32,1'],['1047 m² · Gümüşpınar',130000000,44521200,-32.1,'%30,9'],
+    ['959 m² · DKY Business karşısı',160000000,42029881,-46.7,'%27,8'],['210 m² · Yakacık',6800000,4769792,-52.1,'—']];
+  $('#rbox').innerHTML=`<button class="x" onclick="kapat('rmodal')">✕</button>
+  <h1>Kartal Arsa Fırsatları — ArchAI Sonuç Raporu</h1>
+  <p class="note">12 Ekim 2026 · Manus × Apify × ArchAI × fal · Durum: <b class="ok">tamamlandı</b> · Tüm rakamlar avan / ön fizibilitedir.</p>
+  <h2>1 · İLAN HAVUZU VE ELEME (Apify)</h2>
+  <p><b>clearpath/sahibinden-real-estate</b> ile <b>40 benzersiz arsa ilanı</b> ve bölge fiyatı için <b>20 sıfır daire</b> ilanı toplandı;
+  <code>extractPhoneNumbers:false</code> — telefon ve satıcı bilgisi kullanılmadı. Eleme: en az 200 m², imar Konut / Ticari + Konut, emsal belirtilmiş, hisseli tapu yok →
+  <b>31 ilan elendi, 9 aday</b> ArchAI'ye gönderildi.</p>
+  <h2>2 · PİYASA ÇIPASI</h2>
+  <p>ArchAI <b>bolge_m2_fiyati</b>: <b>93.651 TL / brüt m²</b> (20 ilan, ayıklanmış aralık 80.000–118.452 TL/m²). Gerçekleşen satış değil, ilan göstergesidir.</p>
+  <h2>3 · ARCHAI FİZİBİLİTESİ (8 uygun proje)</h2>
+  <table><tr><th>Arsa</th><th class="num">Fiyat</th><th class="num">İnşaat maliyeti</th><th class="num">Satın alma getirisi</th><th class="num">Kat karşılığı üst sınır marj*</th></tr>
+  ${tablo.map(r=>`<tr class="${/312|224/.test(r[0])?'hl':''}"><td>${r[0]}</td><td class="num">${tl(r[1])}</td><td class="num">${tl(r[2])}</td>
+    <td class="num neg">${pct(r[3])}</td><td class="num pos">${r[4]}</td></tr>`).join('')}</table>
+  <p class="note">* Tüm daireler müteahhitte kalırsa ulaşılabilecek üst sınır. Arsa sahibine pay ayrılan gerçek teklif 4. bölümdedir.</p>
+  <p>202 m² aday <code>uygun:false</code> döndü (çekme sonrası yapılaşma alanı yetersiz). Küçük parsellerde çekme 5/3/3 → 3/2/2 kademeli denendi ve raporlandı.</p>
+  <h2>4 · İŞ MODELİ</h2>
+  <p>Sekiz arsanın <b>tamamında satın alma zararda</b>. Doğru model <b>kat karşılığı</b>. Arsa sahibine gerçek pay ayrılan teklif:</p>
+  <table><tr><th>Arsa</th><th>Kaynak ilan</th><th>Paylaşım (sahip / müteahhit)</th><th class="num">Müteahhit kârı</th><th class="num">Müteahhit marjı</th></tr>
+  ${[A,B].map(k=>`<tr class="hl"><td>${esc(k.baslik)}</td><td><a href="${k.ilan.url}" target="_blank">${k.ilan.site} #${k.ilan.no}</a></td><td>${k.kat_karsiligi.sahip} / ${k.kat_karsiligi.muteahhit} daire</td>
+    <td class="num">${tl(k.kat_karsiligi.kar_tl)}</td><td class="num pos">${pct(k.kat_karsiligi.marj_pct)}</td></tr>`).join('')}</table>
+  <h2>5 · GÖRSEL, 3D VE KAMPANYA</h2>
+  <ul><li>Her arsa için fal <b>fotogerçekçi cephe</b> + salon, yatak odası ve kuşbakışı kareleri.</li>
+  <li>Her arsa için <b>38 sn tanıtım filmi</b> (fal + Kling): sokak → giriş → salon → yatak odası → drone.</li>
+  <li>Her projede <b>3D'de gez</b> (döşenmiş salon turu) ve <b>3D model</b>; teklif, metraj, şartname, pafta PDF.</li>
+  <li><b>WhatsApp taslakları</b>: müteahhit ve arsa sahibi için ayrı; <b>Reels/LinkedIn</b> metni, 5 hashtag, 3 karelik carousel. <b>Gönderilmedi.</b></li></ul>
+  <h2>6 · ÖLÇÜM ÖZETİ</h2>
+  <table><tr><th>Ölçüm</th><th class="num">Sonuç</th></tr>
+  <tr><td>Taranan arsa ilanı / daire ilanı</td><td class="num">40 / 20</td></tr>
+  <tr><td>Elenen / ArchAI'ye giden</td><td class="num">31 / 9</td></tr>
+  <tr><td>Tam fizibilitesi çıkan proje</td><td class="num">8</td></tr>
+  <tr><td>Kampanya paketi (sayfa + mesaj + render + film)</td><td class="num">2</td></tr>
+  <tr><td>Apify maliyeti</td><td class="num">≈ $0,32</td></tr>
+  <tr><td>fal maliyeti (render + film)</td><td class="num">≈ $2–3 / arsa</td></tr>
+  <tr><td>Arsa başına ön fizibilite süresi — <b>öncesi</b></td><td class="num">3–5 gün (mimar avanı + maliyet)</td></tr>
+  <tr class="hl"><td>Arsa başına ön fizibilite süresi — <b>ArchAI ile</b></td><td class="num pos"><b>dakikalar</b></td></tr></table>
+  <p class="note">Sınırlamalar: rakamlar avan / ön fizibilitedir; taşıyıcı sistem ve temel, vergi, satış süresi dahil değildir; çekme mesafeleri ve imar
+  durumu belediyeden teyit edilmelidir.</p>`;
+  $('#rmodal').classList.add('on');
+}
+
+(async()=>{
+  $('#semt').innerHTML=SEMT_L.map(x=>`<option>${x}</option>`).join('');
+  D=await (await fetch('/demo/demo.json')).json();
+  $('#portfoy').innerHTML=kart(D.kartlar[0],0,true);
+  $('#go').onclick=senaryo; $('#repbtn').onclick=rapor;
+  const q_=new URLSearchParams(location.search); if(q_.get('oto'))senaryo().then(()=>{if(q_.get('rapor'))rapor();});
+  setInterval(()=>{if(t0){const s=(Date.now()-t0)/1000;$('#k5').textContent=Math.floor(s/60)+' dk '+String(Math.floor(s%60)).padStart(2,'0')+' sn';}},500);
+})();
+</script>
+</body>
+</html>
