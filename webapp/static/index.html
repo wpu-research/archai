@@ -245,6 +245,12 @@ summary{cursor:pointer;padding:9px 0;font:500 12px var(--mono);letter-spacing:.0
       <div class="r2"><div><label for="mf">Maks. kat</label><input id="mf" type="number" value="6"></div><div><label for="fh">Kat yüksekliği · m</label><input id="fh" type="number" step="0.1" value="3.0"></div></div>
       <div class="r2"><div><label for="mh" title="İmar planı notundaki yençok / saçak kotu sınırı. Boş bırakılırsa sınır uygulanmaz.">Yençok / saçak kotu · m</label><input id="mh" type="number" step="0.1" placeholder="sınır yok"></div><div><label for="ed" title="Merdiven, asansör ve ortak alanların emsale girmeyen payı (% brüt, en çok 30). Belediyeye göre değişir; boş = 0.">Emsal dışı ortak alan · %</label><input id="ed" type="number" step="1" min="0" max="30" placeholder="0"></div></div>
       <p class="note mono" style="margin:4px 0 0">İmar değerleri mahalleye ve köye göre değişir; imar durum belgenizden girin ve imar müdürlüğünden teyit edin.</p>
+      <details class="kunye" id="imar"><summary>İMAR DURUM BELGESİNDEN DOLDUR</summary>
+        <label for="im-file">Belge · .pdf (e-imar çıktısı) veya taranmış görsel</label><input id="im-file" type="file" accept=".pdf,.png,.jpg,.jpeg,.webp">
+        <label class="check"><input id="im-ok" type="checkbox"> Metin okunamazsa Claude okusun (belgeyi Anthropic'e gönderir)</label>
+        <button class="ghost" id="im-go" style="width:100%;margin-top:8px">↑ BELGEYİ OKU VE FORMU DOLDUR</button>
+        <div id="im-out"></div>
+      </details>
     </div>
     <div data-show="quick" hidden>
       <div class="r2"><div><label for="qa">Toplam brüt · m²</label><input id="qa" type="number" value="600"></div><div><label for="qf">Kat sayısı</label><input id="qf" type="number" value="3"></div></div>
@@ -990,6 +996,7 @@ const DA=createDesigns({$,$$,api,esc,tl,getProject:()=>P,
     if(tab==='tasarim')render();  // toplam/hud güncel; sekme yeniden çizilirken DA durumu korunur
     return res;}});
 const MK=createContractor({$,$$,api,esc,tl,n2,getProject:()=>P,setProject:p=>{P=p;adj=P.brief.adjust||{};hud();recent();}});
+MK.bindImar();
 window.ARCHAI={V,toWorld,THREE,intro};  // hata ayıklama / uçtan uca test tutamacı
 window.WALK_Z=()=>[WK.z,WK.lvl,WK.px,WK.py];
 window.WALK_SET=(x,y,yaw)=>{WK.px=x;WK.py=y;WK.yaw=yaw;WK.pitch=-.08;WK.room=undefined;};

@@ -5,6 +5,8 @@
     DELETE /api/poz/list                   listeyi sil
     GET    /api/projects/{pid}/poz         kalem ↔ poz eşleme tablosu (+ adaylar, durum özeti)
     PUT    /api/projects/{pid}/poz         {"poz": {kod: poz|null}, "apply_prices": bool} → ayar + belgeler yenilenir
+    POST   /api/imar/read                  multipart: file (.pdf/.png/.jpg/.webp), consent → arazi formu önerisi
+                                           (belge diske yazılmaz; Claude'a yalnız consent=true ile gider)
 """
 
 import copy
@@ -14,12 +16,13 @@ from typing import Annotated
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, ConfigDict, Field
 
-from archai import costing, poz, project
+from archai import costing, imar_doc, poz, project
 
 router = APIRouter()
 
 MB = 1024 * 1024
 MAX_LIST_BYTES = 40 * MB
+MAX_DOC_BYTES = 20 * MB
 
 
 def _app():
@@ -126,3 +129,14 @@ def set_project_poz(pid: str, body: PozIn):
     except ValueError as ex:
         raise HTTPException(422, str(ex))
     return {"project": _app()._public(pid, res), "applied": len(applied)}
+
+
+# ------------------------------------------------------------------ imar durum belgesi
+
+@router.post("/api/imar/read")
+def read_imar(file: UploadFile = File(...), consent: Annotated[bool, Form()] = False):
+    data = _read_upload(file, MAX_DOC_BYTES, "imar belgesi")
+    try:
+        return imar_doc.read(Path(file.filename or "belge").name, data, consent=consent)
+    except ValueError as ex:
+        raise HTTPException(422, str(ex))

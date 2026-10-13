@@ -58,3 +58,22 @@ def test_project_poz_validation(pid):
     r = c.put(f"/api/projects/{pid}/poz", json={"poz": {}, "apply_prices": True})
     assert r.status_code == 422 and "liste" in r.json()["detail"]
     assert c.get("/api/projects/../poz").status_code == 404
+
+
+def test_imar_read_text_and_consent():
+    txt = ("İl: Ankara İlçe: Çankaya\nAda: 5021 Parsel: 7\nParsel Alanı: 864,50 m²\nTAKS: 0,30 KAKS: 1,50\n"
+           "Kat Adedi: 5 Hmax: 15,50 m\nÖn bahçe mesafesi: 5 m\nYan bahçe mesafesi: 3 m\nArka bahçe mesafesi: 3 m\n")
+    r = c.post("/api/imar/read", files={"file": ("imar.txt", txt.encode())})
+    assert r.status_code == 200, r.text
+    j = r.json()
+    assert j["method"] == "metin" and j["zoning"] == {"taks": 0.3, "kaks": 1.5, "front": 5.0, "side": 3.0, "rear": 3.0,
+                                                      "max_floors": 5, "max_height": 15.5}
+    assert j["site"]["ada"] == "5021" and j["values"]["parcel_area"] == 864.5 and not j["missing"]
+    # metinsiz görsel + onay yok → Claude çağrılmaz, uyarı döner
+    from PIL import Image
+    import io
+    buf = io.BytesIO()
+    Image.new("RGB", (40, 40), "white").save(buf, "PNG")
+    r2 = c.post("/api/imar/read", files={"file": ("tarama.png", buf.getvalue())}).json()
+    assert r2["method"] == "yok" and any("onay" in w for w in r2["warnings"])
+    assert c.post("/api/imar/read", files={"file": ("x.docx", b"PK")}).status_code == 422

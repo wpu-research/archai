@@ -70,7 +70,38 @@ export function createContractor(ctx) {
     });
   }
 
+  // ---- 2. adım: imar durum belgesinden arazi formunu doldur
+  const LAB = {taks: 'TAKS', kaks: 'KAKS / emsal', front: 'ön çekme', side: 'yan çekme', rear: 'arka çekme',
+               max_floors: 'kat adedi', max_height: 'yençok (m)', parcel_area: 'parsel alanı (m²)', nizam: 'nizam',
+               ada: 'ada', parsel: 'parsel', pafta: 'pafta'};
+  const FORM = {taks: '#taks', kaks: '#kaks', front: '#fr', side: '#sd', rear: '#rr', max_floors: '#mf', max_height: '#mh'};
+  const SITE = {il: '#s_il', ilce: '#s_ilce', mahalle: '#s_mah', pafta: '#s_pafta', ada: '#s_ada', parsel: '#s_parsel'};
+  function bindImar() {
+    const go = $('#im-go'); if (!go) return;
+    go.onclick = async () => {
+      const f = $('#im-file').files[0], out = $('#im-out');
+      if (!f) { out.innerHTML = '<p class="err">önce belgeyi seçin</p>'; return; }
+      const fd = new FormData(); fd.append('file', f); fd.append('consent', $('#im-ok').checked ? 'true' : 'false');
+      go.disabled = true; out.innerHTML = '<p class="note mono">okunuyor…</p>';
+      try {
+        const r = await api('/api/imar/read', {method: 'POST', body: fd});
+        for (const [k, sel] of Object.entries(FORM)) if (r.zoning[k] != null) $(sel).value = r.zoning[k];
+        for (const [k, sel] of Object.entries(SITE)) if (r.site?.[k] && $(sel)) $(sel).value = r.site[k];
+        const A = r.values?.parcel_area, W = parseFloat($('#pw').value);
+        if (A && W > 0) $('#pd').value = Math.round(A / W * 100) / 100;     // alan korunur, cephe kullanıcıda
+        const ev = Object.entries(r.evidence || {});
+        out.innerHTML = `<p class="note mono" style="margin:8px 0 4px">YÖNTEM: ${esc(String(r.method).toUpperCase())} · ${esc(Object.keys(r.zoning).length)} İMAR ALANI DOLDURULDU</p>
+          ${ev.length ? `<table>${ev.map(([k, t]) => `<tr><td class="mono">${esc(LAB[k] || k)}</td><td style="font-size:11px">“${esc(t)}”</td></tr>`).join('')}</table>` : ''}
+          ${(r.notes || []).map(n => `<div class="warnbox">ℹ ${esc(n)}</div>`).join('')}
+          ${(r.warnings || []).map(w => `<div class="warnbox">⚠ ${esc(w)}</div>`).join('')}
+          ${A && W > 0 ? `<p class="note mono">Parsel derinliği alan ÷ cephe = ${esc(n2(A / W))} m olarak ayarlandı; cepheyi kontrol edin.</p>` : ''}`;
+      } catch (e) { out.innerHTML = `<p class="err">${esc(e.message || e)}</p>`; }
+      go.disabled = false;
+    };
+  }
+
   return {
+    bindImar,
     mountPoz(out) { S.poz = null; S.msg = S.err = ''; drawPoz(out); loadPoz(out); },
   };
 }
