@@ -942,7 +942,7 @@ function render(){
   }else if(tab==='belge'){
     const D=[['TEKLİF','Teklif mektubu','.docx · kapsam, bedel, ödeme planı',P.files.teklif_docx],['MALİYET','Metraj + maliyet','.xlsx · formüllü',P.files.metraj_maliyet_xlsx],
              ['ŞARTNAME','Teknik şartname','.docx · malzeme, uygulama, ölçü',P.files.sartname_docx],['ÇİZİM','Tüm paftalar','.pdf · A3',P.files.cizim_pdf],
-             ['KEŞİF','Keşif özeti','.xlsx · poz numaralı',P.files.kesif_xlsx],['KEŞİF','Keşif özeti (AMP/Oska)','.csv · ; ayraçlı',P.files.kesif_csv]].filter(d=>d[3]);
+             ['KEŞİF','Keşif özeti','.xlsx · poz numaralı',P.files.kesif_xlsx],['KEŞİF','Keşif özeti (AMP/Oska)','.csv · ; ayraçlı',P.files.kesif_csv],['ONAY','Onay tutanağı','.docx · belge özetleri',P.files.onay_tutanagi_docx]].filter(d=>d[3]);
     out.innerHTML=`<div class="docs">${D.map(d=>`<a class="doc" href="${esc(d[3])}" ${String(d[3]||'').endsWith('.pdf')?'target="_blank"':''}><small>${d[0]} ↓</small><b>${d[1]}</b><span>${d[2]}</span></a>`).join('')}</div>
       <p class="note">Maliyet sekmesindeki her değişiklik bu belgeleri yeniden üretir.</p>`;
   }else if(tab==='tasarim'){

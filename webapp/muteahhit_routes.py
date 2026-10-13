@@ -7,6 +7,9 @@
     PUT    /api/projects/{pid}/poz         {"poz": {kod: poz|null}, "apply_prices": bool} → ayar + belgeler yenilenir
     POST   /api/imar/read                  multipart: file (.pdf/.png/.jpg/.webp), consent → arazi formu önerisi
                                            (belge diske yazılmaz; Claude'a yalnız consent=true ile gider)
+    GET    /api/projects/{pid}/onay        onay durumu (taslak | onaylandi | gecersiz | degistirilmis | geri_alindi)
+    POST   /api/projects/{pid}/onay        {name, title, chamber, reg_no, note, statement:true} → belgeler damgalanır
+    POST   /api/projects/{pid}/onay/revoke {reason} → onay geri alınır, belgeler TASLAK
 """
 
 import copy
@@ -16,7 +19,9 @@ from typing import Annotated
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from pydantic import BaseModel, ConfigDict, Field
 
-from archai import costing, imar_doc, poz, project
+import threading
+
+from archai import approval, costing, imar_doc, poz, project
 
 router = APIRouter()
 
@@ -140,3 +145,57 @@ def read_imar(file: UploadFile = File(...), consent: Annotated[bool, Form()] = F
         return imar_doc.read(Path(file.filename or "belge").name, data, consent=consent)
     except ValueError as ex:
         raise HTTPException(422, str(ex))
+
+
+# ------------------------------------------------------------------ mimar / mühendis onayı
+
+_onay_lock = threading.Lock()
+
+
+def _onay_public(pid, d):
+    st = approval.status(d)
+    files = _app()._public(pid, _app()._read_json(d / "project.json", "proje kaydı"))["files"]
+    return {**st, "files": {k: files[k] for k in (*approval.DOC_KEYS, "onay_tutanagi_docx") if k in files}}
+
+
+@router.get("/api/projects/{pid}/onay")
+def get_onay(pid: str):
+    d, _ = _project(pid)
+    return _onay_public(pid, d)
+
+
+class SignerIn(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid")
+    name: Annotated[str, Field(max_length=120)]
+    title: Annotated[str, Field(max_length=60)]
+    chamber: Annotated[str, Field(max_length=80)]
+    reg_no: Annotated[str, Field(max_length=20)]
+    note: Annotated[str, Field(max_length=1000)] = ""
+    statement: bool = False
+
+
+class RevokeIn(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid")
+    reason: Annotated[str, Field(max_length=300)] = ""
+
+
+@router.post("/api/projects/{pid}/onay")
+def post_onay(pid: str, body: SignerIn):
+    d, _ = _project(pid)
+    with _onay_lock:
+        try:
+            approval.approve(d, body.model_dump(), project.redocument)
+        except ValueError as ex:
+            raise HTTPException(422, str(ex))
+    return {**_onay_public(pid, d), "project": _app()._public(pid, _app()._read_json(d / "project.json"))}
+
+
+@router.post("/api/projects/{pid}/onay/revoke")
+def revoke_onay(pid: str, body: RevokeIn):
+    d, _ = _project(pid)
+    with _onay_lock:
+        try:
+            approval.revoke(d, project.redocument, body.reason)
+        except ValueError as ex:
+            raise HTTPException(422, str(ex))
+    return {**_onay_public(pid, d), "project": _app()._public(pid, _app()._read_json(d / "project.json"))}

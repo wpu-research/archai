@@ -77,3 +77,20 @@ def test_imar_read_text_and_consent():
     r2 = c.post("/api/imar/read", files={"file": ("tarama.png", buf.getvalue())}).json()
     assert r2["method"] == "yok" and any("onay" in w for w in r2["warnings"])
     assert c.post("/api/imar/read", files={"file": ("x.docx", b"PK")}).status_code == 422
+
+
+def test_onay_flow(pid):
+    u = f"/api/projects/{pid}/onay"
+    assert c.get(u).json()["status"] == "taslak"
+    signer = {"name": "Ali Kaya", "title": "İnşaat Mühendisi", "chamber": "TMMOB İnşaat Mühendisleri Odası",
+              "reg_no": "12345", "statement": True}
+    assert c.post(u, json={**signer, "statement": False}).status_code == 422
+    r = c.post(u, json=signer)
+    assert r.status_code == 200, r.text
+    j = r.json()
+    assert j["status"] == "onaylandi" and j["files"]["onay_tutanagi_docx"].startswith(f"/files/{pid}/")
+    assert c.get(j["files"]["onay_tutanagi_docx"]).status_code == 200
+    c.put(f"/api/projects/{pid}/adjust", json={"profit_pct": 12})
+    assert c.get(u).json()["status"] == "gecersiz"
+    r2 = c.post(u + "/revoke", json={"reason": "fiyat değişti"})
+    assert r2.status_code == 200 and r2.json()["status"] == "geri_alindi"

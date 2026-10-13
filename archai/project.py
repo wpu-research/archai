@@ -11,7 +11,7 @@ import math
 import os
 from pathlib import Path
 
-from . import costing, drawings, poz, quantities as Q, reports, spec
+from . import approval, costing, drawings, poz, quantities as Q, reports, spec
 from .dxf_import import import_dxf
 
 SETTINGS = Path(os.environ.get("ARCHAI_OUT") or Path(__file__).resolve().parents[1] / "out") / "settings.json"
@@ -213,6 +213,8 @@ def finalize(brief, elements, report, meta, out_dir, render_3d=False):
 
 def write_documents(out, name, brief, report, q, cost, info=None):
     info = info if info is not None else build_info(brief)
+    # onay damgası: kayıtlı onayın parmak izi bu içerikle tutuyorsa onaylı, yoksa TASLAK (archai/approval.py)
+    info = {**info, "onay": approval.stamp_for(out, approval.fingerprint(q, cost, brief))}
     sp = spec.build_spec(name, q, cost)
     return {
         "metraj_maliyet_xlsx": str(reports.write_xlsx(out / "metraj_maliyet.xlsx", name, q, cost, info)),
@@ -252,3 +254,13 @@ def render(elements, out_dir):
              "colormap_png": s.render(kind="colormap", still=1, out_dir=str(out))["image"]}
     files["model_glb"] = s.export_glb(str(out / "model.glb"))["glb"]
     return files
+
+
+def redocument(out_dir):
+    """Belgeleri kayıtlı maliyetle yeniden üret (onay damgası değişince); içerik ve çizimler aynı kalır."""
+    out = Path(out_dir)
+    result = json.loads((out / "project.json").read_text())
+    q = Q.compute(json.loads((out / "elements.json").read_text()))
+    result["files"].update(write_documents(out, result["name"], result["brief"], result["report"], q, result["cost"]))
+    (out / "project.json").write_text(json.dumps(result, ensure_ascii=False, indent=1, default=str))
+    return result

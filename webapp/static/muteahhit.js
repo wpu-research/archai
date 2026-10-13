@@ -100,7 +100,52 @@ export function createContractor(ctx) {
     };
   }
 
+  // ---- 3. adım: mimar / mühendis onayı
+  const OST = {taslak: ['TASLAK', 'warn'], onaylandi: ['ONAYLI', 'ok'], gecersiz: ['ONAY GEÇERSİZ', 'bad'],
+               degistirilmis: ['BELGE DEĞİŞTİRİLMİŞ', 'bad'], geri_alindi: ['ONAY GERİ ALINDI', 'warn']};
+  const O = {d: null, err: '', busy: false};
+  async function loadOnay(out) {
+    try { O.d = await api(`/api/projects/${getProject().id}/onay`); O.err = ''; } catch (e) { O.err = e.message || String(e); }
+    drawOnay(out);
+  }
+  function drawOnay(out) {
+    const d = O.d;
+    if (!d) { out.innerHTML = `<p class="note">${O.err ? esc(O.err) : 'yükleniyor…'}</p>`; return; }
+    const [t, c] = OST[d.status] || [d.status, ''], sg = d.signer || {};
+    const opt = (list, v) => list.map(x => `<option ${x === v ? 'selected' : ''}>${esc(x)}</option>`).join('');
+    const docs = d.documents || [];
+    out.innerHTML = `<div class="mk">
+      <div class="stamp ${c === 'ok' ? 'ok' : 'bad'}"><span class="flag ${c}">${esc(t)}</span>
+        <p class="mono" style="margin:8px 0 0;font-size:12px">${esc(d.text)}</p>
+        ${d.date ? `<p class="note" style="margin:6px 0 0">Kayıt: ${esc(sg.name)} · ${esc(sg.title)} · ${esc(sg.chamber)} ${esc(sg.reg_no)} · ${esc(String(d.date).replace('T', ' '))}</p>` : ''}</div>
+      ${docs.length ? `<table><tr><th>Belge</th><th>SHA-256</th><th>Bütünlük</th></tr>${docs.map(x => `<tr><td>${d.files[x.key] ? `<a href="${esc(d.files[x.key])}">${esc(x.file)}</a>` : esc(x.file)}</td>
+        <td class="mono" style="font-size:10px">${esc(x.sha256.slice(0, 24))}…</td><td>${x.ok ? '<span class="flag ok">SAĞLAM</span>' : '<span class="flag bad">DEĞİŞMİŞ</span>'}</td></tr>`).join('')}</table>` : ''}
+      ${d.files.onay_tutanagi_docx ? `<p><a class="ghost" href="${esc(d.files.onay_tutanagi_docx)}">↓ ONAY TUTANAĞI .DOCX</a></p>` : ''}
+      ${d.status === 'onaylandi' || d.status === 'degistirilmis' ? `<div class="mk-row"><input id="on-why" placeholder="Geri alma nedeni" maxlength="300" style="flex:1"><button class="ghost" id="on-rev" ${O.busy ? 'disabled' : ''}>ONAYI GERİ AL</button></div>` : `
+      <p class="sec-t">${d.status === 'gecersiz' ? 'YENİDEN ONAYLA' : 'ONAYLA'}</p>
+      <div class="grid2"><div><label for="on-name">Ad soyad</label><input id="on-name" maxlength="120" value="${esc(sg.name || '')}"></div>
+        <div><label for="on-title">Unvan</label><select id="on-title">${opt(d.titles, sg.title || 'Mimar')}</select></div>
+        <div><label for="on-ch">Meslek odası</label><select id="on-ch">${opt(d.chambers, sg.chamber || d.chambers[0])}</select></div>
+        <div><label for="on-reg">Oda sicil no</label><input id="on-reg" maxlength="20" value="${esc(sg.reg_no || '')}"></div></div>
+      <label for="on-note">Not (isteğe bağlı)</label><input id="on-note" maxlength="1000">
+      <label class="check"><input type="checkbox" id="on-st"> ${esc(d.statement)}</label>
+      <button class="ghost" id="on-go" style="margin-top:10px" ${O.busy ? 'disabled' : ''}>✓ ONAYLA VE BELGELERİ DAMGALA</button>`}
+      ${O.err ? `<p class="err">${esc(O.err)}</p>` : ''}
+      <p class="note">Onay avan seviyede iç inceleme kaydıdır: e-imza, ruhsat projesi imzası veya yapı denetim onayı değildir. Proje (fiyat, poz, iç mekân…) değişince onay kendiliğinden düşer ve belgeler yeniden TASLAK damgası alır. Onaylanan dosyalar SHA-256 özetiyle izlenir.</p></div>`;
+    const run = async (url, body) => {
+      O.busy = true; O.err = ''; drawOnay(out);
+      try { const r = await api(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
+        if (r.project) setProject(r.project); O.d = r; } catch (e) { O.err = e.message || String(e); }
+      O.busy = false; drawOnay(out);
+    };
+    if ($('#on-go')) $('#on-go').onclick = () => run(`/api/projects/${getProject().id}/onay`, {name: $('#on-name').value.trim(),
+      title: $('#on-title').value, chamber: $('#on-ch').value, reg_no: $('#on-reg').value.trim(), note: $('#on-note').value.trim(),
+      statement: $('#on-st').checked});
+    if ($('#on-rev')) $('#on-rev').onclick = () => run(`/api/projects/${getProject().id}/onay/revoke`, {reason: $('#on-why').value.trim()});
+  }
+
   return {
+    mountOnay(out) { O.d = null; O.err = ''; drawOnay(out); loadOnay(out); },
     bindImar,
     mountPoz(out) { S.poz = null; S.msg = S.err = ''; drawPoz(out); loadPoz(out); },
   };

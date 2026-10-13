@@ -124,7 +124,12 @@ def _bottom_border(p, sz=6):
     pPr.append(b)
 
 
-def _header_footer(section, left, right):
+def _stamp(info):
+    from .approval import stamp_text
+    return stamp_text((info or {}).get("onay"))
+
+
+def _header_footer(section, left, right, stamp=None):
     section.header.is_linked_to_previous = False
     section.footer.is_linked_to_previous = False
     hp = section.header.paragraphs[0]
@@ -138,6 +143,9 @@ def _header_footer(section, left, right):
     fp = section.footer.paragraphs[0]
     fp.text = ""
     fp.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    if stamp:
+        sr = fp.add_run(stamp + "\n")
+        sr.font.size, sr.bold = Pt(7), True
     nr = fp.add_run(AVAN_SHORT + " — statik, tesisat ve ruhsat projesi yetkili mimar/mühendis imzası gerektirir\n")
     nr.font.size, nr.italic = Pt(7), True
     for txt, instr in (("Sayfa ", None), ("", "PAGE"), (" / ", None), ("", "NUMPAGES")):
@@ -332,7 +340,7 @@ def write_offer_docx(path, project, report, qres, cost, company=None, customer=N
     gfa = s["gross_floor_area"]
 
     d = _doc()
-    _header_footer(d.sections[0], _ph(co.get("name"), "[Firma Unvanı]"), f"Teklif No: {no}")
+    _header_footer(d.sections[0], _ph(co.get("name"), "[Firma Unvanı]"), f"Teklif No: {no}", _stamp(info))
     _letterhead(d, co)
     t = d.add_table(rows=1, cols=2)
     l, r = t.rows[0].cells
@@ -393,7 +401,7 @@ def write_offer_docx(path, project, report, qres, cost, company=None, customer=N
     sec.orientation = WD_ORIENT.LANDSCAPE
     sec.page_width, sec.page_height = Cm(29.7), Cm(21.0)
     sec.left_margin = sec.right_margin = Cm(1.8)
-    _header_footer(sec, _ph(co.get("name"), "[Firma Unvanı]"), f"Teklif No: {no} · Ek-1")
+    _header_footer(sec, _ph(co.get("name"), "[Firma Unvanı]"), f"Teklif No: {no} · Ek-1", _stamp(info))
     d.add_heading("EK-1  BİRİM FİYAT TEKLİF CETVELİ", 1)
     _para(d, f"İşin adı: {project}    ·    Teklif No: {no}    ·    Tarih: {today}", size=9, space_after=6)
     rows = [("Sıra No", "Poz No", "İş Kaleminin Adı ve Kısa Açıklaması", "Birimi", "Miktarı", "Birim Fiyat (TL)", "Tutarı (TL)")]
@@ -422,6 +430,7 @@ def write_offer_docx(path, project, report, qres, cost, company=None, customer=N
     if cost.get("note"):
         _para(d, cost["note"], size=8, italic=True)
     _signature(d, co)
+    _para(d, _stamp(info), bold=bool(info.get("onay")), size=8)
     d.save(path)
     return path
 
@@ -449,11 +458,12 @@ def write_docx(path, spec, cost=None, info=None):
     for _ in range(4):
         d.add_paragraph()
     _table(d, [("HAZIRLAYAN", "KONTROL EDEN", "ONAYLAYAN"),
-               (info.get("drawn_by") or "", info.get("checked_by") or "", info.get("approved_by") or co.get("signatory") or ""),
+               (info.get("drawn_by") or "", info.get("checked_by") or "",
+                (info.get("onay") or {}).get("name") or info.get("approved_by") or co.get("signatory") or ""),
                ("\n\nİmza", "\n\nİmza", "\n\nİmza")], (5.5, 5.5, 5.5), align=("c", "c", "c"))
     # ---- gövde: yeni bölüm, üst/alt bilgili
     body = d.add_section()
-    _header_footer(body, _ph(co.get("name"), "[Firma Unvanı]"), f"{project} — Teknik Şartname · {no}")
+    _header_footer(body, _ph(co.get("name"), "[Firma Unvanı]"), f"{project} — Teknik Şartname · {no}", _stamp(info))
     d.sections[0].different_first_page_header_footer = True
 
     d.add_heading("1. GENEL HÜKÜMLER", 1)
@@ -524,6 +534,8 @@ def _xl_title(ws, title, info, ncols):
     ws.row_dimensions[4].height = 36
     ws.oddFooter.center.text = AVAN_SHORT
     ws.oddFooter.center.size = 7
+    ws.oddFooter.left.text = _stamp(info)          # _xl_print orta alanı sayfa numarasına çevirir; damga solda kalır
+    ws.oddFooter.left.size = 7
 
 
 def _xl_header(ws, row, cols, widths):
