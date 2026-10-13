@@ -254,6 +254,7 @@ class ExtraItem(BaseModel):
     unit_price: _num(0)
     code: _txt(30) | None = None
     group: _txt(60) | None = None
+    poz: _txt(32) | None = None
 
 
 class AdjustIn(BaseModel):
@@ -269,6 +270,7 @@ class AdjustIn(BaseModel):
     profit_pct: _num(0, 100) | None = None
     vat_pct: Annotated[_num(0, 100) | None, Field(validation_alias=AliasChoices("vat_pct", "kdv_pct"))] = None
     approx_class: _txt(80) | None = None
+    poz: Annotated[dict[_Code, _txt(32)], Field(max_length=500)] | None = None
 
     @model_validator(mode="after")
     def _enabled_wins(self):
@@ -842,5 +844,8 @@ app.include_router(video_router)
 
 from webapp.design_routes import router as design_router  # noqa: E402
 app.include_router(design_router)  # Tasarım ajanı
+
+from webapp.muteahhit_routes import router as muteahhit_router  # noqa: E402
+app.include_router(muteahhit_router)  # Poz eşleme, imar belgesi, onay, katalog, ihale analizi
 
 app.mount("/", StaticFiles(directory=Path(__file__).parent / "static", html=True), name="static")

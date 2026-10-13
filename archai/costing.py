@@ -11,6 +11,7 @@ Ayarlar (adjust) sözlüğü:
   extra_items [{code, group, name, unit, unit_price, quantity}]  — elle kalem
   overhead_pct / profit_pct / vat_pct — oranlar
   approx_class                         — yaklaşık maliyet yapı sınıfı (ör. "IV-A")
+  poz         {code: poz no}           — kalemin resmî poz numarası (archai/poz.py; boşsa data/poz_map.json önerisi)
 """
 
 import copy
@@ -57,7 +58,7 @@ def _num(v, what, lo=0.0, hi=None):
 
 
 ADJUST_KEYS = {"overrides", "variants", "disabled", "enabled", "qty_overrides", "extra_items", "overhead_pct",
-               "profit_pct", "vat_pct", "approx_class"}
+               "profit_pct", "vat_pct", "approx_class", "poz"}
 
 
 def validate_adjust(adjust, prices=None):
@@ -117,13 +118,17 @@ def validate_adjust(adjust, prices=None):
             _num(x.get("unit_price", 0), f"ek kalem {i} birim fiyatı")
     if "approx_class" in adjust and adjust["approx_class"] is not None and not isinstance(adjust["approx_class"], str):
         raise ValueError("approx_class metin olmalı (ör. \"IV-A\")")
+    from .poz import validate_poz_adjust
+    validate_poz_adjust(adjust.get("poz"))
     return adjust
 
 
 def estimate(qres, prices=None, adjust=None):
     """qres: quantities.compute() çıktısı. Dönen yapı hem UI'da hem raporlarda kullanılır."""
+    from .poz import load_map, poz_of
     prices = copy.deepcopy(prices or load_prices())
     adj = validate_adjust(adjust, prices) or {}
+    pmap = load_map()
     lines = qres["lines"]
     rows = []
     for it in prices["items"]:
@@ -146,12 +151,14 @@ def estimate(qres, prices=None, adjust=None):
             "enabled": enabled, "variant": variant["id"] if variant else None,
             "variants": [{"id": v["id"], "name": v["name"], "unit_price": v["unit_price"]} for v in it.get("variants", [])],
             "overridden": code in adj.get("overrides", {}) or code in adj.get("qty_overrides", {}),
+            "poz": poz_of(code, adj, pmap)[0],
         })
     for x in adj.get("extra_items", []):
         q, p = float(x.get("quantity", 0)), float(x.get("unit_price", 0))
         rows.append({"approx": False, "code": x.get("code", "EK"), "group": x.get("group", "Ek kalemler"), "name": x["name"],
                      "unit": x.get("unit", "götürü"), "quantity": q, "auto_quantity": None, "unit_price": p,
-                     "amount": round(q * p, 2), "enabled": True, "variant": None, "variants": [], "overridden": True})
+                     "amount": round(q * p, 2), "enabled": True, "variant": None, "variants": [], "overridden": True,
+                     "poz": x.get("poz")})
 
     subtotal = round(sum(r["amount"] for r in rows), 2)
     oh = adj.get("overhead_pct", prices.get("overhead_pct", 0))

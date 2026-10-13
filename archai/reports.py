@@ -566,7 +566,8 @@ def write_xlsx(path, project_name, qres, cost, info=None):
         if not r["enabled"]:
             continue
         i += 1
-        for j, v in enumerate([i, r["code"], r["name"], r["unit"], r["quantity"], r["unit_price"], f"=E{row}*F{row}"], 1):
+        for j, v in enumerate([i, r.get("poz") or r["code"], r["name"], r["unit"], r["quantity"], r["unit_price"],
+                               f"=E{row}*F{row}"], 1):
             c = ws.cell(row=row, column=j, value=_xl_safe(v) if j < 7 else v)  # 7: bilinçli formül
             c.font, c.border = F(), BOX
             if j >= 5:

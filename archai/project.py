@@ -11,7 +11,7 @@ import math
 import os
 from pathlib import Path
 
-from . import costing, drawings, quantities as Q, reports, spec
+from . import costing, drawings, poz, quantities as Q, reports, spec
 from .dxf_import import import_dxf
 
 SETTINGS = Path(os.environ.get("ARCHAI_OUT") or Path(__file__).resolve().parents[1] / "out") / "settings.json"
@@ -218,6 +218,8 @@ def write_documents(out, name, brief, report, q, cost, info=None):
         "metraj_maliyet_xlsx": str(reports.write_xlsx(out / "metraj_maliyet.xlsx", name, q, cost, info)),
         "sartname_docx": str(reports.write_docx(out / "teknik_sartname.docx", sp, cost, info)),
         "teklif_docx": str(reports.write_offer_docx(out / "teklif.docx", name, report, q, cost, info=info)),
+        **dict(zip(("kesif_xlsx", "kesif_csv"), map(str, poz.write_kesif(
+            out / "kesif_ozeti.xlsx", out / "kesif_ozeti.csv", name, cost, brief.get("adjust"), info)))),
     }
 
 

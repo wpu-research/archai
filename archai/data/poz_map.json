@@ -1,0 +1,15 @@
+{
+ "_note": "ArchAI kalem kodu → ÇŞB poz numarası ÖNERİLERİ. Hiçbiri resmî listeyle doğrulanmadı (dogrulandi: false). Yalnız numaralandırması yaygın bilinen beton / donatı / kalıp pozları önerildi; diğer kalemler için poz, yüklenen lisanslı listeden metin benzerliğiyle önerilir ve kullanıcı onaylar. Fiyat İÇERMEZ.",
+ "items": {
+  "GRO-01": {"poz": "15.150.1003", "dogrulandi": false, "not": "C16/20 hazır beton, pompalı"},
+  "TEM-01": {"poz": "15.150.1006", "dogrulandi": false, "not": "C30/37 hazır beton, pompalı"},
+  "BET-01": {"poz": "15.150.1006", "dogrulandi": false, "not": "C30/37 hazır beton, pompalı"},
+  "KOL-01": {"poz": "15.150.1006", "dogrulandi": false, "not": "C30/37 hazır beton, pompalı"},
+  "DON-01": {"poz": "15.160.1003", "dogrulandi": false, "not": "Ø8–Ø12 nervürlü beton çelik çubuğu (döşemede ağırlıklı çap)"},
+  "DON-02": {"poz": "15.160.1004", "dogrulandi": false, "not": "Ø14–Ø28 nervürlü beton çelik çubuğu (kolon/kirişte ağırlıklı çap)"},
+  "DON-03": {"poz": "15.160.1004", "dogrulandi": false, "not": "Ø14–Ø28 nervürlü beton çelik çubuğu (radyede ağırlıklı çap)"},
+  "KAL-01": {"poz": "15.180.1003", "dogrulandi": false, "not": "plywood ile düz yüzeyli betonarme kalıbı"},
+  "KAL-02": {"poz": "15.180.1003", "dogrulandi": false, "not": "plywood ile düz yüzeyli betonarme kalıbı"},
+  "KAL-03": {"poz": "15.180.1003", "dogrulandi": false, "not": "plywood ile düz yüzeyli betonarme kalıbı"}
+ }
+}

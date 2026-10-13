@@ -5,11 +5,15 @@
   "profit_pct": 15,
   "vat_pct": 20,
   "approx_unit_costs": {
-    "_note": "Yaklaşık m² birim maliyet (yapı sınıfına göre). ÖRNEK değer — yılın yapı yaklaşık birim maliyetleri tebliğinden girilmeli.",
-    "III-B": 21000,
-    "IV-A": 25000,
-    "IV-C": 30000,
-    "V-A": 38000
+    "_note": "2026 Yapı Yaklaşık Birim Maliyetleri (TL/m²) — Çevre, Şehircilik ve İklim Değişikliği Bakanlığı tebliği, Resmî Gazete 03.02.2026 / 33157. Hizmet bedeli ve harç hesabına esastır, yapım maliyeti değildir. İlk sınıf varsayılandır.",
+    "III-B": 21050,
+    "IV-A": 26450,
+    "IV-C": 40500,
+    "V-A": 42350,
+    "I-A": 2600, "I-B": 3900, "I-C": 4200, "I-D": 4800,
+    "II-A": 8100, "II-B": 12500, "II-C": 15100,
+    "III-A": 19800, "III-C": 23400, "IV-B": 33900,
+    "V-B": 43850, "V-C": 48750, "V-D": 53500, "V-E": 103500
   },
   "items": [
     {"code": "GEN-01", "group": "Genel giderler", "name": "Şantiye kurulumu ve geçici tesisler (şantiye ofisi, çit, tabela, geçici elektrik ve su)", "unit": "m²", "unit_price": 90, "approx": true, "qty": {"metric": "area", "type": "slab", "role": "floor"}},
