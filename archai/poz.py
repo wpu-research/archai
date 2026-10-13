@@ -91,7 +91,7 @@ def _header_map(row):
     """Bir satır başlık mı? Sütun indekslerini döndürür (poz zorunlu)."""
     cols = {}
     for j, cell in enumerate(row):
-        t = str(cell or "").strip().lower()
+        t = str(cell or "").strip().lower().replace("\u0307", "")   # "İ".lower() → i + birleşik nokta
         if not t or len(t) > 60:
             continue
         for key, rx in _HEAD.items():

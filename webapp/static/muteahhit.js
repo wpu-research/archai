@@ -1,4 +1,4 @@
-// Müteahhit katmanı sekmeleri: 08 POZ · KEŞİF, 09 ONAY. Sunucu: webapp/muteahhit_routes.py.
+// Müteahhit katmanı sekmeleri: 08 POZ · KATALOG, 09 ONAY ve arazi formundaki imar belgesi okuma. Sunucu: webapp/muteahhit_routes.py.
 // Kullanıcı, dosya ve liste kaynaklı her metin esc() ile kaçışlanır.
 export function createContractor(ctx) {
   const {$, $$, api, esc, tl, n2, getProject, setProject} = ctx;
@@ -100,6 +100,48 @@ export function createContractor(ctx) {
     };
   }
 
+  // ---- 4. adım: tedarikçi kataloğu
+  const C = {d: null, err: '', msg: '', busy: false};
+  async function loadCat(out) {
+    try { C.d = await api(`/api/projects/${getProject().id}/catalog`); C.err = ''; } catch (e) { C.err = e.message || String(e); }
+    drawCat(out);
+  }
+  function drawCat(out) {
+    const d = C.d;
+    if (!d) { out.innerHTML = C.err ? `<p class="err">${esc(C.err)}</p>` : ''; return; }
+    out.innerHTML = `<div class="mk"><p class="sec-t" style="margin-top:22px">TEDARİKÇİ KATALOĞU · GERÇEK ÜRÜN FİYATI</p>
+      <p class="note" style="margin-top:0">Yapı market / bayi fiyat listesini (CSV/XLSX: Ürün Adı, Birim, Fiyat, Kalem, isteğe bağlı İşçilik, Fire %, Varyant, KDV Dahil) yükleyin.
+        Uygulanmış birim fiyat = KDV hariç malzeme × (1 + fire) + işçilik. Biçim örneği: <span class="mono">examples/katalog_ornek.csv</span>.</p>
+      <div class="mk-row">${d.catalogs.map(k => `<span class="flag">${esc(k.supplier)} · ${esc(k.count)} ürün</span><button class="ghost" data-catdel="${esc(k.id)}">✕</button>`).join(' ') || '<span class="mono" style="color:var(--mute)">KATALOG YOK</span>'}</div>
+      <div class="mk-row"><input id="ct-file" type="file" accept=".xlsx,.xlsm,.csv,.txt"><input id="ct-sup" placeholder="Tedarikçi adı (dosyada yoksa)" maxlength="60" style="width:200px">
+        <button class="ghost" id="ct-up" ${C.busy ? 'disabled' : ''}>↑ KATALOG YÜKLE</button></div>
+      ${C.err ? `<p class="err">${esc(C.err)}</p>` : ''}${C.msg ? `<p class="ok">${esc(C.msg)}</p>` : ''}
+      ${d.rows.length ? `<div class="scroll"><table><tr><th>Kalem</th><th class="n">Miktar</th><th class="n">Güncel birim</th><th>Ürün seç</th></tr>
+      ${d.rows.map(r => `<tr><td><span class="code">${esc(r.code)}</span> ${esc(r.name)}</td><td class="n">${esc(n2(r.quantity))} ${esc(r.unit)}</td><td class="n">${esc(tl(r.unit_price))}</td>
+        <td><select data-cat="${esc(r.code)}"><option value="">— katalog dışı (katalog / varyant fiyatı) —</option>
+          ${r.products.map(p => `<option value="${esc(p.catalog)}|${esc(p.id)}" ${r.selected && r.selected.sku === p.sku && r.selected.supplier === p.supplier ? 'selected' : ''}>${esc(p.name)} · ${esc(p.supplier)} · ${esc(tl(p.unit_price))}/${esc(r.unit)}${p.labor == null ? ' · yalnız malzeme!' : ''}</option>`).join('')}</select>
+          ${r.selected?.material_only ? '<div class="mono" style="color:var(--warn);font-size:10px">İŞÇİLİK YOK: birim fiyat yalnız malzeme</div>' : ''}</td></tr>`).join('')}</table></div>` :
+        '<p class="note">Bu projenin kalemleri için katalogda ürün yok' + (d.catalogs.length ? ' (ürünler mevcut varyanta göre süzülür).' : '.') + '</p>'}</div>`;
+    $('#ct-up').onclick = async () => {
+      const f = $('#ct-file').files[0]; if (!f) { C.err = 'önce bir katalog dosyası seçin'; drawCat(out); return; }
+      const fd = new FormData(); fd.append('file', f); fd.append('supplier', $('#ct-sup').value.trim());
+      await catAct(out, async () => { const r = await api('/api/catalogs', {method: 'POST', body: fd});
+        C.msg = `${r.catalog.supplier}: ${r.catalog.count} ürün yüklendi` + (r.catalog.skipped ? `, ${r.catalog.skipped} satır atlandı (${r.catalog.warnings.slice(0, 3).join('; ')})` : ''); });
+    };
+    $$('[data-catdel]').forEach(b => b.onclick = () => catAct(out, async () => { await api('/api/catalogs/' + encodeURIComponent(b.dataset.catdel), {method: 'DELETE'}); C.msg = 'katalog silindi'; }));
+    $$('[data-cat]').forEach(sel => sel.onchange = () => catAct(out, async () => {
+      const [catalog, product] = sel.value.split('|');
+      const r = await api(`/api/projects/${getProject().id}/catalog`, {method: 'PUT', headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({select: {[sel.dataset.cat]: sel.value ? {catalog, product} : null}})});
+      setProject(r.project); C.msg = 'maliyet ve belgeler güncellendi';
+    }));
+  }
+  async function catAct(out, fn) {
+    C.busy = true; C.err = C.msg = '';
+    try { await fn(); } catch (e) { C.err = e.message || String(e); }
+    C.busy = false; await loadCat(out);
+  }
+
   // ---- 3. adım: mimar / mühendis onayı
   const OST = {taslak: ['TASLAK', 'warn'], onaylandi: ['ONAYLI', 'ok'], gecersiz: ['ONAY GEÇERSİZ', 'bad'],
                degistirilmis: ['BELGE DEĞİŞTİRİLMİŞ', 'bad'], geri_alindi: ['ONAY GERİ ALINDI', 'warn']};
@@ -147,6 +189,10 @@ export function createContractor(ctx) {
   return {
     mountOnay(out) { O.d = null; O.err = ''; drawOnay(out); loadOnay(out); },
     bindImar,
-    mountPoz(out) { S.poz = null; S.msg = S.err = ''; drawPoz(out); loadPoz(out); },
+    mountPoz(out) {
+      out.innerHTML = '<div id="mk-poz"></div><div id="mk-cat"></div>';
+      S.poz = null; S.msg = S.err = ''; drawPoz($('#mk-poz')); loadPoz($('#mk-poz'));
+      C.d = null; C.msg = C.err = ''; drawCat($('#mk-cat')); loadCat($('#mk-cat'));
+    },
   };
 }

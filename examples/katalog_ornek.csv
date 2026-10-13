@@ -1,0 +1,11 @@
+ÖRNEK KATALOG — fiyatlar uydurmadır, gerçek bir tedarikçiye ait değildir. Biçimi göstermek içindir.;;;;;;;;;
+Tedarikçi;Ürün Kodu;Ürün Adı;Birim;Fiyat;KDV Dahil;İşçilik;Fire %;Kalem;Varyant
+Örnek Yapı Market;LAM-8-MESE;Laminat parke 8 mm AC4 meşe;m2;520,00;evet;180;8;ZEM-01;laminat
+Örnek Yapı Market;LAM-10-CEVIZ;Laminat parke 10 mm AC5 ceviz;m2;690,00;evet;180;8;ZEM-01;laminat
+Örnek Yapı Market;POR-60120-BEJ;Porselen seramik 60x120 bej mat;m2;980,00;evet;420;10;ZEM-01;seramik
+Örnek Yapı Market;MAS-MESE-14;Masif meşe parke 14 mm lake;m2;2.150,00;evet;450;8;ZEM-01;masif
+Örnek Yapı Market;SER-6060-GRI;Islak hacim zemin seramiği 60x60 R10 gri;m2;640,00;evet;380;10;SER-01;seramik
+Örnek Yapı Market;SER-3060-BEYAZ;Duvar seramiği 30x60 beyaz parlak;m2;560,00;evet;360;10;SER-02;seramik
+Örnek Yapı Market;BOYA-IC-15L;İç cephe silikonlu boya (m² sarfiyatına çevrilmiş, 2 kat + astar);m2;48,00;evet;55;5;BOY-01;
+Örnek Yapı Market;VIT-SET-ORTA;Banyo vitrifiye seti (klozet, lavabo dolabı, duşakabin, armatür);takım;38.500,00;evet;6500;0;VIT-01;
+Örnek Yapı Market;KAP-AMERIKAN;Amerikan panel iç kapı, kasa ve pervaz dahil;adet;7.900,00;evet;1200;0;KAP-01;

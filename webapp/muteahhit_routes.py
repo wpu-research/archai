@@ -10,6 +10,11 @@
     GET    /api/projects/{pid}/onay        onay durumu (taslak | onaylandi | gecersiz | degistirilmis | geri_alindi)
     POST   /api/projects/{pid}/onay        {name, title, chamber, reg_no, note, statement:true} → belgeler damgalanır
     POST   /api/projects/{pid}/onay/revoke {reason} → onay geri alınır, belgeler TASLAK
+    GET    /api/catalogs                   yüklü tedarikçi katalogları
+    POST   /api/catalogs                   multipart: file (.xlsx/.csv), supplier → kataloğu içe aktar
+    DELETE /api/catalogs/{sid}
+    GET    /api/projects/{pid}/catalog     kataloğu olan kalemler: güncel fiyat + ürünler (ucuzdan pahalıya)
+    PUT    /api/projects/{pid}/catalog     {"select": {kod: {"catalog": sid, "product": id} | null}}
 """
 
 import copy
@@ -21,7 +26,7 @@ from pydantic import BaseModel, ConfigDict, Field
 
 import threading
 
-from archai import approval, costing, imar_doc, poz, project
+from archai import approval, catalog, costing, imar_doc, poz, project
 
 router = APIRouter()
 
@@ -199,3 +204,97 @@ def revoke_onay(pid: str, body: RevokeIn):
         except ValueError as ex:
             raise HTTPException(422, str(ex))
     return {**_onay_public(pid, d), "project": _app()._public(pid, _app()._read_json(d / "project.json"))}
+
+
+# ------------------------------------------------------------------ tedarikçi kataloğu
+
+def _cat_root():
+    return _app().OUT / "katalog"
+
+
+def _cat_info(c):
+    return {"id": c["id"], "supplier": c["supplier"], "count": len(c["items"]), "skipped": c.get("skipped", 0),
+            "warnings": c.get("warnings", [])[:20], "imported_at": c.get("imported_at")}
+
+
+@router.get("/api/catalogs")
+def list_catalogs():
+    return {"catalogs": [_cat_info(c) for c in catalog.load_all(_cat_root())]}
+
+
+@router.post("/api/catalogs")
+def upload_catalog(file: UploadFile = File(...), supplier: Annotated[str, Form(max_length=60)] = ""):
+    data = _read_upload(file, MAX_LIST_BYTES, "katalog")
+    try:
+        cat = catalog.read_catalog(Path(file.filename or "katalog").name, data, costing.load_prices(),
+                                   supplier.strip() or None)
+    except ValueError as ex:
+        raise HTTPException(422, str(ex))
+    except Exception:  # noqa: BLE001
+        raise HTTPException(422, "dosya okunamadı (bozuk veya parola korumalı olabilir)")
+    if supplier.strip():
+        cat["supplier"] = supplier.strip()
+    cat["id"] = catalog.save(_cat_root(), cat)
+    return {"catalog": _cat_info(cat)}
+
+
+@router.delete("/api/catalogs/{sid}")
+def delete_catalog(sid: str):
+    try:
+        catalog.delete(_cat_root(), sid)
+    except ValueError as ex:
+        raise HTTPException(404, str(ex))
+    return {"ok": True}
+
+
+@router.get("/api/projects/{pid}/catalog")
+def project_catalog(pid: str):
+    _, r = _project(pid)
+    cats = catalog.load_all(_cat_root())
+    adj = (r.get("brief") or {}).get("adjust") or {}
+    out = []
+    for row in (r.get("cost") or {}).get("rows", []):
+        prods = catalog.products_for(cats, row["code"], row.get("variant"))
+        if not prods and not (adj.get("catalog") or {}).get(row["code"]):
+            continue
+        out.append({"code": row["code"], "name": row["name"], "unit": row["unit"], "quantity": row["quantity"],
+                    "unit_price": row["unit_price"], "variant": row.get("variant"), "selected": row.get("catalog"),
+                    "products": prods[:12]})
+    return {"catalogs": [_cat_info(c) for c in cats], "rows": out}
+
+
+class CatPick(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid")
+    catalog: Annotated[str, Field(max_length=40)]
+    product: Annotated[str, Field(max_length=10)]
+
+
+class CatSelectIn(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid")
+    select: Annotated[dict[Annotated[str, Field(max_length=30)], CatPick | None], Field(max_length=200)]
+
+
+@router.put("/api/projects/{pid}/catalog")
+def set_project_catalog(pid: str, body: CatSelectIn):
+    d, r = _project(pid)
+    adj = copy.deepcopy((r.get("brief") or {}).get("adjust") or {})
+    cats = {c["id"]: c for c in catalog.load_all(_cat_root())}
+    sel = dict(adj.get("catalog") or {})
+    for code, pick in body.select.items():
+        if pick is None:
+            sel.pop(code, None)
+            continue
+        c = cats.get(pick.catalog)
+        p = next((x for x in (c or {}).get("items", []) if x["id"] == pick.product and x["code"] == code), None)
+        if p is None:
+            raise HTTPException(422, f"{code}: katalog ürünü bulunamadı")
+        sel[code] = catalog.selection(p)
+        if p.get("variant"):
+            adj.setdefault("variants", {})[code] = p["variant"]
+        (adj.get("overrides") or {}).pop(code, None)   # elle girilmiş birim fiyat katalog seçimini gölgelemesin
+    adj["catalog"] = sel
+    try:
+        res = project.readjust(d, costing.validate_adjust(adj))
+    except ValueError as ex:
+        raise HTTPException(422, str(ex))
+    return {"project": _app()._public(pid, res)}

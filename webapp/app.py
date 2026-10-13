@@ -257,6 +257,20 @@ class ExtraItem(BaseModel):
     poz: _txt(32) | None = None
 
 
+class CatalogSel(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid")
+    supplier: _txt(60) = ""
+    sku: _txt(40) = ""
+    name: Annotated[str, Field(min_length=1, max_length=120)]
+    variant: _txt(60) | None = None
+    material: _num(0) = 0
+    labor: _num(0) = 0
+    waste_pct: _num(0, 50) = 0
+    url: _txt(300) = ""
+    unit_price: _num(0)
+    material_only: bool = False
+
+
 class AdjustIn(BaseModel):
     """Maliyet ayarı: varyant, birim fiyat / miktar düzeltmesi, kalem aç/kapa, ek kalem, oranlar."""
     model_config = ConfigDict(strict=True, extra="forbid")
@@ -271,6 +285,7 @@ class AdjustIn(BaseModel):
     vat_pct: Annotated[_num(0, 100) | None, Field(validation_alias=AliasChoices("vat_pct", "kdv_pct"))] = None
     approx_class: _txt(80) | None = None
     poz: Annotated[dict[_Code, _txt(32)], Field(max_length=500)] | None = None
+    catalog: Annotated[dict[_Code, CatalogSel], Field(max_length=200)] | None = None
 
     @model_validator(mode="after")
     def _enabled_wins(self):

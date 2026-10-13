@@ -12,6 +12,7 @@ Ayarlar (adjust) sözlüğü:
   overhead_pct / profit_pct / vat_pct — oranlar
   approx_class                         — yaklaşık maliyet yapı sınıfı (ör. "IV-A")
   poz         {code: poz no}           — kalemin resmî poz numarası (archai/poz.py; boşsa data/poz_map.json önerisi)
+  catalog     {code: ürün seçimi}      — tedarikçi kataloğundan ürün (archai/catalog.py); birim fiyatı overrides yoksa geçerli
 """
 
 import copy
@@ -58,7 +59,7 @@ def _num(v, what, lo=0.0, hi=None):
 
 
 ADJUST_KEYS = {"overrides", "variants", "disabled", "enabled", "qty_overrides", "extra_items", "overhead_pct",
-               "profit_pct", "vat_pct", "approx_class", "poz"}
+               "profit_pct", "vat_pct", "approx_class", "poz", "catalog"}
 
 
 def validate_adjust(adjust, prices=None):
@@ -120,6 +121,8 @@ def validate_adjust(adjust, prices=None):
         raise ValueError("approx_class metin olmalı (ör. \"IV-A\")")
     from .poz import validate_poz_adjust
     validate_poz_adjust(adjust.get("poz"))
+    from .catalog import validate_selection
+    validate_selection(adjust.get("catalog"), prices or load_prices())
     return adjust
 
 
@@ -137,7 +140,11 @@ def estimate(qres, prices=None, adjust=None):
         if it.get("variants"):
             vid = adj.get("variants", {}).get(code, it.get("selected"))
             variant = next((v for v in it["variants"] if v["id"] == vid), it["variants"][0])
-        unit_price = adj.get("overrides", {}).get(code, variant["unit_price"] if variant else it["unit_price"])
+        sel = (adj.get("catalog") or {}).get(code)
+        if sel and sel.get("variant") and variant and sel["variant"] != variant["id"]:
+            sel = None      # varyant sonradan değişti (ör. tasarım ajanı): ürün artık o seçeneğe ait değil
+        base_price = sel["unit_price"] if sel else variant["unit_price"] if variant else it["unit_price"]
+        unit_price = adj.get("overrides", {}).get(code, base_price)
         rule = it["qty"]
         auto_qty = Q.quantity(lines, rule["metric"], rule.get("factor", 1.0), **_filters(rule))
         qty = adj.get("qty_overrides", {}).get(code, auto_qty)
@@ -145,13 +152,16 @@ def estimate(qres, prices=None, adjust=None):
         enabled = (default_on and code not in adj.get("disabled", [])) or code in adj.get("enabled", [])
         rows.append({
             "approx": bool(it.get("approx")), "default_enabled": default_on,
-            "code": code, "group": it["group"], "name": it["name"] + (f" — {variant['name']}" if variant else ""),
+            "code": code, "group": it["group"],
+            "name": it["name"] + (f" — {sel['name']} ({sel.get('supplier') or 'tedarikçi'})" if sel else
+                                  f" — {variant['name']}" if variant else ""),
             "unit": it["unit"], "quantity": round(qty, 2), "auto_quantity": round(auto_qty, 2),
             "unit_price": unit_price, "amount": round(qty * unit_price, 2) if enabled else 0.0,
             "enabled": enabled, "variant": variant["id"] if variant else None,
             "variants": [{"id": v["id"], "name": v["name"], "unit_price": v["unit_price"]} for v in it.get("variants", [])],
             "overridden": code in adj.get("overrides", {}) or code in adj.get("qty_overrides", {}),
             "poz": poz_of(code, adj, pmap)[0],
+            "catalog": sel,
         })
     for x in adj.get("extra_items", []):
         q, p = float(x.get("quantity", 0)), float(x.get("unit_price", 0))
