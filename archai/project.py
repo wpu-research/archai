@@ -11,7 +11,7 @@ import math
 import os
 from pathlib import Path
 
-from . import approval, costing, drawings, poz, quantities as Q, reports, spec
+from . import approval, avan, costing, drawings, poz, quantities as Q, reports, spec
 from .dxf_import import import_dxf
 
 SETTINGS = Path(os.environ.get("ARCHAI_OUT") or Path(__file__).resolve().parents[1] / "out") / "settings.json"
@@ -77,7 +77,12 @@ def run(brief, out_dir, render_3d=False):
         parcel, zoning, program = quick_brief(brief["quick"])
     else:
         parcel, zoning, program = brief["parcel"], brief["zoning"], brief.get("program", {})
-    elements, report = generate(parcel, zoning, program)
+    if parcel.get("polygon"):
+        from .parcel import generate_on_polygon
+        elements, report = generate_on_polygon(parcel, zoning, program)
+    else:
+        elements, report = generate(parcel, zoning, program)
+    elements, report = avan.apply(elements, report, parcel, zoning, program)
     meta = {"parcel": parcel, "zoning": zoning, "program": program}
     return finalize(brief, elements, report, meta, out_dir, render_3d), elements
 

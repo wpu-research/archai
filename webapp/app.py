@@ -7,11 +7,13 @@ import hmac
 import ipaddress
 import json
 import logging
+import math
 import os
 import queue
 import re
 import shutil
 import subprocess
+import tempfile
 import threading
 import time
 import unicodedata
@@ -213,9 +215,19 @@ def _txt(n):
 
 
 class Parcel(BaseModel):
+    """Dikdörtgen (width × depth) ya da çokgen (polygon: metrik [x, y] köşeleri; front_edge: ön cephe kenarı indeksi)."""
     model_config = _S
-    width: _num(3, 500)
-    depth: _num(3, 500)
+    width: _num(3, 500) | None = None
+    depth: _num(3, 500) | None = None
+    polygon: Annotated[list[Annotated[list[_num(-100000, 100000)], Field(min_length=2, max_length=2)]],
+                       Field(min_length=3, max_length=60)] | None = None
+    front_edge: Annotated[int, Field(ge=0, le=59)] | None = None
+
+    @model_validator(mode="after")
+    def _shape(self):
+        if self.polygon is None and (self.width is None or self.depth is None):
+            raise ValueError("parsel için width+depth veya polygon gerekli")
+        return self
 
 
 class Zoning(BaseModel):
@@ -231,10 +243,19 @@ class Zoning(BaseModel):
     emsal_disi_pct: _num(0, 30) | None = None            # emsale girmeyen ortak alan payı (% brüt)
 
 
+class Avan(BaseModel):
+    """Avan programı: 1. bodrum + zemin katta işyeri + çatı katı (archai/avan.py)."""
+    model_config = _S
+    basement: bool = True
+    shops: Annotated[int, Field(ge=1, le=20)] = 6
+    attic_area: _num(5, 500) | None = None
+
+
 class Program(BaseModel):
     model_config = _S
     unit_type: _txt(20) | None = None
     units_per_floor: Literal["auto"] | Annotated[int, Field(ge=1, le=20)] | None = None
+    avan: Avan | None = None
 
 
 class Quick(Program):
@@ -527,6 +548,30 @@ def _save_upload(upload, dest, limit, what):
     if n == 0:
         raise HTTPException(422, f"{what} boş")
     return n
+
+
+@app.post("/api/parcel/dxf")
+def parcel_from_dxf(file: UploadFile = File(...)):
+    """TKGM / kadastro DXF'inden parsel çokgeni (metrik köşeler, alan, kenar uzunlukları). Sonuç `parcel.polygon` olarak
+    /api/projects'e verilebilir."""
+    from shapely.geometry import Polygon
+
+    from archai import parcel as parcel_mod
+    if Path((file.filename or "").lower()).suffix != ".dxf":
+        raise HTTPException(422, "yalnız .dxf kabul ediliyor")
+    with tempfile.TemporaryDirectory() as td:
+        src = Path(td) / "parsel.dxf"
+        _save_upload(file, src, MAX_PLAN_BYTES, "parsel dosyası")
+        try:
+            pts, info = parcel_mod.polygon_from_dxf(src)
+        except ValueError as ex:
+            raise HTTPException(422, str(ex))
+        except Exception:  # noqa: BLE001 — bozuk DXF kullanıcıya tek satır
+            raise HTTPException(422, "DXF okunamadı")
+    n = len(pts)
+    return {"polygon": [[round(x, 3), round(y, 3)] for x, y in pts], "area": round(Polygon(pts).area, 2),
+            "edges": [round(math.dist(pts[i], pts[(i + 1) % n]), 2) for i in range(n)], **info,
+            "note": "Koordinatlar DXF'ten; derece ise yerel metreye çevrildi (≈1 m hassasiyet). Alan tapu alanı değildir."}
 
 
 @app.post("/api/projects/dxf")

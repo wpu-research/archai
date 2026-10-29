@@ -417,10 +417,19 @@ def draw_plan(sh, elements, level, cut_x=None, title="KAT PLANI"):
 def draw_site(sh, elements, report, zoning, info):
     parcel = next(e for e in elements if e.get("name") == "parsel")
     P = [tuple(p) for p in parcel["points"]]
-    W, D = P[1][0], P[2][1]
+    geom = report.get("parcel_geom")                       # çokgen parsel: gerçek sınır + kenar başına çekme alanı
+    W, D = max(p[0] for p in P), max(p[1] for p in P)
     fr, sd, rr = zoning.get("front", 5), zoning.get("side", 3), zoning.get("rear", 3)
     sh.poly(P, "A-PARSEL")
-    sh.poly([(sd, fr), (W - sd, fr), (W - sd, D - rr), (sd, D - rr)], "A-CEKME")
+    if geom:
+        sh.poly([tuple(p) for p in geom["buildable"]], "A-CEKME")
+        for i, a in enumerate(P):                           # kenar uzunlukları
+            b = P[(i + 1) % len(P)]
+            ln = math.dist(a, b)
+            if ln >= 1.0:
+                sh.text(f"{ln:.2f}", (a[0] + b[0]) / 2, (a[1] + b[1]) / 2, 1.8, "A-YAZI")
+    else:
+        sh.poly([(sd, fr), (W - sd, fr), (W - sd, D - rr), (sd, D - rr)], "A-CEKME")
     floor = next(e for e in elements if e["type"] == "slab" and e.get("role") == "floor")
     fp = [tuple(p) for p in floor["points"]]
     sh.poly(fp, "A-DUVAR")
@@ -439,11 +448,12 @@ def draw_site(sh, elements, report, zoning, info):
     sh.line((cx, -sh.mm(2)), (cx, by0 - sh.mm(3)), "A-KESIT-OKU")
     sh.hatch([[(cx, by0), (cx - sh.mm(1.5), by0 - sh.mm(3)), (cx + sh.mm(1.5), by0 - sh.mm(3))]], "A-KESIT-OKU", solid=True)
     sh.text("GİRİŞ", cx + sh.mm(2), -sh.mm(5), 1.8, "A-YAZI", TA.MIDDLE_LEFT)
-    sh.dim_chain([(0, D), (W, D)], (0, D + sh.mm(10)))
-    sh.dim_chain([(W, 0), (W, D)], (W + sh.mm(10), 0), 90)
-    yd = (by1 + D - rr) / 2  # yan çekme zinciri: bina ile arka çekme hattı arasında
-    sh.dim_chain([(0, yd), (bx0, yd), (bx1, yd), (W, yd)], (0, yd))
-    sh.dim_chain([(bx0, 0), (bx0, by0), (bx0, by1), (bx0, D)], (bx0 - sh.mm(6), 0), 90)
+    if not geom:                                            # dikdörtgen parselde boyut zincirleri
+        sh.dim_chain([(0, D), (W, D)], (0, D + sh.mm(10)))
+        sh.dim_chain([(W, 0), (W, D)], (W + sh.mm(10), 0), 90)
+        yd = (by1 + D - rr) / 2  # yan çekme zinciri: bina ile arka çekme hattı arasında
+        sh.dim_chain([(0, yd), (bx0, yd), (bx1, yd), (W, yd)], (0, yd))
+        sh.dim_chain([(bx0, 0), (bx0, by0), (bx0, by1), (bx0, D)], (bx0 - sh.mm(6), 0), 90)
     lx, ly = W + sh.mm(26), D
     for i, (lay, txt) in enumerate([("A-PARSEL", "Mülkiyet (parsel) sınırı"), ("A-CEKME", "Yapı yaklaşma sınırı"),
                                     ("A-DUVAR", "Bina oturumu")]):
@@ -636,12 +646,13 @@ def export_all(out_dir, elements, report, zoning, project, info=None):
     out = Path(out_dir)
     out.mkdir(parents=True, exist_ok=True)
     levels = [e["level"] for e in elements if e["type"] == "slab" and e.get("role") == "floor"]
-    ground = levels[0]
-    typical = levels[1] if len(levels) > 1 else levels[0]
+    ground = "Zemin Kat" if "Zemin Kat" in levels else levels[0]
+    ups = [l for l in levels if l.startswith("Kat ")]          # bodrum/zemin dışındaki normal katlar
+    typical = ups[0] if ups else (levels[1] if len(levels) > 1 else levels[0])
     walls = [e for e in elements if e["type"] == "wall" and e.get("level") == ground]
     salon = next((e for e in elements if e["type"] == "room" and e.get("level") == ground and "Salon" in e["name"]), None)
     cut_x = sum(p[0] for p in salon["points"]) / 4 if salon else sum(w["start"][0] for w in walls) / len(walls)
-    n_up = len(levels) - 1
+    n_up = len(ups) if ups else len(levels) - 1
 
     specs = []
     if any(e.get("name") == "parsel" for e in elements):
@@ -653,6 +664,13 @@ def export_all(out_dir, elements, report, zoning, project, info=None):
         specs.append(("03_normal_kat_plani", "A-02", tt, lambda sh: draw_plan(sh, elements, typical, cut_x, tt), 100))
     specs.append(("04_kesit_AA", "A-03", "A-A KESİTİ", lambda sh: draw_section(sh, elements, cut_x), 100))
     specs.append(("05_on_gorunus", "A-04", "ÖN GÖRÜNÜŞ", lambda sh: draw_elevation(sh, elements), 100))
+
+    if "1. Bodrum" in levels:                 # avan programı: bodrum ve çatı katı planları (numaralar kaymasın diye sona)
+        bt = f"{level_title('1. Bodrum')} PLANI"
+        specs.append(("06_bodrum_kat_plani", "A-05", bt, lambda sh: draw_plan(sh, elements, "1. Bodrum", cut_x, bt), 100))
+    if any(e.get("level") == "Çatı Katı" for e in elements):
+        ct = "ÇATI KATI PLANI"
+        specs.append(("07_cati_kati_plani", "A-06", ct, lambda sh: draw_plan(sh, elements, "Çatı Katı", cut_x, ct), 100))
 
     cfg = Configuration(background_policy=BackgroundPolicy.WHITE, color_policy=ColorPolicy.BLACK,
                         lineweight_policy=LineweightPolicy.ABSOLUTE, lineweight_scaling=1.0)
