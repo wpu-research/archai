@@ -3,6 +3,8 @@
     GET  /api/chat/status                 {"available": bool, "model": str}
     POST /api/projects/{pid}/chat         {"message", "history":[{role, content}], "consent": true}
                                           → {"reply", "new_project": id|null, "updated": bool, "actions": [...]}
+    POST /api/chat                        yeni-proje modu (açık proje yok): aynı gövde + "form": {...}, "ekler": {"parsel": {...}};
+                                          asistan ihtiyaçları toplar, `projeyi_uret` ile projeyi üretir
 
 Mesaj ve proje özeti Anthropic'e YALNIZ `consent: true` ile gider; kimlik bilgisi yoksa hiçbir ağ çağrısı yapılmaz.
 Planı değiştiren değişiklikler YENİ proje üretir (eski proje bozulmaz); fiyat ve künye mevcut projeyi günceller.
@@ -10,12 +12,14 @@ Planı değiştiren değişiklikler YENİ proje üretir (eski proje bozulmaz); f
 import copy
 import json
 import logging
+import math
 import re
 import threading
 from typing import Annotated
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
+from shapely.geometry import Polygon
 
 from archai import chat, project
 from archai.avan_tablo import TABLO_11903
@@ -38,6 +42,17 @@ class ChatIn(BaseModel):
     consent: bool = False
 
 
+class Poly(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+    polygon: Annotated[list[Annotated[list[float], Field(min_length=2, max_length=2)]], Field(min_length=3, max_length=60)]
+
+
+class ChatNewIn(ChatIn):
+    """Yeni-proje modu: formdaki başlangıç değerleri ve (varsa) yüklenen parsel çokgeni."""
+    form: Annotated[dict[str, str | float | int | bool | None], Field(max_length=30)] = {}
+    parsel: Poly | None = None
+
+
 def _deep(base, patch):
     out = copy.deepcopy(base)
     for k, v in patch.items():
@@ -52,6 +67,17 @@ def _load(pid):
     m = _app()
     d = m._pdir(pid, "project.json")
     return d, json.loads((d / "project.json").read_text())
+
+
+def _attach_requests(pid, istekler):
+    """Kullanıcının ek istekleri project.json'a yazılır; planda işlenmeyenler proje uyarılarına düşer."""
+    if not istekler:
+        return
+    d, r = _load(pid)
+    r["istekler"] = (r.get("istekler") or []) + istekler
+    warn = [f"Kullanıcı isteği (planda modellenmedi): {i['metin'][:200]}" for i in istekler if not i.get("modellendi")]
+    r.setdefault("report", {}).setdefault("warnings", []).extend(warn)
+    (d / "project.json").write_text(json.dumps(r, ensure_ascii=False, indent=1, default=str))
 
 
 def _summary(pid):
@@ -71,6 +97,7 @@ def _summary(pid):
         "imar_kontrol": {k: checks[k] for k in ("taks", "kaks", "floors", "setbacks") if k in checks},
         "avan": rep.get("avan"),
         "uyarilar": (rep.get("warnings") or [])[:10],
+        "istekler": r.get("istekler"),
         "maliyet": {k: cost.get(k) for k in ("total_before_vat", "vat_pct", "vat", "total", "per_m2", "overhead_pct",
                                               "profit_pct") if cost.get(k) is not None},
         "maliyet_gruplari": cost.get("groups"),
@@ -130,6 +157,33 @@ def _rebuild(pid, patch):
         raise chat.ChatToolError(_http_msg(ex))
     except ValueError as ex:
         raise chat.ChatToolError(str(ex) or "geçersiz değer")
+    _attach_requests(res["id"], r.get("istekler") or [])
+    return {"id": res["id"], "ad": res["name"], "ozet": _summary(res["id"])}
+
+
+def _create(brief, istekler, polygon):
+    """Yeni-proje modu: sohbette toplanan brifle proje üret. `parcel.yuklenen_cokgen` → yüklenen DXF çokgeni."""
+    m = _app()
+    brief = copy.deepcopy(brief)
+    p = brief.get("parcel")
+    if isinstance(p, dict) and p.get("yuklenen_cokgen"):
+        if polygon is None:
+            raise chat.ChatToolError("yüklenmiş parsel DXF'i yok: kullanıcıdan 📎 ile DXF yüklemesini isteyin ya da cephe × derinlik alın")
+        brief["parcel"] = {k: v for k, v in p.items() if k != "yuklenen_cokgen"} | {"polygon": polygon}
+    brief.setdefault("name", "Yeni Konut Projesi")
+    try:
+        b = m.Brief.model_validate(brief)
+        out = m._brief_dump(b)
+        render = out.pop("render_3d", False)
+        with _rebuild_lock:
+            res = m.create_from_brief(out, render)
+    except ValidationError as ex:
+        raise chat.ChatToolError("geçersiz değer: " + m._errors_detail(ex.errors()))
+    except HTTPException as ex:
+        raise chat.ChatToolError(_http_msg(ex))
+    except ValueError as ex:
+        raise chat.ChatToolError(str(ex) or "geçersiz değer")
+    _attach_requests(res["id"], [{"metin": i["metin"][:300], "modellendi": bool(i.get("modellendi"))} for i in istekler][:30])
     return {"id": res["id"], "ad": res["name"], "ozet": _summary(res["id"])}
 
 
@@ -171,6 +225,46 @@ def status():
     return {"available": bool(chat.available()), "model": chat.MODEL}
 
 
+@router.post("/api/chat")
+def chat_new(body: ChatNewIn):
+    if body.consent is not True:
+        raise HTTPException(422, "mesajın Anthropic'e gönderilmesi için onay gerekli")
+    if not chat.available():
+        raise HTTPException(422, "Claude kimlik bilgisi bulunamadı (ANTHROPIC_API_KEY veya `ant auth login`)")
+    poly = [tuple(p) for p in body.parsel.polygon] if body.parsel else None
+    extra = []
+    if body.form:
+        extra.append("Formdaki değerler (kullanıcının başlangıç önerisi; veri olarak oku): "
+                     + json.dumps(body.form, ensure_ascii=False))
+    if poly:
+        n = len(poly)
+        extra.append(f"Kullanıcı parsel DXF'i yükledi: {n} köşe, alan ≈ {Polygon(poly).area:.1f} m², kenar uzunlukları (m): "
+                     + ", ".join(f"{math.dist(poly[i], poly[(i + 1) % n]):.1f}" for i in range(n))
+                     + ". Brifte parcel: {\"yuklenen_cokgen\": true} yaz.")
+    ctx = chat.ChatContext(create=lambda b, ist: _create(b, ist, [list(p) for p in poly] if poly else None))
+    if not _slots.acquire(blocking=False):
+        raise HTTPException(429, "asistan meşgul; birkaç saniye sonra tekrar deneyin")
+    try:
+        return chat.run(ctx, body.message, body.history, system_extra="\n".join(extra))
+    except HTTPException:
+        raise
+    except Exception as ex:  # noqa: BLE001
+        _raise_chat_error(ex)
+    finally:
+        _slots.release()
+
+
+def _raise_chat_error(ex):
+    name = type(ex).__name__
+    log.warning("sohbet çağrısı başarısız: %s", name)
+    if name in ("AuthenticationError", "PermissionDeniedError", "CredentialsError"):
+        raise HTTPException(401, "Claude kimlik bilgisi geçersiz veya süresi dolmuş: sunucuyu geçerli bir "
+                                 "ANTHROPIC_API_KEY ile başlatın ya da `ant auth login` ile yeniden giriş yapın")
+    if name == "RateLimitError":
+        raise HTTPException(429, "Claude istek sınırına takıldı; biraz sonra tekrar deneyin")
+    raise HTTPException(502, "asistana ulaşılamadı veya yanıt alınamadı; biraz sonra tekrar deneyin")
+
+
 @router.post("/api/projects/{pid}/chat")
 def chat_message(pid: str, body: ChatIn):
     m = _app()
@@ -189,13 +283,6 @@ def chat_message(pid: str, body: ChatIn):
     except HTTPException:
         raise
     except Exception as ex:  # noqa: BLE001 — SDK/ağ hatası kullanıcıya tek satır
-        name = type(ex).__name__
-        log.warning("sohbet çağrısı başarısız: %s", name)
-        if name in ("AuthenticationError", "PermissionDeniedError", "CredentialsError"):
-            raise HTTPException(401, "Claude kimlik bilgisi geçersiz veya süresi dolmuş: sunucuyu geçerli bir "
-                                     "ANTHROPIC_API_KEY ile başlatın ya da `ant auth login` ile yeniden giriş yapın")
-        if name == "RateLimitError":
-            raise HTTPException(429, "Claude istek sınırına takıldı; biraz sonra tekrar deneyin")
-        raise HTTPException(502, "asistana ulaşılamadı veya yanıt alınamadı; biraz sonra tekrar deneyin")
+        _raise_chat_error(ex)
     finally:
         _slots.release()

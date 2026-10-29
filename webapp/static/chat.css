@@ -37,3 +37,9 @@
 #chatform button{height:42px;padding:0 16px;border-radius:10px;border:1px solid var(--cy);background:var(--cy-soft);color:var(--cy);font:600 11px var(--mono);letter-spacing:.12em;cursor:pointer}
 #chatform button:disabled{opacity:.4;cursor:not-allowed}
 @media (max-width:640px){#chatpanel{top:60px;right:8px;left:8px;width:auto}}
+
+#chatattach{padding:0 16px 6px}
+#chatattach .chip2{display:inline-flex;align-items:center;gap:8px;padding:4px 6px 4px 10px;border:1px solid var(--line-hi);border-radius:99px;font:500 11px var(--mono);color:var(--cy);background:var(--cy-soft)}
+#chatattach .chip2 button{background:none;border:none;color:var(--mute);cursor:pointer;font-size:12px;padding:0 4px}
+#chatform #chatclip{width:42px;padding:0;font-size:17px;border-color:var(--line);background:none;color:var(--mute)}
+#chatform #chatclip:hover{border-color:var(--line-hi);color:var(--cy)}
