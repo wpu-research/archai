@@ -240,7 +240,8 @@ class Zoning(BaseModel):
     max_floors: Annotated[int, Field(ge=1, le=30)] | None = None
     floor_height: _num(2.2, 6) | None = None
     max_height: _num(gt=2.2, hi=200) | None = None       # yençok / saçak kotu sınırı (m)
-    emsal_disi_pct: _num(0, 30) | None = None            # emsale girmeyen ortak alan payı (% brüt)
+    emsal_disi_m2: _num(0, 100000) | None = None         # emsale girmeyen ortak alan (m²; brüt alanın en çok %30'u)
+    emsal_disi_pct: _num(0, 30) | None = None            # eski girdi: emsale girmeyen pay (% brüt)
     emsal_yok: bool | None = None                        # TAKS/KAKS sınırı yok (yalnız çokgen parselde)
 
 
@@ -490,22 +491,27 @@ def _brief_dump(b):
     return brief
 
 
-@app.post("/api/projects")
-def create_project(b: Brief):
-    brief = _brief_dump(b)
-    render_3d = brief.pop("render_3d", False)
+def create_from_brief(brief, render_3d=False):
+    """Doğrulanmış brif sözlüğünden proje üret (arazi / avan tablosu / hızlı mod). create_project ve sohbet asistanı kullanır."""
     if brief.get("tablo"):
         if not (brief.get("parcel") or {}).get("polygon"):
             raise HTTPException(422, "avan tablosu için parcel.polygon gerekli (POST /api/parcel/dxf ile alınır)")
         pid = _new_id(brief["name"])
         result, _ = _build(pid, lambda: project.run_tablo(brief, PROJECTS / pid, render_3d=render_3d))
         return _public(pid, result)
-    if not brief.get("quick") and not (brief.get("parcel") and b.zoning is not None):
+    if not brief.get("quick") and not (brief.get("parcel") and brief.get("zoning") is not None):
         raise HTTPException(422, "arazi (parcel+zoning) veya hızlı mod (quick) bilgisi gerekli")
     pid = _new_id(brief["name"])
     with _blender_lock if render_3d else _nolock():
         result, _ = _build(pid, lambda: project.run(brief, PROJECTS / pid, render_3d=render_3d))
     return _public(pid, result)
+
+
+@app.post("/api/projects")
+def create_project(b: Brief):
+    brief = _brief_dump(b)
+    render_3d = brief.pop("render_3d", False)
+    return create_from_brief(brief, render_3d)
 
 
 DEMO_KEYS = ("name", "adjust", *project.INFO_KEYS)
@@ -912,6 +918,9 @@ app.include_router(video_router)
 
 from webapp.design_routes import router as design_router  # noqa: E402
 app.include_router(design_router)  # Tasarım ajanı
+
+from webapp.chat_routes import router as chat_router  # noqa: E402
+app.include_router(chat_router)  # Sohbet asistanı
 
 from webapp.muteahhit_routes import router as muteahhit_router  # noqa: E402
 app.include_router(muteahhit_router)  # Poz eşleme, imar belgesi, onay, katalog, ihale analizi

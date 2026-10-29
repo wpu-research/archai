@@ -1,0 +1,39 @@
+/* Sohbet asistanı: sağ altta düğme + yandan açılan panel (chat.js kurar). */
+#chatfab{position:fixed;right:22px;bottom:22px;z-index:35;display:flex;align-items:center;gap:8px;padding:11px 16px;border-radius:99px;
+  border:1px solid var(--line-hi);background:linear-gradient(135deg,rgba(62,232,255,.18),rgba(61,123,255,.22));color:var(--cy);cursor:pointer;
+  font:600 11.5px var(--mono);letter-spacing:.14em;backdrop-filter:blur(10px);box-shadow:0 8px 30px rgba(0,0,0,.45)}
+#chatfab:hover{border-color:var(--cy)}
+#chatfab.on{display:none}
+#chatpanel{position:fixed;right:18px;bottom:18px;top:76px;width:min(430px,calc(100vw - 36px));z-index:36;display:none;flex-direction:column;
+  background:rgba(7,13,21,.94);border:1px solid var(--line-hi);border-radius:16px;backdrop-filter:blur(18px);box-shadow:0 20px 60px rgba(0,0,0,.6)}
+#chatpanel.on{display:flex}
+#chatpanel header{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--line)}
+#chatpanel header b{font:600 12px var(--mono);letter-spacing:.18em;color:var(--cy)}
+#chatpanel header small{display:block;font:500 10.5px var(--mono);color:var(--mute);letter-spacing:.06em;max-width:270px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#chatpanel header .sp{flex:1}
+#chatpanel header button{background:none;border:1px solid var(--line);color:var(--mute);border-radius:8px;width:30px;height:30px;cursor:pointer;font:500 14px var(--mono)}
+#chatpanel header button:hover{color:var(--cy);border-color:var(--line-hi)}
+#chatconsent{display:flex;gap:9px;align-items:flex-start;padding:9px 16px;border-bottom:1px solid var(--line);font-size:11.5px;color:var(--mute);line-height:1.4}
+#chatconsent input{width:15px;height:15px;margin-top:2px;accent-color:var(--cy);flex:none}
+#chatmsgs{flex:1;overflow:auto;padding:14px 16px;display:flex;flex-direction:column;gap:11px}
+#chatmsgs .m{max-width:92%;padding:9px 12px;border-radius:12px;font-size:13.5px;line-height:1.5;word-wrap:break-word}
+#chatmsgs .u{align-self:flex-end;background:rgba(61,123,255,.22);border:1px solid rgba(61,123,255,.4)}
+#chatmsgs .a{align-self:flex-start;background:rgba(62,232,255,.07);border:1px solid var(--line)}
+#chatmsgs .s{align-self:center;font:500 11px var(--mono);color:var(--mute);letter-spacing:.06em;text-align:center}
+#chatmsgs .e{align-self:flex-start;background:rgba(255,93,108,.1);border:1px solid rgba(255,93,108,.4);color:#ff9aa4}
+#chatmsgs .a ul{margin:4px 0 4px 18px;padding:0}
+#chatmsgs .a code{font:500 12px var(--mono);background:rgba(2,6,11,.7);padding:1px 5px;border-radius:4px}
+#chatmsgs .typing{display:inline-flex;gap:4px}
+#chatmsgs .typing i{width:6px;height:6px;border-radius:50%;background:var(--cy);opacity:.35;animation:chatdot 1s infinite}
+#chatmsgs .typing i:nth-child(2){animation-delay:.15s}#chatmsgs .typing i:nth-child(3){animation-delay:.3s}
+@keyframes chatdot{50%{opacity:1}}
+#chatmsgs .act{display:inline-block;margin:6px 6px 0 0;padding:4px 9px;border-radius:99px;border:1px solid var(--line-hi);color:var(--cy);font:500 10.5px var(--mono);letter-spacing:.08em;text-decoration:none;cursor:pointer;background:none}
+#chatchips{display:flex;gap:6px;flex-wrap:wrap;padding:0 16px 8px}
+#chatchips button{background:none;border:1px solid var(--line);color:var(--mute);border-radius:99px;padding:4px 10px;font:500 11px var(--sans);cursor:pointer}
+#chatchips button:hover{color:var(--cy);border-color:var(--line-hi)}
+#chatform{display:flex;gap:8px;padding:10px 12px 12px;border-top:1px solid var(--line);align-items:flex-end}
+#chatform textarea{flex:1;resize:none;max-height:120px;min-height:42px;padding:10px 11px;border:1px solid var(--line);border-radius:10px;background:rgba(2,6,11,.6);color:var(--ink);font:13.5px/1.4 var(--sans)}
+#chatform textarea:focus{outline:none;border-color:var(--cy)}
+#chatform button{height:42px;padding:0 16px;border-radius:10px;border:1px solid var(--cy);background:var(--cy-soft);color:var(--cy);font:600 11px var(--mono);letter-spacing:.12em;cursor:pointer}
+#chatform button:disabled{opacity:.4;cursor:not-allowed}
+@media (max-width:640px){#chatpanel{top:60px;right:8px;left:8px;width:auto}}
