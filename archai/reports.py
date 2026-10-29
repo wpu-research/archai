@@ -382,11 +382,22 @@ def write_offer_docx(path, project, report, qres, cost, company=None, customer=N
         _para(d, f"Brüt inşaat alanı birim fiyatı (KDV dahil): {tl(cost['per_m2'])} TL/m²", size=9)
     _para(d, "İş gruplarına genel giderler ve yüklenici kârı dahildir. Kalem bazında dağılım Ek-1'dedir.", size=8.5, italic=True)
 
-    d.add_heading("3. TEKLİF ŞARTLARI", 1)
+    sp = info.get("sponsorlar") or []
+    if sp:
+        d.add_heading("3. SPONSOR / ÖNERİLEN MARKALAR", 1)
+        _para(d, "Aşağıdaki firmalar bu projenin iş ortağı / sponsorudur; ürün seçimleri ilgili firma kataloğundan yapılmıştır ve "
+                 "ticari bir ilişki içerebilir. Birim fiyatlar firma kataloğuna dayanır, güncelliği teyit edilmelidir.", size=8.5, italic=True)
+        rows = [("MARKA / FİRMA", "KALEM VE ÜRÜN")]
+        for x in sp:
+            urun = "; ".join(f"{u['kod']}: {u['ad']}" + (f" ({u['sku']})" if u.get("sku") else "") for u in x["urunler"])
+            rows.append((x["sponsor"] + (f" · {', '.join(x['kategoriler'])}" if x["kategoriler"] else ""), urun))
+        _table(d, rows, (5.2, 11.4), align=("l", "l"))
+        _para(d, "", space_after=0)
+    d.add_heading(f"{4 if sp else 3}. TEKLİF ŞARTLARI", 1)
     city = co.get("city") or site.get("il") or "[İl]"
     terms = [("Proje seviyesi", AVAN_NOTE), ("İmar değerleri", IMAR_NOTE), *offer_terms(info, gfa, cost, city)]
     for i, (h, txt) in enumerate(terms, 1):
-        _numbered(d, f"3.{i}", txt, h)
+        _numbered(d, f"{4 if sp else 3}.{i}", txt, h)
     _para(d, "", space_after=0)
     _para(d, "Gereğini bilgilerinize arz ederiz.", space_after=8)
     _signature(d, co)

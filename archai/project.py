@@ -11,7 +11,7 @@ import math
 import os
 from pathlib import Path
 
-from . import approval, avan, costing, drawings, poz, quantities as Q, reports, spec
+from . import approval, avan, costing, drawings, poz, sponsor, quantities as Q, reports, spec
 from .dxf_import import import_dxf
 
 SETTINGS = Path(os.environ.get("ARCHAI_OUT") or Path(__file__).resolve().parents[1] / "out") / "settings.json"
@@ -230,10 +230,26 @@ def finalize(brief, elements, report, meta, out_dir, render_3d=False):
     return result
 
 
+def refinalize(out_dir):
+    """Eleman listesi elle değiştirildi (ör. cephe düzeltmesi): metraj, maliyet, belgeler ve çizimleri yeniden üret.
+    Brif, rapor ve meta kayıtlı; eleman listesi `elements.json`. project.json'daki ek alanlar (istekler) korunur."""
+    out = Path(out_dir)
+    old = json.loads((out / "project.json").read_text())
+    elements = json.loads((out / "elements.json").read_text())
+    meta = {k: old[k] for k in ("parcel", "zoning", "program") if k in old}
+    result = finalize(old["brief"], elements, old["report"], meta, out)
+    extra = {k: v for k, v in old.items() if k not in result}
+    if extra:
+        result = {**result, **extra}
+        (out / "project.json").write_text(json.dumps(result, ensure_ascii=False, indent=1, default=str))
+    return result
+
+
 def write_documents(out, name, brief, report, q, cost, info=None):
     info = info if info is not None else build_info(brief)
     # onay damgası: kayıtlı onayın parmak izi bu içerikle tutuyorsa onaylı, yoksa TASLAK (archai/approval.py)
-    info = {**info, "onay": approval.stamp_for(out, approval.fingerprint(q, cost, brief))}
+    info = {**info, "onay": approval.stamp_for(out, approval.fingerprint(q, cost, brief)),
+            "sponsorlar": sponsor.for_project(brief.get("adjust"))}
     sp = spec.build_spec(name, q, cost)
     return {
         "metraj_maliyet_xlsx": str(reports.write_xlsx(out / "metraj_maliyet.xlsx", name, q, cost, info)),

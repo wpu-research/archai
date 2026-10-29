@@ -322,7 +322,7 @@ summary{cursor:pointer;padding:9px 0;font:500 12px var(--mono);letter-spacing:.0
   <div class="glass">
     <div class="tabs" id="tabs">
       <button data-t="ozet" class="on"><i>01</i>ÖZET</button><button data-t="cizim"><i>02</i>ÇİZİMLER</button><button data-t="metraj"><i>03</i>METRAJ</button>
-      <button data-t="maliyet"><i>04</i>MALİYET · FİYAT</button><button data-t="belge"><i>05</i>BELGELER</button><button data-t="3d"><i>06</i>RENDER</button><button data-t="tasarim"><i>07</i>TASARIM AJANI</button><button data-t="poz"><i>08</i>POZ · KATALOG</button><button data-t="onay"><i>09</i>ONAY</button>
+      <button data-t="maliyet"><i>04</i>MALİYET · FİYAT</button><button data-t="belge"><i>05</i>BELGELER</button><button data-t="3d"><i>06</i>RENDER</button><button data-t="tasarim"><i>07</i>TASARIM AJANI</button><button data-t="poz"><i>08</i>POZ · KATALOG</button><button data-t="onay"><i>09</i>ONAY</button><button data-t="kat"><i>10</i>KAT İRTİFAKI</button><button data-t="statik"><i>11</i>STATİK</button><button data-t="karsilastir"><i>12</i>KARŞILAŞTIR</button><button data-t="capraz"><i>13</i>ÇAPRAZ DOĞRULAMA</button><button data-t="odeme"><i>14</i>ÖDEME PLANI</button><button data-t="cephe"><i>15</i>CEPHE</button><button data-t="sponsor"><i>16</i>SPONSOR</button>
     </div>
     <div id="view"><div class="empty">SOLDAN BİLGİLERİ GİRİP “PROJEYİ ÜRET”E BASIN</div></div>
   </div>
@@ -343,6 +343,7 @@ import {OutputPass} from 'three/addons/postprocessing/OutputPass.js';
 import {createInterior} from './interior.js';
 import {createDesigns} from './designs.js';
 import {createContractor} from './muteahhit.js';
+import {createAraclar} from './araclar.js';
 
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
 const tl=v=>v==null?'—':v.toLocaleString('tr-TR',{style:'currency',currency:'TRY',maximumFractionDigits:0});
@@ -953,6 +954,20 @@ function render(){
     MK.mountPoz(out);
   }else if(tab==='onay'){
     MK.mountOnay(out);
+  }else if(tab==='kat'){
+    AR.mountKat(out);
+  }else if(tab==='statik'){
+    AR.mountStatik(out);
+  }else if(tab==='karsilastir'){
+    AR.mountKarsilastir(out);
+  }else if(tab==='capraz'){
+    AR.mountCapraz(out);
+  }else if(tab==='odeme'){
+    AR.mountOdeme(out);
+  }else if(tab==='cephe'){
+    AR.mountCephe(out);
+  }else if(tab==='sponsor'){
+    AR.mountSponsor(out);
   }else if(tab==='3d'){
     out.innerHTML=`<p class="sec-t">CYCLES · GERÇEK RENDER</p><p class="note">3D sahnede (yörüngede veya <b>◉ YÜRÜ</b> modunda) kadrajı ayarlayıp <b>📷 FOTO</b>'ya basın: o açı Blender Cycles ile fotogerçekçi render edilir.</p>
       <div class="gallery" id="rgal"><span class="note">yükleniyor…</span></div><p class="sec-t" style="margin-top:22px">BLENDER ÖNİZLEME</p><div id="bprev"></div>`;
@@ -999,6 +1014,7 @@ const DA=createDesigns({$,$$,api,esc,tl,getProject:()=>P,
     return res;}});
 const MK=createContractor({$,$$,api,esc,tl,n2,getProject:()=>P,setProject:p=>{P=p;adj=P.brief.adjust||{};hud();recent();}});
 MK.bindImar();
+const AR=createAraclar({$,api,esc,tl,n2,getProject:()=>P,reload:()=>location.reload()});
 window.ARCHAI={V,toWorld,THREE,intro};  // hata ayıklama / uçtan uca test tutamacı
 window.WALK_Z=()=>[WK.z,WK.lvl,WK.px,WK.py];
 window.WALK_SET=(x,y,yaw)=>{WK.px=x;WK.py=y;WK.yaw=yaw;WK.pitch=-.08;WK.room=undefined;};

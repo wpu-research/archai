@@ -574,18 +574,19 @@ def _save_upload(upload, dest, limit, what):
 
 @app.post("/api/parcel/dxf")
 def parcel_from_dxf(file: UploadFile = File(...)):
-    """TKGM / kadastro DXF'inden parsel çokgeni (metrik köşeler, alan, kenar uzunlukları). Sonuç `parcel.polygon` olarak
+    """TKGM / kadastro dosyasından (.dxf, .geojson, .kml) parsel çokgeni (metrik köşeler, alan, kenar uzunlukları). Sonuç `parcel.polygon` olarak
     /api/projects'e verilebilir."""
     from shapely.geometry import Polygon
 
     from archai import parcel as parcel_mod
-    if Path((file.filename or "").lower()).suffix != ".dxf":
-        raise HTTPException(422, "yalnız .dxf kabul ediliyor")
+    ext = Path((file.filename or "").lower()).suffix
+    if ext not in (".dxf", ".geojson", ".json", ".kml"):
+        raise HTTPException(422, "yalnız .dxf, .geojson, .json veya .kml kabul ediliyor (TKGM Parsel Sorgu çıktıları)")
     with tempfile.TemporaryDirectory() as td:
-        src = Path(td) / "parsel.dxf"
+        src = Path(td) / f"parsel{ext}"
         _save_upload(file, src, MAX_PLAN_BYTES, "parsel dosyası")
         try:
-            pts, info = parcel_mod.polygon_from_dxf(src)
+            pts, info = parcel_mod.polygon_from_file(src)
         except ValueError as ex:
             raise HTTPException(422, str(ex))
         except Exception:  # noqa: BLE001 — bozuk DXF kullanıcıya tek satır
@@ -926,6 +927,9 @@ app.include_router(video_router)
 
 from webapp.design_routes import router as design_router  # noqa: E402
 app.include_router(design_router)  # Tasarım ajanı
+
+from webapp.araclar_routes import router as araclar_router  # noqa: E402
+app.include_router(araclar_router)  # Kat irtifakı, statik ön boyutlandırma, karşılaştırma
 
 from webapp.chat_routes import router as chat_router  # noqa: E402
 app.include_router(chat_router)  # Sohbet asistanı
