@@ -87,6 +87,20 @@ def run(brief, out_dir, render_3d=False):
     return finalize(brief, elements, report, meta, out_dir, render_3d), elements
 
 
+def run_tablo(brief, out_dir, render_3d=False):
+    """Avan alan cetveli (onaylı proje tablosu) + parsel çokgeni → alan-sadık model (archai/avan_tablo.py)."""
+    from . import avan_tablo
+    t = brief["tablo"]
+    tablo = avan_tablo.TABLO_11903 if t is True or t == "11903" else t
+    poly, z = brief["parcel"]["polygon"], brief.get("zoning") or {}
+    elements, report = avan_tablo.build(poly, tablo, z.get("front", 0.5), z.get("side", 0.0), z.get("rear", 0.5),
+                                        brief["parcel"].get("front_edge"))
+    meta = {"parcel": brief["parcel"], "zoning": {"front": z.get("front", 0.5), "side": z.get("side", 0.0),
+                                                  "rear": z.get("rear", 0.5), "max_floors": report["floors"]},
+            "program": {"tablo": True}}
+    return finalize(brief, elements, report, meta, out_dir, render_3d), elements
+
+
 def run_dxf(dxf_path, brief, out_dir, render_3d=False):
     """Mevcut plandan (DXF): içe aktar, sonra tüm çıktıları hazırla."""
     p = brief.get("dxf", {})

@@ -358,6 +358,7 @@ class Brief(Info):
     quick: Quick | None = None
     adjust: AdjustIn | None = None
     render_3d: bool = False
+    tablo: bool | dict | None = None      # True: 11903 avan tablosu; dict: kendi tablo (archai/avan_tablo.py)
 
 
 class UploadMeta(Info):
@@ -493,6 +494,12 @@ def _brief_dump(b):
 def create_project(b: Brief):
     brief = _brief_dump(b)
     render_3d = brief.pop("render_3d", False)
+    if brief.get("tablo"):
+        if not (brief.get("parcel") or {}).get("polygon"):
+            raise HTTPException(422, "avan tablosu için parcel.polygon gerekli (POST /api/parcel/dxf ile alınır)")
+        pid = _new_id(brief["name"])
+        result, _ = _build(pid, lambda: project.run_tablo(brief, PROJECTS / pid, render_3d=render_3d))
+        return _public(pid, result)
     if not brief.get("quick") and not (brief.get("parcel") and b.zoning is not None):
         raise HTTPException(422, "arazi (parcel+zoning) veya hızlı mod (quick) bilgisi gerekli")
     pid = _new_id(brief["name"])
