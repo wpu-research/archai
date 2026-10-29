@@ -46,9 +46,23 @@ def test_emsal_disi_allows_more_gross_and_keeps_kaks_ok():
     _, ex = generate(PARCEL, {**BASE, "max_floors": 3, "emsal_disi_pct": 20}, PROG)
     assert ex["gross_total"] >= base["gross_total"] - 1e-6
     c = ex["checks"]
-    assert c["kaks"]["ok"] and c["emsal_disi"]["value"] == 20
+    assert c["kaks"]["ok"] and c["emsal_disi"]["value"] == pytest.approx(ex["gross_total"] * 0.20, abs=0.05)
+    assert c["emsal_disi"]["unit"] == "m²"
     # brüt alan KAKS sınırını aşabilir ama emsale girenler aşmaz
     assert c["kaks"]["value"] <= BASE["kaks"] + 1e-3
+
+
+def test_emsal_disi_m2():
+    """Emsal dışı alan m² girilir: izin verilen brüt alan KAKS×A + m² olur, KAKS yalnız emsale girenle hesaplanır."""
+    _, base = generate(PARCEL, {**BASE, "max_floors": 3}, PROG)
+    _, ex = generate(PARCEL, {**BASE, "max_floors": 3, "emsal_disi_m2": 60}, PROG)
+    c = ex["checks"]
+    assert ex["gross_total"] >= base["gross_total"] - 1e-6
+    assert c["emsal_disi"]["value"] == 60 and c["emsal_disi"]["unit"] == "m²" and c["emsal_disi"]["ok"]
+    A = PARCEL["width"] * PARCEL["depth"]
+    assert c["kaks"]["value"] == pytest.approx((ex["gross_total"] - 60) / A, abs=1e-3) and c["kaks"]["ok"]
+    row = next(r for r in ex["imar_ozeti"]["rows"] if r["key"] == "emsal_disi")
+    assert row["unit"] == "m²" and row["value"] == 60
 
 
 def test_imar_summary_rows_and_note():
@@ -84,7 +98,7 @@ def test_api_validates_new_zoning_fields():
     c = TestClient(app, base_url="http://127.0.0.1:8000", client=("127.0.0.1", 50000))
     body = {"name": "imar", "parcel": PARCEL, "zoning": {**BASE, "max_height": 9.0, "emsal_disi_pct": 10},
             "program": PROG}
-    for bad in ({"max_height": -3}, {"max_height": 1}, {"emsal_disi_pct": 45}, {"emsal_disi_pct": -1}):
+    for bad in ({"max_height": -3}, {"max_height": 1}, {"emsal_disi_pct": 45}, {"emsal_disi_pct": -1}, {"emsal_disi_m2": -5}):
         r = c.post("/api/projects", json={**body, "zoning": {**body["zoning"], **bad}})
         assert r.status_code == 422, (bad, r.text)
     r = c.post("/api/projects", json=body)

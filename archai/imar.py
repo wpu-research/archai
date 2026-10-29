@@ -14,7 +14,10 @@ def imar_summary(zoning, parcel_area, checks):
         c = checks.get(key)
         if c:
             add(key, label, c["limit"], c["value"], unit, c["ok"])
-    if zoning.get("emsal_disi_pct"):
+    ed = checks.get("emsal_disi")
+    if ed:                                             # generate'in hesapladığı emsal dışı alan (m²) ve brüt %30 sınırı
+        add("emsal_disi", "Emsal dışı ortak alan", ed["limit"], ed["value"], ed.get("unit", "m²"), ed["ok"])
+    elif zoning.get("emsal_disi_pct"):
         add("emsal_disi", "Emsal dışı ortak alan payı", zoning["emsal_disi_pct"], zoning["emsal_disi_pct"], "%",
             zoning["emsal_disi_pct"] <= 30)
     for key, label in (("front", "Ön çekme"), ("side_left", "Sol yan çekme"), ("side_right", "Sağ yan çekme"),

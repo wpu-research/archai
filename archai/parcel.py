@@ -15,7 +15,7 @@ import math
 from shapely.geometry import LineString, Polygon, box
 from shapely.ops import unary_union
 
-from .generate import generate
+from .generate import emsal_disi_m2, generate
 from .imar import imar_summary
 from .quantities import polygon_area
 
@@ -264,8 +264,8 @@ def _generate_fitted(f, parcel, zoning, program):
     outline = [tuple(p[:2]) for p in floor["points"]]
     fp_gross = rep["footprint_gross"]
     gross = rep["gross_total"]
-    ex = zoning.get("emsal_disi_pct", 0) or 0
-    kaks_val = gross * (1 - ex / 100) / A
+    ex = emsal_disi_m2(zoning, gross)
+    kaks_val = (gross - ex) / A
     taks_lim, kaks_lim = zoning.get("taks", 0.4), zoning.get("kaks", 1.2)
     sb = _edge_distances(outline, f["pts"], f["classes"])
     lim = {"front": zoning.get("front", 5), "side_left": zoning.get("side", 3), "side_right": zoning.get("side", 3),
@@ -282,7 +282,7 @@ def _generate_fitted(f, parcel, zoning, program):
     rep["buildable"] = (round(bw, 2), round(bd, 2))
     rep["origin"] = (round(rep["origin"][0] + x0, 3), round(rep["origin"][1] + y0, 3))
     kaks_area = kaks_lim * A
-    rep["kaks_used_pct"] = round(gross * (1 - ex / 100) / kaks_area * 100, 1) if kaks_area else 0.0
+    rep["kaks_used_pct"] = round((gross - ex) / kaks_area * 100, 1) if kaks_area else 0.0
     if zoning.get("emsal_yok"):
         ch["taks"].update(limit=None, ok=True)
         ch["kaks"].update(limit=None, ok=True)

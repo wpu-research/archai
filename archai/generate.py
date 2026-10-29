@@ -77,6 +77,14 @@ def setback_warnings(detail):
             for k, d in detail.items() if not d["ok"]]
 
 
+def emsal_disi_m2(zoning, gross):
+    """Emsale girmeyen ortak alan (m²): `emsal_disi_m2` verilmişse o (brüt alanı aşamaz), yoksa eski `emsal_disi_pct` (% brüt)."""
+    m2 = zoning.get("emsal_disi_m2")
+    if m2:
+        return min(float(m2), gross)
+    return gross * (zoning.get("emsal_disi_pct", 0) or 0) / 100
+
+
 def module_cap(unit_type):
     """Tek çekirdek + 2 daire modülünün hedef brüt oturumu (m²)."""
     ut = "2+1" if unit_type in (None, "auto") else unit_type
@@ -310,7 +318,8 @@ def massing(parcel, zoning, program):
         raise ValueError(f"çekme mesafelerinden sonra yapılaşma alanı çok küçük ({bw:.1f} × {bd:.1f} m)")
     taks, kaks = zoning.get("taks", 0.4), zoning.get("kaks", 1.2)
     max_floors = zoning.get("max_floors", 5)
-    ex = zoning.get("emsal_disi_pct", 0) or 0       # ortak alan (merdiven/asansör/hol) emsal dışı payı, % brüt
+    ex = zoning.get("emsal_disi_pct", 0) or 0       # ortak alan emsal dışı payı, % brüt (eski girdi)
+    ex_m2 = zoning.get("emsal_disi_m2") or 0         # ortak alan (merdiven/asansör/hol) emsal dışı alanı, m²
     hmax = zoning.get("max_height")                  # yençok / saçak kotu sınırı (m)
     pre_warn = []
     if hmax:
@@ -329,7 +338,7 @@ def massing(parcel, zoning, program):
     target_net = UNIT_TYPES["2+1" if wanted == "auto" else wanted][0]
 
     max_fp = min(taks * A, bw * bd)
-    total = kaks * A / (1 - ex / 100)                # emsale girmeyen payla birlikte izin verilen brüt alan
+    total = kaks * A + ex_m2 if ex_m2 else kaks * A / (1 - ex / 100)   # emsale girmeyen alanla birlikte izin verilen brüt alan
     floors = max(1, min(max_floors, math.ceil(total / max_fp - 1e-9)))
     fp = min(max_fp, total / floors)
     warnings = list(pre_warn)
@@ -949,8 +958,8 @@ def generate(parcel, zoning, program):
     h = EXT_T / 2
     sb, sb_detail, sb_ok = setback_checks(parcel["width"], parcel["depth"],
                                           (ox - h, oy - h, ox + width + h, oy + depth + h), zoning)
-    ex = zoning.get("emsal_disi_pct", 0) or 0
-    kaks_val = gross_total * (1 - ex / 100) / A       # emsale giren brüt alan / parsel
+    ex = emsal_disi_m2(zoning, gross_total)           # emsale girmeyen alan (m²)
+    kaks_val = (gross_total - ex) / A                 # emsale giren brüt alan / parsel
     fh = zoning.get("floor_height", 3.0)
     checks = {
         "taks": {"value": round(fp_gross / A, 3), "limit": zoning.get("taks", 0.4), "ok": fp_gross / A <= zoning.get("taks", 0.4) + 1e-3},
@@ -962,7 +971,8 @@ def generate(parcel, zoning, program):
         hv = round(m["floors"] * fh, 2)
         checks["height"] = {"value": hv, "limit": zoning["max_height"], "ok": hv <= zoning["max_height"] + 1e-3}
     if ex:
-        checks["emsal_disi"] = {"value": ex, "limit": 30, "ok": ex <= 30}
+        cap = 0.30 * gross_total                       # emsal dışı alan brüt alanın en çok %30'u
+        checks["emsal_disi"] = {"value": round(ex, 2), "limit": round(cap, 2), "ok": ex <= cap + 1e-6, "unit": "m²"}
     warnings = list(m["warnings"]) + setback_warnings(sb_detail)
     extra = {}
     qa = program.get("quick_area")
@@ -974,7 +984,7 @@ def generate(parcel, zoning, program):
             warnings.append(f"istenen {_ti(qa)} m², üretilen {_ti(gross_total)} m² (sapma %{dev:+.1f})")
     else:    # arazi modu: emsal kullanımı
         kaks_area = zoning.get("kaks", 1.2) * A
-        used = gross_total * (1 - ex / 100) / kaks_area * 100 if kaks_area else 0.0
+        used = (gross_total - ex) / kaks_area * 100 if kaks_area else 0.0
         extra["kaks_used_pct"] = round(used, 1)
         if used < 85:
             warnings.append(f"KAKS kullanımı %{used:.0f} (izin verilen {_ti(kaks_area)} m², üretilen {_ti(gross_total)} m²) — "
@@ -984,7 +994,7 @@ def generate(parcel, zoning, program):
         **m, "warnings": warnings, **extra, "imar_ozeti": imar_summary(zoning, A, checks), "footprint_gross": round(fp_gross, 2), "gross_total": round(gross_total, 2),
         "unit_count": len(units), "unit_net_area": {k: round(v, 2) for k, v in unit_net.items()},
         "unit_target_net": UNIT_TYPES[m["unit_type"]][0], "checks": checks,
-        "note": "Şematik ön tasarım — emsal hesabı yaklaşık (emsal dışı alan yalnız girilen yüzdeyle düşülür); mimar kontrolü gerekir. "
+        "note": "Şematik ön tasarım — emsal hesabı yaklaşık (emsal dışı alan yalnız girilen değerle (m²) düşülür); mimar kontrolü gerekir. "
                 "Duvar metrajı aks uzunluğuyla: T/L birleşimlerinde ~%1–2 fazla sayım içerir.",
     }
     return elements, report
