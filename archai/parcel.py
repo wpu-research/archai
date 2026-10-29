@@ -117,8 +117,11 @@ def _buildable(poly, pts, classes, zoning):
     area = poly.difference(unary_union(strips)) if strips else poly
     if area.is_empty:
         return None
-    if area.geom_type == "MultiPolygon":
-        area = max(area.geoms, key=lambda g: g.area)
+    if area.geom_type != "Polygon":                         # MultiPolygon / GeometryCollection: en büyük poligon
+        polys = [g for g in getattr(area, "geoms", []) if g.geom_type == "Polygon" and not g.is_empty]
+        if not polys:
+            return None
+        area = max(polys, key=lambda g: g.area)
     return area
 
 
@@ -152,7 +155,7 @@ def _best_rect(area, step=STEP):
     return best
 
 
-def fit(points, zoning, front_edge=None):
+def fit(points, zoning, front_edge=None, rank=0):
     """Çokgeni yerleştir. points: metrik köşeler. front_edge: ön cephe kenarı indeksi (pts[i]→pts[i+1]; None → en geniş
     yapılaşma dikdörtgenini veren kenar). Dönen sözlük: pts (yerel), area, front_edge, classes, buildable, box, rotation_deg."""
     pts = _ccw(_clean([tuple(p) for p in points]))
@@ -163,7 +166,7 @@ def fit(points, zoning, front_edge=None):
         i for i in range(n) if math.dist(pts[i], pts[(i + 1) % n]) >= MIN_EDGE]
     if front_edge is not None and not 0 <= front_edge < n:
         raise ValueError(f"ön cephe kenarı 0..{n - 1} arasında olmalı")
-    best = None
+    found = []
     for i in cands:
         loc, ang = _frame(pts, i)
         poly = Polygon(loc)
@@ -173,12 +176,11 @@ def fit(points, zoning, front_edge=None):
         if rect is None:
             continue
         w, d = rect[2] - rect[0], rect[3] - rect[1]
-        score = (w >= 8 and d >= 8, (w * d))
-        if best is None or score > best[0]:
-            best = (score, i, loc, ang, cls, area, rect)
-    if best is None:
+        found.append(((w >= 8 and d >= 8, w * d), i, loc, ang, cls, area, rect))
+    if not found:
         raise ValueError("çekmelerden sonra parselde bina oturacak dikdörtgen alan kalmıyor")
-    _, i, loc, ang, cls, area, rect = best
+    found.sort(key=lambda t: t[0], reverse=True)
+    _, i, loc, ang, cls, area, rect = found[min(rank, len(found) - 1)]
     return {"pts": loc, "area": Polygon(loc).area, "front_edge": i, "classes": cls, "rotation_deg": round(ang, 2),
             "buildable": [tuple(p) for p in area.exterior.coords][:-1], "box": rect, "edges": n}
 
@@ -218,9 +220,29 @@ def _edge_distances(outline, pts, classes):
 
 
 def generate_on_polygon(parcel, zoning, program):
+    # zoning["emsal_yok"]: TAKS/KAKS sınırı yok (ör. dönüşüm hakkı / avan tablosunda yazılı değil) → bağlayıcı olmasın
+    if zoning.get("emsal_yok"):
+        zoning = {**zoning, "taks": 1.0, "kaks": 10.0}
     """parcel["polygon"] (metrik köşeler) ile üret. Dönen: (elements, report) — `generate` ile aynı biçim,
     ek olarak report["parcel_geom"] (çokgen, yapılaşma alanı, ön kenar, dönüklük, kenar sınıfları)."""
-    f = fit(parcel["polygon"], zoning, parcel.get("front_edge"))
+    ranks = [0] if parcel.get("front_edge") is not None else range(3)      # ön kenar verilmediyse en iyi 3 adayı dene
+    best = None
+    for rk in ranks:
+        try:
+            f = fit(parcel["polygon"], zoning, parcel.get("front_edge"), rank=rk)
+            els, rep = _generate_fitted(f, parcel, zoning, program)
+        except ValueError as ex:
+            err = ex
+            continue
+        score = (rep["units_per_floor"] * rep["floors"], rep["gross_total"])
+        if best is None or score > best[0]:
+            best = (score, els, rep)
+    if best is None:
+        raise err
+    return best[1], best[2]
+
+
+def _generate_fitted(f, parcel, zoning, program):
     x0, y0, x1, y1 = f["box"]
     bw, bd = x1 - x0, y1 - y0
     A, Ab = f["area"], bw * bd
@@ -261,10 +283,14 @@ def generate_on_polygon(parcel, zoning, program):
     rep["origin"] = (round(rep["origin"][0] + x0, 3), round(rep["origin"][1] + y0, 3))
     kaks_area = kaks_lim * A
     rep["kaks_used_pct"] = round(gross * (1 - ex / 100) / kaks_area * 100, 1) if kaks_area else 0.0
+    if zoning.get("emsal_yok"):
+        ch["taks"].update(limit=None, ok=True)
+        ch["kaks"].update(limit=None, ok=True)
+        rep["kaks_used_pct"] = None
     rep["imar_ozeti"] = imar_summary(zoning, A, ch)
     rep["warnings"] = [w for w in rep["warnings"] if "KAKS kullanımı" not in w and "çekmesi" not in w]
     rep["warnings"] += [f"{k} bahçe çekmesi {d['value']:.3f} m < {d['limit']:g} m" for k, d in detail.items() if not d["ok"]]
-    if rep["kaks_used_pct"] < 85:
+    if rep["kaks_used_pct"] is not None and rep["kaks_used_pct"] < 85:
         rep["warnings"].append(f"KAKS kullanımı %{rep['kaks_used_pct']:.0f} — bina oturumu çokgenin yapılaşma alanıyla sınırlı")
     rep["parcel_geom"] = {"polygon": poly, "buildable": [[round(x, 3), round(y, 3)] for x, y in f["buildable"]],
                           "front_edge": f["front_edge"], "classes": {str(k): v for k, v in f["classes"].items()},

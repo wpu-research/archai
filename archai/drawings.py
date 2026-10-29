@@ -462,8 +462,8 @@ def draw_site(sh, elements, report, zoning, info):
         sh.text(txt, lx + sh.mm(13), yy, 2.0, "A-YAZI", TA.MIDDLE_LEFT)
     c = report["checks"]
     rows = [("İMAR DURUMU", "İZİN", "PROJE"),
-            ("TAKS", f"{c['taks']['limit']:.2f}", f"{c['taks']['value']:.2f}"),
-            ("KAKS (EMSAL)", f"{c['kaks']['limit']:.2f}", f"{c['kaks']['value']:.2f}"),
+            ("TAKS", "—" if c['taks']['limit'] is None else f"{c['taks']['limit']:.2f}", f"{c['taks']['value']:.2f}"),
+            ("KAKS (EMSAL)", "—" if c['kaks']['limit'] is None else f"{c['kaks']['limit']:.2f}", f"{c['kaks']['value']:.2f}"),
             ("KAT ADEDİ", str(c["floors"]["limit"]), str(c["floors"]["value"])),
             ("ÇEKME ÖN/YAN/ARKA (m)", f"{fr}/{sd}/{rr}",
              f"{c['setbacks']['front']:.2f}/{min(c['setbacks']['side_left'], c['setbacks']['side_right']):.2f}/{c['setbacks']['rear']:.2f}"),

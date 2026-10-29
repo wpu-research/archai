@@ -229,6 +229,9 @@ def apply(elements, report, parcel, zoning, program):
         b, areas = _basement(els, outline, ax, core, fh)
         els += b
         gross += fp
+        if areas.get("Sığınak", 0) < SHELTER_REQUIRED:
+            report["warnings"].append(f"sığınak {areas.get('Sığınak', 0):.0f} m² < gerekli ≈{SHELTER_REQUIRED:.0f} m²: "
+                                      "bu kat şemasında bodrum bölmeleri yetmiyor, sığınak yeniden düzenlenmeli")
         extra["basement"] = {"area": round(fp, 2), "rooms": areas,
                              "shelter_required": SHELTER_REQUIRED, "parking_required": math.ceil(n_units / PARKING_PER_UNITS),
                              "parking_capacity": int(areas["Otopark"] // PARKING_AREA_PER_CAR),

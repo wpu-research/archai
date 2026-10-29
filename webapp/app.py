@@ -241,6 +241,7 @@ class Zoning(BaseModel):
     floor_height: _num(2.2, 6) | None = None
     max_height: _num(gt=2.2, hi=200) | None = None       # yençok / saçak kotu sınırı (m)
     emsal_disi_pct: _num(0, 30) | None = None            # emsale girmeyen ortak alan payı (% brüt)
+    emsal_yok: bool | None = None                        # TAKS/KAKS sınırı yok (yalnız çokgen parselde)
 
 
 class Avan(BaseModel):

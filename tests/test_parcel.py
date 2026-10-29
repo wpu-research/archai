@@ -82,3 +82,13 @@ def test_web_parsel_dxf_ve_cokgen_proje(tmp_path):
     pr = r.json()
     assert pr["report"]["parcel_geom"]["front_edge"] == 0 and any(s for s in pr["sheets"])
     assert c.post("/api/projects", json={"name": "x", "parcel": {"width": 10}, "zoning": ZON}).status_code == 422
+
+
+def test_emsal_yok_dar_seritte_dort_daire():
+    """TKGM şeridi gibi dar parsel (≈32 × 11,9 m), TAKS/KAKS sınırı yok, ön/arka 0,5 m, yan 0: kat başı 4 daire."""
+    strip = [(0, 0), (31.8, 0), (31.8, 11.9), (0, 11.9)]
+    zon = {"emsal_yok": True, "front": 0.5, "side": 0, "rear": 0.5, "max_floors": 7, "floor_height": 2.75}
+    els, rep = parcel.generate_on_polygon({"polygon": strip}, zon, {"unit_type": "1+1", "units_per_floor": "auto"})
+    assert rep["units_per_floor"] == 4 and rep["floors"] == 7
+    assert rep["checks"]["taks"]["limit"] is None and rep["checks"]["taks"]["ok"]
+    assert rep["checks"]["setback_ok"]
