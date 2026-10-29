@@ -75,6 +75,15 @@ TOOLS = [
      "description": "Açık projenin özetini döndürür: girdiler (parsel, imar, program), üretilen değerler (alan, kat, "
                     "daire, TAKS/KAKS, çekmeler), uyarılar, maliyet toplamları ve künye.",
      "input_schema": {"type": "object", "properties": {}, "additionalProperties": False}},
+    {"name": "proje_analizi",
+     "description": "Açık proje üzerinde analiz çalıştırır. tur: 'kat_irtifaki' (bağımsız bölüm, net/brüt, arsa payı), 'statik' (statik ön "
+                    "boyutlandırma: kolon, kiriş, radye, beton/donatı; avan, imzasız), 'statik_uygula' (statik miktarlarını maliyete işler), "
+                    "'capraz_dogrulama' (tutarlılık ve mevzuat kontrolleri: imar, asansör, sığınak, otopark, çatı dairesi plan notu), "
+                    "'karsilastir' (diger_proje_id ile iki versiyonun farkı).",
+     "input_schema": {"type": "object", "properties": {
+         "tur": {"type": "string", "enum": ["kat_irtifaki", "statik", "statik_uygula", "capraz_dogrulama", "karsilastir"]},
+         "diger_proje_id": {"type": "string", "description": "yalnız karsilastir için"}},
+         "required": ["tur"], "additionalProperties": False}},
     {"name": "maliyet_kalemleri",
      "description": "Maliyet kalemlerini tutara göre azalan sırayla döndürür (kod, ad, birim, miktar, birim fiyat, tutar). "
                     "Birim fiyat/miktar ayarı yapmadan önce kodları görmek için kullan.",
@@ -119,6 +128,7 @@ class ChatContext:
     adjust: Callable[[dict], dict] = None
     info: Callable[[dict], dict] = None
     create: Callable[[dict, list], dict] = None  # (brief, istekler) → {"id", "ad", "ozet"}
+    analiz: Callable[[str, dict], dict] = None   # (tur, args) → sonuç sözlüğü
 
 
 class ChatToolError(Exception):
@@ -155,6 +165,10 @@ def _tool(ctx, name, args):
         raise ChatToolError("henüz proje yok: önce projeyi_uret çağrılmalı")
     if name == "proje_ozeti":
         return ctx.summary()
+    if name == "proje_analizi":
+        if ctx.analiz is None:
+            raise ChatToolError("analiz bu bağlamda yok")
+        return ctx.analiz(str(args.get("tur")), args)
     if name == "maliyet_kalemleri":
         return {"kalemler": ctx.cost_rows(int(args.get("limit") or 30))}
     if name == "projeyi_yeniden_uret":

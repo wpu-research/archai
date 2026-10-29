@@ -61,6 +61,71 @@ def polygon_from_dxf(path):
     return to_metric(pts), {"geographic": geo, "source": source}
 
 
+def polygon_from_geojson(text):
+    """GeoJSON (TKGM parsel sorgu çıktısı dahil): ilk Polygon / MultiPolygon'un dış halkası; koordinat derece ise yerel metreye çevrilir."""
+    import json
+    d = json.loads(text)
+    geoms = []
+
+    def walk(o):
+        if isinstance(o, dict):
+            t = o.get("type")
+            if t == "FeatureCollection":
+                for f in o.get("features", []):
+                    walk(f)
+            elif t == "Feature":
+                walk(o.get("geometry"))
+            elif t == "GeometryCollection":
+                for g in o.get("geometries", []):
+                    walk(g)
+            elif t in ("Polygon", "MultiPolygon"):
+                geoms.append(o)
+    walk(d)
+    if not geoms:
+        raise ValueError("GeoJSON'da Polygon bulunamadı")
+    g = geoms[0]
+    ring = g["coordinates"][0] if g["type"] == "Polygon" else g["coordinates"][0][0]
+    pts = [(float(p[0]), float(p[1])) for p in ring]
+    if len(pts) > 1 and pts[0] == pts[-1]:
+        pts = pts[:-1]
+    if len(pts) < 3:
+        raise ValueError("parsel çokgeni en az 3 köşe içermeli")
+    return to_metric(pts), {"geographic": all(abs(x) <= 180 and abs(y) <= 90 for x, y in pts), "source": "geojson"}
+
+
+def polygon_from_kml(text):
+    """KML: ilk <Polygon> dış halkasındaki <coordinates> (boylam,enlem[,yükseklik])."""
+    import re
+    m = re.search(r"<Polygon.*?<outerBoundaryIs>.*?<coordinates>(.*?)</coordinates>", text, re.S | re.I) or \
+        re.search(r"<coordinates>(.*?)</coordinates>", text, re.S | re.I)
+    if not m:
+        raise ValueError("KML'de koordinat bulunamadı")
+    pts = []
+    for tok in m.group(1).split():
+        parts = tok.split(",")
+        if len(parts) >= 2:
+            pts.append((float(parts[0]), float(parts[1])))
+    if len(pts) > 1 and pts[0] == pts[-1]:
+        pts = pts[:-1]
+    if len(pts) < 3:
+        raise ValueError("parsel çokgeni en az 3 köşe içermeli")
+    return to_metric(pts), {"geographic": all(abs(x) <= 180 and abs(y) <= 90 for x, y in pts), "source": "kml"}
+
+
+def polygon_from_file(path):
+    """Uzantıya göre parsel çokgeni: .dxf (TKGM/kadastro), .geojson/.json, .kml."""
+    from pathlib import Path
+    ext = Path(path).suffix.lower()
+    if ext == ".dxf":
+        return polygon_from_dxf(path)
+    text = Path(path).read_text(encoding="utf-8", errors="replace")
+    if ext in (".geojson", ".json"):
+        return polygon_from_geojson(text)
+    if ext == ".kml":
+        return polygon_from_kml(text)
+    raise ValueError("desteklenen parsel dosyaları: .dxf, .geojson, .json, .kml")
+
+
 # ------------------------------------------------------------------ geometri
 
 def _ccw(pts):

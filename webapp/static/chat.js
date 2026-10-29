@@ -39,8 +39,8 @@ function build() {
   <div id="chatmsgs" role="log" aria-live="polite"></div>
   <div id="chatattach"></div>
   <div id="chatchips"></div>
-  <form id="chatform"><button id="chatclip" type="button" title="Parsel DXF’i yükle" aria-label="Parsel DXF yükle">📎</button>
-    <input type="file" id="chatfile" accept=".dxf" hidden>
+  <form id="chatform"><button id="chatclip" type="button" title="Parsel dosyası yükle (DXF / GeoJSON / KML)" aria-label="Parsel DXF yükle">📎</button>
+    <input type="file" id="chatfile" accept=".dxf,.geojson,.json,.kml" hidden>
     <textarea id="chatin" rows="2"></textarea>
     <button id="chatsend" type="submit">GÖNDER</button></form>
 </aside>`);

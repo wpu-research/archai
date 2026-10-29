@@ -92,3 +92,23 @@ def test_emsal_yok_dar_seritte_dort_daire():
     assert rep["units_per_floor"] == 4 and rep["floors"] == 7
     assert rep["checks"]["taks"]["limit"] is None and rep["checks"]["taks"]["ok"]
     assert rep["checks"]["setback_ok"]
+
+
+def test_geojson_ve_kml_parsel(tmp_path):
+    import json as _j
+    ring = [[28.86189, 41.01303], [28.86194, 41.01293], [28.86229, 41.01304], [28.86224, 41.01314], [28.86189, 41.01303]]
+    gj = tmp_path / "p.geojson"
+    gj.write_text(_j.dumps({"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {},
+                                                                       "geometry": {"type": "Polygon", "coordinates": [ring]}}]}))
+    kml = tmp_path / "p.kml"
+    kml.write_text("<kml><Placemark><Polygon><outerBoundaryIs><LinearRing><coordinates>"
+                   + " ".join(f"{x},{y},0" for x, y in ring) + "</coordinates></LinearRing></outerBoundaryIs></Polygon></Placemark></kml>")
+    for f in (gj, kml):
+        pts, info = parcel.polygon_from_file(f)
+        assert info["geographic"] and len(pts) == 4 and 50 < Polygon(pts).area < 2000
+    r = c.post("/api/parcel/dxf", files={"file": ("p.geojson", gj.read_bytes())})
+    assert r.status_code == 200 and len(r.json()["polygon"]) == 4
+    assert c.post("/api/parcel/dxf", files={"file": ("p.txt", b"x")}).status_code == 422
+    import pytest as _p
+    with _p.raises(ValueError):
+        parcel.polygon_from_geojson('{"type": "Point", "coordinates": [1, 2]}')

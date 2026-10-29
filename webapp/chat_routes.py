@@ -22,6 +22,7 @@ from pydantic import BaseModel, ConfigDict, Field, ValidationError
 from shapely.geometry import Polygon
 
 from archai import chat, project
+from webapp import araclar_routes as AR
 from archai.avan_tablo import TABLO_11903
 
 router = APIRouter()
@@ -220,6 +221,32 @@ def _info(pid, k):
     return {"guncellenen": sorted(add)}
 
 
+def _analiz(pid, tur, args):
+    """Araçlar sekmelerindeki analizleri asistana açar; çıktı özetlenir (tam tablo kullanıcıya sekmelerden gösterilir)."""
+    try:
+        if tur == "kat_irtifaki":
+            d = AR.kat_irtifaki_table(pid)
+            return {"ozet": d["ozet"], "bolumler": [{k: b[k] for k in ("no", "kat", "ad", "tip", "net", "toplam_brut", "arsa_payi_metin")}
+                                                    for b in d["bolumler"]][:40], "dosya": d["dosya"], "not": d["not"]}
+        if tur == "statik":
+            d = AR.statik_table(pid)
+            return {k: d[k] for k in ("kolon_sayisi", "kolon_kesiti", "kiris", "doseme", "radye", "miktar", "kiyas", "uyarilar", "not", "dosya")}
+        if tur == "statik_uygula":
+            return AR.statik_apply(pid)
+        if tur == "capraz_dogrulama":
+            d = AR.capraz_dogrulama(pid)
+            return {"ozet": d["ozet"], "sorunlar": [k for k in d["kontroller"] if k["durum"] in ("ihlal", "uyari")][:25]}
+        if tur == "karsilastir":
+            other = args.get("diger_proje_id")
+            if not other:
+                raise chat.ChatToolError("diger_proje_id gerekli")
+            d = AR.karsilastir(pid, other)
+            return {"girdiler": d["girdiler"], "rapor": d["rapor"], "maliyet": d["maliyet"], "kalemler": d["kalemler"][:8]}
+    except HTTPException as ex:
+        raise chat.ChatToolError(_http_msg(ex))
+    raise chat.ChatToolError(f"bilinmeyen analiz: {tur}")
+
+
 @router.get("/api/chat/status")
 def status():
     return {"available": bool(chat.available()), "model": chat.MODEL}
@@ -275,7 +302,7 @@ def chat_message(pid: str, body: ChatIn):
         raise HTTPException(422, "Claude kimlik bilgisi bulunamadı (ANTHROPIC_API_KEY veya `ant auth login`)")
     ctx = chat.ChatContext(summary=lambda: _summary(pid), cost_rows=lambda n: _cost_rows(pid, n),
                            rebuild=lambda p: _rebuild(pid, p), adjust=lambda a: _adjust(pid, a),
-                           info=lambda k: _info(pid, k))
+                           info=lambda k: _info(pid, k), analiz=lambda t, a: _analiz(pid, t, a))
     if not _slots.acquire(blocking=False):
         raise HTTPException(429, "asistan meşgul; birkaç saniye sonra tekrar deneyin")
     try:

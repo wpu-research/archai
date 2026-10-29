@@ -29,6 +29,7 @@ def _r(v):
     return round(v, 3)
 
 STAIR_D = 5.2
+ATTIC_SETBACK = 1.5
 TABLO_11903 = {
     "tapu_alani": 242.34, "mip": False, "yapi_turu": "Konut", "yapi_sinifi": "3-C",
     "bodrum": {"alan": 228.94, "ortak": 179.15, "isyeri": 2, "siginak": 111.0, "yukseklik": 2.5},
@@ -51,12 +52,18 @@ def _inset(L, D, area):
     return (-b - math.sqrt(disc)) / (2 * a)
 
 
-def _core(x0, x1, D, name_sfx=""):
-    """Çekirdek dikdörtgenleri: önde kat holü, arkada merdiven + asansör/şaft. Dönen (rects, (cx0, cx1, sy))."""
+LIFTS = 2      # tablo: zemin üstü 20'den fazla konut → en az 2 asansör
+
+
+def _core(x0, x1, D, lifts=LIFTS):
+    """Çekirdek dikdörtgenleri: önde kat holü, arkada merdiven + asansör/şaft(lar). Dönen (rects, (cx0, cx1, sy))."""
     sd = min(STAIR_D, 0.7 * D)
     sw = min(2.6, (x1 - x0) * 0.6)
-    rs = [Rect(x0, 0, x1, _r(D - sd), "Kat Holü", "core"), Rect(x0, _r(D - sd), _r(x0 + sw), D, "Merdiven", "core"),
-          Rect(_r(x0 + sw), _r(D - sd), x1, D, "Asansör/Şaft", "core")]
+    rs = [Rect(x0, 0, x1, _r(D - sd), "Kat Holü", "core"), Rect(x0, _r(D - sd), _r(x0 + sw), D, "Merdiven", "core")]
+    xa, w = _r(x0 + sw), (x1 - _r(x0 + sw)) / lifts
+    for i in range(lifts):
+        rs.append(Rect(_r(xa + i * w), _r(D - sd), x1 if i == lifts - 1 else _r(xa + (i + 1) * w), D,
+                       "Asansör/Şaft" + (f" {i + 1}" if i else ""), "core"))
     return rs, (x0, x1, _r(D - sd))
 
 
@@ -263,8 +270,8 @@ def build(polygon, tablo, front=0.5, side=0.0, rear=0.5, front_edge=None):
     rb, cb = _bodrum_rects(*axes(Wb, Db), core_b / Db, teknik, isy)
     place("1. Bodrum", rb, Wb, Db, db, -hb, hb, "bodrum", True, cb)
     # çatı katı: çekirdeğin üstünde tek mekân
-    Wc = cat["alan"] / Dn
-    Wc = min(Wc, Ln)
+    Dc = max(Dn - 2 * ATTIC_SETBACK, min(Dn, 3.0))   # çatı dairesi son kat konturundan ≥ 1,5 m geride (27.07.2025 plan notu)
+    Wc = min(cat["alan"] / Dc, Ln - 2 * ATTIC_SETBACK)
     Dc = cat["alan"] / Wc
     cx = X0 + Ln / 2 - Wc / 2
     rc = [Rect(0, 0, *axes(Wc, Dc), "Merdiven Çıkışı / Makine Dairesi", "core")]
@@ -313,7 +320,7 @@ def _report(els, tablo, f, outlines, Dn, Ln, dz, db, fh, front, side, rear):
         f"tablodaki tapu alanı {tablo['tapu_alani']} m², DXF'teki parsel {A:.1f} m² — fark teyit edilmeli",
         f"üst katlar zemine göre {dz:.2f} m, bodruma göre {db:.2f} m çıkma yapar (tablodaki alanları vermek için)",
         f"otopark: gerekli {tablo['otopark_sayisi_gerekli']}, projede {tablo['otopark_projede']} (tabloda 0): otopark çözülmemiş",
-        f"zemin üstü {ohm} konut: en az {tablo['asansor_gerekli']} asansör gerekli; modelde tek çekirdek ve tek asansör kuyusu var",
+        f"zemin üstü {ohm} konut: en az {tablo['asansor_gerekli']} asansör gerekli; modelde {LIFTS} asansör kuyusu var (kabin ve kapasite hesabı yapılmadı)",
         "inşaat alanı 2000 m² üstünde: N.S.E.B. (en az B sınıfı, ≥ %10 yenilenebilir enerji) gerekli",
     ]
     rep = {"parcel_area": round(A, 2), "buildable": (round(f["box"][2] - f["box"][0], 2), round(f["box"][3] - f["box"][1], 2)),

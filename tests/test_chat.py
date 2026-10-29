@@ -188,3 +188,16 @@ def test_yeniden_uretimde_istekler_tasinir(project_id, monkeypatch):
     r2 = ask(pid, Fake(say(use("t2", "projeyi_yeniden_uret", degisiklikler=new_quick)), say(text("ok"))), monkeypatch)
     p2 = c.get(f"/api/projects/{r2.json()['new_project']}").json()
     assert p2["istekler"] == ist and any("teras" in w for w in p2["report"]["warnings"])
+
+
+def test_proje_analizi_araclari(project_id, monkeypatch):
+    fake = Fake(say(use("a", "proje_analizi", tur="kat_irtifaki")), say(use("b", "proje_analizi", tur="capraz_dogrulama")),
+                say(use("c", "proje_analizi", tur="statik")), say(text("özet hazır")))
+    r = ask(project_id, fake, monkeypatch, "kat irtifakı, çapraz doğrulama ve statik")
+    assert r.status_code == 200 and [a["ok"] for a in r.json()["actions"]] == [True, True, True], r.text
+    ki = json.loads(fake.calls[1]["messages"][-1]["content"][0]["content"])
+    assert ki["ozet"]["bolum_sayisi"] > 0 and ki["bolumler"][0]["arsa_payi_metin"].endswith("/1000")
+    cz = json.loads(fake.calls[2]["messages"][-1]["content"][0]["content"])
+    assert "ozet" in cz
+    st = json.loads(fake.calls[3]["messages"][-1]["content"][0]["content"])
+    assert st["kolon_sayisi"] > 0 and "değildir" in st["not"]
