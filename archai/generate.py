@@ -665,6 +665,19 @@ def _wall_segments(rects, width, depth):
     return lines
 
 
+def _extend(rects, width, depth, c):
+    """Üst kat planı: dış kenara değen her hücreyi o kenardan c kadar dışarı uzat (çıkma), sonra tümünü +c kaydır
+    (köşe 0,0'a gelsin). Çekirdek yeri (merdiven/asansör) dünya koordinatında sabit kalır; yalnız hücreler büyür."""
+    out = []
+    for r in rects:
+        x0 = r.x0 - c if r.x0 <= 1e-6 else r.x0
+        y0 = r.y0 - c if r.y0 <= 1e-6 else r.y0
+        x1 = r.x1 + c if abs(r.x1 - width) <= 1e-6 else r.x1
+        y1 = r.y1 + c if abs(r.y1 - depth) <= 1e-6 else r.y1
+        out.append(Rect(round(x0 + c, 3), round(y0 + c, 3), round(x1 + c, 3), round(y1 + c, 3), r.name, r.kind, r.mod))
+    return out
+
+
 def _covered(rects, x, y):
     return any(r.x0 < x < r.x1 and r.y0 < y < r.y1 for r in rects)
 
@@ -909,14 +922,34 @@ def generate(parcel, zoning, program):
     room_polys = _room_polys(rects, lines)
     tags = sorted({r.name.split("/")[0] for r in rects if r.kind == "room"}, key=_tag_key)
     units = []
+    # çıkma: zemin kat oturum alanıdır; üst katlar her kenardan `ust_kat` m taşar, çatı hattı `cati_geri` m geri çekilir
+    cik = program.get("cikma") or {}
+    cc = float(cik.get("ust_kat") or 0)
+    roof_back = float(cik.get("cati_geri") or 0)
+    up = None
+    if cc > 0:
+        if len(outline) != 4:
+            raise ValueError("üst kat çıkması yalnız dikdörtgen kütlede desteklenir (kat başı 1–2 daire / 4 daire)")
+        W2, D2 = width + 2 * cc, depth + 2 * cc
+        rects_u = _extend(rects, width, depth, cc)
+        lines_u = _wall_segments(rects_u, W2, D2)
+        Pu = lambda x, y: [round(ox - cc + x, 3), round(oy - cc + y, 3)]
+        cores_u = [(a + cc, b + cc, sy + cc) for a, b, sy in cores]
+        up = {"rects": rects_u, "lines": lines_u, "P": Pu, "outline": [Pu(x, y) for x, y in _outline(rects_u, W2, D2)],
+              "ops": _openings(rects_u, W2, D2, cores_u, ground=False), "polys": _room_polys(rects_u, lines_u),
+              "area": (W2 + EXT_T) * (D2 + EXT_T)}
     for f in range(m["floors"]):
         lvl = f"Kat {f}" if f else "Zemin Kat"
         z = f * fh
+        if up and f > 0:                              # üst kat: çıkmalı plan
+            lines_f, P_f, outline_f, ops, polys_f = up["lines"], up["P"], up["outline"], up["ops"], up["polys"]
+        else:
+            lines_f, P_f, outline_f, polys_f = lines, P, outline, room_polys
+            ops = _openings(rects, width, depth, cores, ground=(f == 0))
         elements.append({"type": "slab", "name": f"{lvl}/doseme", "tag": "concrete", "role": "floor", "level": lvl,
-                         "points": outline, "z": z, "thickness": slab_t})
-        ops = _openings(rects, width, depth, cores, ground=(f == 0))
+                         "points": outline_f, "z": z, "thickness": slab_t})
         wi = 0
-        for (orient, c), pieces in sorted(lines.items()):
+        for (orient, c), pieces in sorted(lines_f.items()):
             for s0, s1, t in pieces:
                 wi += 1
                 mine = sorted([(a, b, k) for o, cc, a, b, k in ops if o == orient and abs(cc - c) < 1e-6
@@ -925,12 +958,12 @@ def generate(parcel, zoning, program):
                 ext = t == EXT_T   # _wall_segments dış kenara (tek yanında mahal olan) yalnız dış duvar kalınlığı verir
                 elements.append({
                     "type": "wall", "name": f"{lvl}/D{wi:02d}", "tag": "wall", "level": lvl, "exterior": ext,
-                    "start": P(*start), "end": P(*end), "thickness": t, "height": fh - slab_t, "base_z": z,
+                    "start": P_f(*start), "end": P_f(*end), "thickness": t, "height": fh - slab_t, "base_z": z,
                     "openings": [{"offset": round(a - s0, 3), "width": round(b - a, 3), "kind": k,
                                   **({"sill": 0.9, "height": 1.4 if (b - a) < 2 else 1.6} if k == "window"
                                      else {"height": 2.1, "leaf": True})} for a, b, k in mine]})
-        for name, (kind, pts) in room_polys.items():
-            poly = [P(x, y) for x, y in pts]
+        for name, (kind, pts) in polys_f.items():
+            poly = [P_f(x, y) for x, y in pts]
             elements.append({"type": "room", "name": f"{lvl}/{name}", "level": lvl, "points": poly, "z": z,
                              "height": fh - slab_t, "role": "common" if kind == "core" else "room"})
         for k, c in enumerate(cores):
@@ -940,24 +973,33 @@ def generate(parcel, zoning, program):
                 elements.append(st)
         for tag in tags:
             units.append({"level": lvl, "unit": tag, "type": m["unit_type"]})
+    top = up["outline"] if up else outline            # son katın tavanı (teras döşemesi) tam kat konturunda
     elements.append({"type": "slab", "name": "cati", "tag": "roof", "role": "roof", "level": "Çatı",
-                     "points": outline, "z": m["floors"] * fh, "thickness": slab_t})
-    elements += roof_parapet(outline, m["floors"] * fh)
+                     "points": top, "z": m["floors"] * fh, "thickness": slab_t})
+    parapet = top
+    if roof_back > 0:                                  # çatı hattı (korkuluk) normal katlara göre geri çekilir
+        from shapely.geometry import Polygon as _Poly
+        g = _Poly(top).buffer(-roof_back, join_style=2)
+        if g.is_empty or g.geom_type != "Polygon":
+            raise ValueError("çatı geri çekmesi kat boyutlarına göre çok büyük")
+        parapet = [[round(x, 3), round(y, 3)] for x, y in list(g.exterior.coords)[:-1]]
+    elements += roof_parapet(parapet, m["floors"] * fh)
 
     # uygunluk kontrolü
     A = m["parcel_area"]
     from .quantities import polygon_area
     fp_gross = ((width + EXT_T) * (depth + EXT_T) if len(outline) == 4
                 else polygon_area([tuple(p) for p in _outline(rects, width, depth)]))
-    gross_total = fp_gross * m["floors"]
+    gross_total = fp_gross * m["floors"] if not up else fp_gross + up["area"] * (m["floors"] - 1)
     unit_net = {}
     for r in rects:
         if r.kind == "room":
             u = r.name.split("/")[0]
             unit_net[u] = unit_net.get(u, 0) + polygon_area([tuple(p) for p in _room_poly(r, lines)])
     h = EXT_T / 2
+    e = cc if up else 0.0                              # çekmeler en geniş kontura (çıkmalı üst katlar) göre ölçülür
     sb, sb_detail, sb_ok = setback_checks(parcel["width"], parcel["depth"],
-                                          (ox - h, oy - h, ox + width + h, oy + depth + h), zoning)
+                                          (ox - e - h, oy - e - h, ox + width + e + h, oy + depth + e + h), zoning)
     ex = emsal_disi_m2(zoning, gross_total)           # emsale girmeyen alan (m²)
     kaks_val = (gross_total - ex) / A                 # emsale giren brüt alan / parsel
     fh = zoning.get("floor_height", 3.0)
@@ -990,6 +1032,11 @@ def generate(parcel, zoning, program):
             warnings.append(f"KAKS kullanımı %{used:.0f} (izin verilen {_ti(kaks_area)} m², üretilen {_ti(gross_total)} m²) — "
                             "kat adedi, daire tipi veya TAKS sınırını gözden geçirin")
     from .imar import imar_summary
+    if up:
+        extra["cikma"] = {"ust_kat": cc, "cati_geri": roof_back, "zemin_alani": round(fp_gross, 2),
+                          "ust_kat_alani": round(up["area"], 2)}
+        warnings.append(f"üst katlar zemin kat oturumundan her kenarda {cc:g} m taşar (çıkma); çekme mesafeleri çıkmalı "
+                        f"konturdan ölçüldü" + (f"; çatı hattı {roof_back:g} m geri çekildi" if roof_back else ""))
     report = {
         **m, "warnings": warnings, **extra, "imar_ozeti": imar_summary(zoning, A, checks), "footprint_gross": round(fp_gross, 2), "gross_total": round(gross_total, 2),
         "unit_count": len(units), "unit_net_area": {k: round(v, 2) for k, v in unit_net.items()},

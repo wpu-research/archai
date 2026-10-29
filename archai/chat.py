@@ -86,7 +86,7 @@ TOOLS = [
                     "teklif yeniden hesaplanır). `degisiklikler`, mevcut girdilerle birleştirilir. Anahtarlar: name; "
                     "parcel {width, depth | polygon, front_edge}; zoning {taks, kaks, front, side, rear, max_floors, "
                     "floor_height, max_height, emsal_disi_m2 (emsale girmeyen ortak alan, m²), emsal_yok}; program {unit_type: '1+1'|'2+1'|'3+1'|'4+1'|'auto', "
-                    "units_per_floor: 'auto'|1..4, avan {basement, shops, attic_area}}; tablo (avan tablosu projelerinde: "
+                    "units_per_floor: 'auto'|1..4, avan {basement, shops, attic_area}, cikma {ust_kat: üst katların her kenarda çıkması m, cati_geri: çatı hattının geri çekilmesi m}}; tablo (avan tablosu projelerinde: "
                     "true ya da değişecek alanlar {bodrum, zemin, normal, cati_kati, sacak_kotu, ...}); quick {gross_area, "
                     "floors, unit_type}. Uzunluklar metre, alanlar m². DXF/resimden üretilmiş projelerde çalışmaz.",
      "input_schema": {"type": "object", "properties": {"degisiklikler": {"type": "object"},

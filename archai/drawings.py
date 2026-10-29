@@ -505,11 +505,23 @@ def _roof_top(roof, pitched, fl):
     return (roof["z"] + 0.9) if roof else fl[-1][0] + 3
 
 
+def _level_extents(elements, axis):
+    """Kat → (min, max) döşeme kontur aralığı (axis 0: x, 1: y). Çıkmalı/farklı büyüklükte katlar için."""
+    out = {}
+    for e in elements:
+        if e["type"] == "slab" and e.get("role") == "floor":
+            v = [p[axis] for p in e["points"]]
+            lo, hi = out.get(e["level"], (min(v), max(v)))
+            out[e["level"]] = (min(lo, min(v)), max(hi, max(v)))
+    return out
+
+
 def draw_section(sh, elements, cut_x):
     fl, roof = _levels(elements)
     pitched = _pitched(elements)
     floor = next(e for e in elements if e["type"] == "slab" and e.get("role") == "floor")
-    ys = [p[1] for p in floor["points"]]
+    ext_y = _level_extents(elements, 1)
+    ys = [v for lo_hi in ext_y.values() for v in lo_hi]
     y0, y1 = min(ys), max(ys)
     X = lambda y: y - y0
     t = floor.get("thickness", 0.2)
@@ -530,12 +542,17 @@ def draw_section(sh, elements, cut_x):
     sh.line((gl, -t), (gr, -t), "A-ZEMIN")
     sh.hatch([[(gl, -t), (gr, -t), (gr, -t - sh.mm(5)), (gl, -t - sh.mm(5))]], "A-DUVAR-TARAMA", "EARTH", scale_mm=0.5)
     slabs = [z for z, _ in fl] + ([roof["z"]] if roof else [])
+    lv_by_z = {z: lvl for z, lvl in fl}
+    roof_y = (min(p[1] for p in roof["points"]), max(p[1] for p in roof["points"])) if roof else None
     for z in slabs:
-        pts = [(X(y0), z - t), (X(y1), z - t), (X(y1), z), (X(y0), z)]
+        a, b = ext_y.get(lv_by_z.get(z), roof_y) if z in lv_by_z else (roof_y or (y0, y1))
+        pts = [(X(a), z - t), (X(b), z - t), (X(b), z), (X(a), z)]
         sh.poly(pts, "A-KESIT")
         sh.hatch([pts], "A-KESIT", solid=True)
     if roof:
-        for yy in (y0, y1 - 0.25):
+        par = [e for e in elements if e["type"] == "box" and e["name"].startswith("cati_parapet")]
+        pa, pb = (min(e["origin"][1] for e in par), max(e["origin"][1] + e["size"][1] for e in par)) if par else roof_y
+        for yy in (pa, pb - 0.25):                  # çatı hattı (korkuluk); geri çekilmişse gerçek konumunda
             pts = [(X(yy), roof["z"]), (X(yy + 0.25), roof["z"]), (X(yy + 0.25), top), (X(yy), top)]
             sh.poly(pts, "A-KESIT")
             sh.hatch([pts], "A-KESIT", solid=True)
@@ -577,7 +594,8 @@ def draw_elevation(sh, elements):
     fl, roof = _levels(elements)
     pitched = _pitched(elements)
     floor = next(e for e in elements if e["type"] == "slab" and e.get("role") == "floor")
-    xs = [p[0] for p in floor["points"]]
+    ext_x = _level_extents(elements, 0)
+    xs = [v for lo_hi in ext_x.values() for v in lo_hi]
     x0, x1 = min(xs), max(xs)
     X = lambda x: x - x0
     top = _roof_top(roof, pitched, fl)
@@ -594,16 +612,22 @@ def draw_elevation(sh, elements):
             prof = roof_profile(pitched)
             sh.poly([(X(s), z) for s, z in prof] + [(X(s), z + rt) for s, z in reversed(prof)], "A-GORUNUS")
     else:
-        sh.poly([(X(x0), -t), (X(x1), -t), (X(x1), top), (X(x0), top)], "A-GORUNUS")
+        zs = [z for z, _ in fl]
+        for i, (z, lvl) in enumerate(fl):          # kat kat siluet: çıkmalı katlar kendi genişliğinde
+            a, b = ext_x.get(lvl, (x0, x1))
+            zlo, zhi = (-t if i == 0 else z), (zs[i + 1] if i + 1 < len(zs) else top)
+            sh.poly([(X(a), zlo), (X(b), zlo), (X(b), zhi), (X(a), zhi)], "A-GORUNUS")
     gl, gr = X(x0) - sh.mm(15), X(x1) + sh.mm(15)
     sh.line((gl, -t), (gr, -t), "A-ZEMIN")
     sh.hatch([[(gl, -t), (gr, -t), (gr, -t - sh.mm(4)), (gl, -t - sh.mm(4))]], "A-DUVAR-TARAMA", "EARTH", scale_mm=0.5)
     if roof:
         sh.line((X(x0), roof["z"]), (X(x1), roof["z"]), "A-GORUNUS-INCE")
     walls = [w for w in elements if w["type"] == "wall" and abs(w["start"][1] - w["end"][1]) < 1e-6]
-    front_y = min(w["start"][1] for w in walls)
+    front_y = {}                                    # kat başına ön cephe duvarı (çıkmalı katlarda farklı y)
     for w in walls:
-        if abs(w["start"][1] - front_y) > 1e-6:
+        front_y[w.get("level")] = min(front_y.get(w.get("level"), w["start"][1]), w["start"][1])
+    for w in walls:
+        if abs(w["start"][1] - front_y[w.get("level")]) > 1e-6:
             continue
         ax, bx = w["start"][0], w["end"][0]
         sgn = 1 if bx >= ax else -1

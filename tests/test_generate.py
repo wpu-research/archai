@@ -127,3 +127,31 @@ def test_apartment_scenario_valid():
     # çizimde lavabo banyo kapısının önünde; başka taşma/çakışma yok
     assert check(els, design) == ["Normal Kat/Daire 3 Banyo: lavabo bir kapı önünü kapatıyor"]
     assert set(design["floors"]) == set(rooms)
+
+
+def test_ust_kat_cikmasi_ve_cati_geri():
+    """Zemin oturumdur; üst katlar her kenardan 1,5 m taşar; çatı hattı (korkuluk) 1 m geri çekilir; çekmeler çıkmalı konturdan."""
+    parcel = {"width": 24.0, "depth": 38.5}
+    zon = {"taks": 0.25, "kaks": 2.0, "front": 5.0, "side": 3.0, "rear": 3.0, "max_floors": 3, "floor_height": 3.1}
+    prog = {"unit_type": "2+1", "units_per_floor": "auto"}
+    _, base = generate(parcel, zon, prog)
+    els, rep = generate(parcel, zon, {**prog, "cikma": {"ust_kat": 1.5, "cati_geri": 1.0}})
+
+    def bounds(name):
+        pts = next(e["points"] for e in els if e["type"] == "slab" and e["name"] == name)
+        xs, ys = [p[0] for p in pts], [p[1] for p in pts]
+        return min(xs), min(ys), max(xs), max(ys)
+    z, k1, k2 = bounds("Zemin Kat/doseme"), bounds("Kat 1/doseme"), bounds("Kat 2/doseme")
+    assert k1 == k2
+    assert [round(k1[0] - z[0], 2), round(k1[1] - z[1], 2), round(z[2] - k1[2], 2), round(z[3] - k1[3], 2)] == [-1.5, -1.5, -1.5, -1.5]
+    parapet = [e for e in els if e["name"].startswith("cati_parapet")]
+    px = [e["origin"][0] for e in parapet] + [e["origin"][0] + e["size"][0] for e in parapet]
+    py = [e["origin"][1] for e in parapet] + [e["origin"][1] + e["size"][1] for e in parapet]
+    assert round(min(px) - k1[0], 2) == 1.0 and round(k1[2] - max(px), 2) == 1.0      # çatı hattı 1 m geride
+    assert round(min(py) - k1[1], 2) == 1.0 and round(k1[3] - max(py), 2) == 1.0
+    assert rep["checks"]["taks"]["value"] == base["checks"]["taks"]["value"]          # TAKS zemin oturumundan
+    assert rep["gross_total"] > base["gross_total"] and rep["cikma"]["ust_kat"] == 1.5
+    assert rep["checks"]["setbacks"]["side_left"] == pytest.approx(base["checks"]["setbacks"]["side_left"] - 1.5, abs=0.01)
+    # çıkmasız üretim aynen kalır
+    _, again = generate(parcel, zon, prog)
+    assert again["gross_total"] == base["gross_total"] and "cikma" not in again

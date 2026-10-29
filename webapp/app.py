@@ -253,11 +253,19 @@ class Avan(BaseModel):
     attic_area: _num(5, 500) | None = None
 
 
+class Cikma(BaseModel):
+    """Üst katlar zemin kat oturumundan her kenarda `ust_kat` m taşar; çatı hattı `cati_geri` m geri çekilir."""
+    model_config = _S
+    ust_kat: _num(0, 3) = 0
+    cati_geri: _num(0, 3) = 0
+
+
 class Program(BaseModel):
     model_config = _S
     unit_type: _txt(20) | None = None
     units_per_floor: Literal["auto"] | Annotated[int, Field(ge=1, le=20)] | None = None
     avan: Avan | None = None
+    cikma: Cikma | None = None
 
 
 class Quick(Program):
