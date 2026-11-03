@@ -217,6 +217,9 @@ def finalize(brief, elements, report, meta, out_dir, render_3d=False):
     Q.mark_exterior(elements)   # dış/iç duvar ayrımı: kaynağın yazmadığı duvarlar için kat konturundan
     q = Q.compute(elements)
     cost = costing.estimate(q, adjust=brief.get("adjust"))
+    # Metraj parmak izi: maliyet hesaplandığı andaki geometri referansı (fiyat/brif değişse de geçerli)
+    from . import approval as A
+    qfp = A.quantities_fp(q)
     info = build_info(brief)
     files = write_documents(out, name, brief, report, q, cost, info)
     files.update({f"cizim_{k}": v for k, v in
@@ -224,7 +227,7 @@ def finalize(brief, elements, report, meta, out_dir, render_3d=False):
     if render_3d:
         files.update(render(elements, out / "3d"))
     result = {"name": name, "brief": brief, **meta, "report": report, "summary": q["summary"], "rooms": q["rooms"],
-              "cost": cost, "files": files}
+              "cost": cost, "quantities_fp": qfp, "files": files}
     (out / "elements.json").write_text(json.dumps(elements, ensure_ascii=False, indent=1))
     (out / "project.json").write_text(json.dumps(result, ensure_ascii=False, indent=1, default=str))
     return result
@@ -268,6 +271,13 @@ def readjust(out_dir, adjust):
     q = Q.compute(elements)
     cost = costing.estimate(q, adjust=adjust)
     result["brief"]["adjust"] = adjust
+    # Metraj parmak izini güncelle (maliyet hesaplandığı andaki geometri)
+    from . import approval as A
+    result["quantities_fp"] = A.quantities_fp(q)
+    # Belgeler ve maliyet güncel elemanlardan hesaplanıyor; API'nin alan/mahal
+    # verileri de aynı metrajı göstermeli (kayıtlı özet eski kalmış olabilir).
+    result["summary"] = q["summary"]
+    result["rooms"] = q["rooms"]
     result["cost"] = cost
     result["files"].update(write_documents(out, result["name"], result["brief"], result["report"], q, cost))
     (out / "project.json").write_text(json.dumps(result, ensure_ascii=False, indent=1, default=str))
@@ -292,10 +302,35 @@ def render(elements, out_dir):
 
 
 def redocument(out_dir):
-    """Belgeleri kayıtlı maliyetle yeniden üret (onay damgası değişince); içerik ve çizimler aynı kalır."""
+    """Belgeleri kayıtlı maliyetle yeniden üret (onay damgası değişince); içerik ve çizimler aynı kalır.
+
+    Metraj referansı eksikse veya değişmişse onay durumundan bağımsız olarak
+    belge yazmadan hata verir. `refinalize` ile metraj, maliyet ve çizimler
+    yeniden üretilmelidir; eski projeler sessizce güncel fiyatlara taşınmaz.
+    """
+    from . import approval as A
     out = Path(out_dir)
     result = json.loads((out / "project.json").read_text())
-    q = Q.compute(json.loads((out / "elements.json").read_text()))
+    elements = json.loads((out / "elements.json").read_text())
+    q = Q.compute(elements)
+    current_qfp = A.quantities_fp(q)
+
+    # Belge tutarlılığı onay durumundan bağımsızdır; taslakta da eski maliyet kullanılamaz.
+    stored_qfp = result.get("quantities_fp")
+    if stored_qfp is None:
+        raise approval.QuantitiesMismatchError(
+            "Eski projede metraj referansı yok. `refinalize` ile metraj, maliyet ve "
+            "çizimleri yeniden üretin; güncel fiyatları kontrol edin."
+        )
+    if stored_qfp != current_qfp:
+        raise approval.QuantitiesMismatchError(
+            "Proje geometri/elemanları değişmiş. Eski maliyetle yeni metraj "
+            "tutarsız belge oluşturur. Önce `refinalize` ile çıktıları yeniden üretin."
+        )
+
+    # Güncel elemanlardan özet ve mahal verilerini yenile (kayıtlı özet eski kalmış olabilir).
+    result["summary"] = q["summary"]
+    result["rooms"] = q["rooms"]
     result["files"].update(write_documents(out, result["name"], result["brief"], result["report"], q, result["cost"]))
     (out / "project.json").write_text(json.dumps(result, ensure_ascii=False, indent=1, default=str))
     return result

@@ -2,7 +2,8 @@
 .mk .mk-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin:8px 0}
 .mk .mk-row input[type=file]{max-width:320px}
 .mk .pz-cand{margin:2px 0;padding:4px 8px;font-size:10.5px;text-align:left;background:transparent;cursor:pointer}
-.mk .err{color:var(--bad);font:500 12px var(--mono);margin-top:10px}
+.mk .err{display:block;color:var(--bad);font:500 12px var(--mono);margin-top:10px}
+.mk .err[hidden]{display:none}
 .mk .ok{color:var(--ok);font:500 12px var(--mono);margin-top:10px}
 .mk .flag.ok{color:var(--ok)}.mk .flag.bad{color:var(--bad)}.mk .flag.warn{color:var(--warn)}
 .mk .grid2{display:grid;grid-template-columns:1fr 1fr;gap:10px}

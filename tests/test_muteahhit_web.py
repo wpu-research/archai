@@ -79,6 +79,26 @@ def test_imar_read_text_and_consent():
     assert c.post("/api/imar/read", files={"file": ("x.docx", b"PK")}).status_code == 422
 
 
+@pytest.mark.parametrize("action", ["approve", "revoke"])
+def test_onay_quantity_conflict_returns_actionable_409(monkeypatch, tmp_path, action):
+    from archai import approval
+    from webapp import muteahhit_routes as routes
+
+    monkeypatch.setattr(routes, "_project", lambda pid: (tmp_path, {}))
+
+    def reject(*args, **kwargs):
+        raise approval.QuantitiesMismatchError("Metraj değişmiş; refinalize ile yeniden üretin.")
+
+    monkeypatch.setattr(approval, action, reject)
+    signer = {"name": "Ali Kaya", "title": "İnşaat Mühendisi",
+              "chamber": "TMMOB İnşaat Mühendisleri Odası", "reg_no": "12345", "statement": True}
+    suffix = "/revoke" if action == "revoke" else ""
+    response = c.post(f"/api/projects/test/onay{suffix}",
+                      json={"reason": "test"} if action == "revoke" else signer)
+    assert response.status_code == 409
+    assert "refinalize" in response.json()["detail"]
+
+
 def test_onay_flow(pid):
     u = f"/api/projects/{pid}/onay"
     assert c.get(u).json()["status"] == "taslak"
@@ -94,3 +114,156 @@ def test_onay_flow(pid):
     assert c.get(u).json()["status"] == "gecersiz"
     r2 = c.post(u + "/revoke", json={"reason": "fiyat değişti"})
     assert r2.status_code == 200 and r2.json()["status"] == "geri_alindi"
+
+
+def test_refinalize_endpoint(pid):
+    """POST /api/projects/{pid}/refinalize calls project.refinalize and returns updated project + onay status."""
+    u = f"/api/projects/{pid}/onay"
+    # First approve to get onaylandi status
+    signer = {"name": "Ali Kaya", "title": "İnşaat Mühendisi", "chamber": "TMMOB İnşaat Mühendisleri Odası",
+              "reg_no": "12345", "statement": True}
+    r = c.post(u, json=signer)
+    assert r.status_code == 200
+    # Change adjust to invalidate approval (gecersiz)
+    r2 = c.put(f"/api/projects/{pid}/adjust", json={"profit_pct": 15})
+    assert r2.status_code == 200
+    assert c.get(u).json()["status"] == "gecersiz"
+    # Call refinalize
+    r3 = c.post(f"/api/projects/{pid}/refinalize")
+    assert r3.status_code == 200, r3.text
+    data = r3.json()
+    assert "project" in data and data["project"]["id"] == pid
+    # Status remains gecersiz because cost changed (profit_pct) → fingerprint mismatch → re-approval needed
+    assert "status" in data and data["status"] == "gecersiz"
+    assert "files" in data and "onay_tutanagi_docx" not in data["files"]  # certificate removed
+
+
+def test_refinalize_updates_quantities_fp_and_regenerates_documents(pid):
+    """After refinalize, quantities_fp is updated and all documents are regenerated with current cost."""
+    u = f"/api/projects/{pid}/onay"
+    signer = {"name": "Ali Kaya", "title": "İnşaat Mühendisi", "chamber": "TMMOB İnşaat Mühendisleri Odası",
+              "reg_no": "12345", "statement": True}
+    c.post(u, json=signer)
+    # Get initial project state
+    proj_before = c.get(f"/api/projects/{pid}").json()
+    qfp_before = proj_before["quantities_fp"]
+    cost_before = proj_before["cost"]["total"]
+    # Invalidate by changing profit
+    c.put(f"/api/projects/{pid}/adjust", json={"profit_pct": 20})
+    assert c.get(u).json()["status"] == "gecersiz"
+    # Refinalize
+    r = c.post(f"/api/projects/{pid}/refinalize")
+    assert r.status_code == 200
+    # Verify project updated
+    proj_after = c.get(f"/api/projects/{pid}").json()
+    qfp_after = proj_after["quantities_fp"]
+    cost_after = proj_after["cost"]["total"]
+    # quantities_fp should remain the same (geometry unchanged)
+    assert qfp_after == qfp_before, "quantities_fp should not change when only adjust changes"
+    # Cost should change due to profit_pct change
+    assert cost_after != cost_before, "cost should change after adjust + refinalize"
+    # Approval status remains gecersiz because fingerprint (cost + brief) changed → re-approval needed
+    assert c.get(u).json()["status"] == "gecersiz"
+    # Certificate should be removed
+    onay = c.get(u).json()
+    assert "onay_tutanagi_docx" not in onay.get("files", {})
+
+
+def test_refinalize_preserves_price_adjustment(pid):
+    """Regeneration preserves the selected profit adjustment."""
+    u = f"/api/projects/{pid}/onay"
+    signer = {"name": "Ali Kaya", "title": "İnşaat Mühendisi", "chamber": "TMMOB İnşaat Mühendisleri Odası",
+              "reg_no": "12345", "statement": True}
+    c.post(u, json=signer)
+    # Get initial cost
+    cost_before = c.get(f"/api/projects/{pid}").json()["cost"]["total"]
+    # Invalidate approval
+    c.put(f"/api/projects/{pid}/adjust", json={"profit_pct": 10})
+    assert c.get(u).json()["status"] == "gecersiz"
+    # Refinalize
+    r = c.post(f"/api/projects/{pid}/refinalize")
+    assert r.status_code == 200
+    cost_after = c.get(f"/api/projects/{pid}").json()["cost"]["total"]
+    # Cost should be recalculated (may be same if no catalog selected, but endpoint works)
+    assert "cost" in r.json()["project"]
+    assert r.json()["project"]["brief"]["adjust"]["profit_pct"] == 10
+
+
+@pytest.mark.parametrize("legacy", [False, True], ids=["changed-elements", "legacy-project"])
+def test_refinalize_recovers_blocked_approval(legacy):
+    """Real API recovery: reject stale input, regenerate, then allow reapproval."""
+    import json
+    from archai import approval, costing, quantities
+    from webapp import muteahhit_routes as routes
+
+    created = c.post("/api/projects", json={"name": "Yenileme kurtarma testi",
+                     "quick": {"gross_area": 300, "floors": 2, "unit_type": "2+1"}})
+    assert created.status_code == 200, created.text
+    project_id = created.json()["id"]
+    url = f"/api/projects/{project_id}"
+    signer = {"name": "Ali Kaya", "title": "İnşaat Mühendisi",
+              "chamber": "TMMOB İnşaat Mühendisleri Odası", "reg_no": "12345", "statement": True}
+    approved = c.post(url + "/onay", json=signer)
+    assert approved.status_code == 200, approved.text
+    directory, saved = routes._project(project_id)
+    elements_path = directory / "elements.json"
+    elements = json.loads(elements_path.read_text())
+    if legacy:
+        saved.pop("quantities_fp")
+        (directory / "project.json").write_text(json.dumps(saved))
+    else:
+        elements.append({"type": "room", "name": "Ek Mahal", "level": "Zemin Kat",
+                         "points": [[0, 0], [3, 0], [3, 3], [0, 3]], "height": 2.8})
+        elements_path.write_text(json.dumps(elements))
+
+    approval_before = (directory / "onay.json").read_bytes()
+    blocked = c.post(url + "/onay", json=signer)
+    assert blocked.status_code == 409, blocked.text
+    assert (directory / "onay.json").read_bytes() == approval_before
+
+    renewed = c.post(url + "/refinalize")
+    assert renewed.status_code == 200, renewed.text
+    refreshed = renewed.json()["project"]
+    current_elements = json.loads(elements_path.read_text())
+    q = quantities.compute(current_elements)
+    assert current_elements == elements  # use edited elements, not the original brief
+    assert refreshed["quantities_fp"] == approval.quantities_fp(q)
+    assert refreshed["summary"] == q["summary"]
+    assert refreshed["rooms"] == q["rooms"]
+    assert refreshed["cost"] == costing.estimate(q, adjust=saved["brief"].get("adjust"))
+    if not legacy:
+        assert renewed.json()["status"] == "gecersiz"
+        assert refreshed["cost"]["total"] != saved["cost"]["total"]
+    for key in ("teklif_docx", "metraj_maliyet_xlsx", "cizim_pdf"):
+        assert c.get(refreshed["files"][key]).status_code == 200
+
+    reapproved = c.post(url + "/onay", json=signer)
+    assert reapproved.status_code == 200, reapproved.text
+    assert reapproved.json()["status"] == "onaylandi"
+    assert all(doc["ok"] for doc in reapproved.json()["documents"])
+    assert c.get(reapproved.json()["files"]["onay_tutanagi_docx"]).status_code == 200
+
+
+def test_refinalize_requires_valid_project():
+    """A missing project is rejected by the actual path lookup."""
+    r = c.post("/api/projects/missing-refinalize-project/refinalize")
+    assert r.status_code == 404
+
+
+def test_refinalize_internal_error_does_not_leak(monkeypatch, tmp_path):
+    from webapp import muteahhit_routes as routes
+    monkeypatch.setattr(routes, "_project", lambda pid: (tmp_path, {}))
+
+    def fail(out):
+        raise RuntimeError("gizli /home/private/project.json")
+
+    monkeypatch.setattr(routes.project, "refinalize", fail)
+    r = c.post("/api/projects/test/refinalize")
+    assert r.status_code == 500
+    assert r.json() == {"detail": "yeniden üretim sırasında iç hata"}
+
+
+def test_refinalize_requires_authentication(monkeypatch):
+    monkeypatch.setenv("ARCHAI_TOKEN", "refinalize-test-secret")
+    r = c.post("/api/projects/test/refinalize")
+    assert r.status_code == 401

@@ -190,6 +190,8 @@ def post_onay(pid: str, body: SignerIn):
     with _onay_lock:
         try:
             approval.approve(d, body.model_dump(), project.redocument)
+        except approval.QuantitiesMismatchError as ex:
+            raise HTTPException(409, str(ex)) from ex
         except ValueError as ex:
             raise HTTPException(422, str(ex))
     return {**_onay_public(pid, d), "project": _app()._public(pid, _app()._read_json(d / "project.json"))}
@@ -201,9 +203,26 @@ def revoke_onay(pid: str, body: RevokeIn):
     with _onay_lock:
         try:
             approval.revoke(d, project.redocument, body.reason)
+        except approval.QuantitiesMismatchError as ex:
+            raise HTTPException(409, str(ex)) from ex
         except ValueError as ex:
             raise HTTPException(422, str(ex))
     return {**_onay_public(pid, d), "project": _app()._public(pid, _app()._read_json(d / "project.json"))}
+
+
+@router.post("/api/projects/{pid}/refinalize")
+def refinalize_project(pid: str):
+    """Elemanlar (elements.json) değiştiğinde: metraj, maliyet, belgeler ve çizimleri yeniden üret.
+    Güncel fiyat kataloğu maliyeti değiştirebilir; çizim/belgeler yeniden üretilir; tekrar onay gerekebilir."""
+    d, _ = _project(pid)
+    with _onay_lock:
+        try:
+            res = project.refinalize(d)
+        except ValueError as ex:
+            raise HTTPException(422, str(ex)) from ex
+        except Exception as ex:
+            raise HTTPException(500, "yeniden üretim sırasında iç hata") from ex
+        return {**_onay_public(pid, d), "project": _app()._public(pid, res)}
 
 
 # ------------------------------------------------------------------ tedarikçi kataloğu

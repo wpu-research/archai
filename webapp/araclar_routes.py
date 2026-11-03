@@ -14,7 +14,7 @@ from typing import Annotated, Literal
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 
-from archai import capraz, compare, kat_irtifaki, odeme_plani, project, sponsor, statik
+from archai import approval, capraz, compare, finance_scenarios, fizibilite, kat_irtifaki, odeme_plani, project, sponsor, statik
 from archai.notice import AVAN_SHORT
 
 router = APIRouter()
@@ -92,6 +92,52 @@ def odeme(pid: str, ay: int | None = None, avans: float | None = None, teminat: 
         raise HTTPException(422, str(ex))
     odeme_plani.write_xlsx(d / "odeme_plani.xlsx", r.get("name", pid), plan)
     return {**plan, "dosya": f"/files/{pid}/odeme_plani.xlsx"}
+
+
+class FizibiliteIn(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid", allow_inf_nan=False)
+    arsa_bedeli_tl: Annotated[float, Field(ge=0, le=1e15)]
+    satis_m2_fiyati_tl: Annotated[float, Field(ge=0.01, le=1e9)]
+    satilabilir_alan_m2: Annotated[float, Field(ge=0.01, le=1e8)]
+    ek_gider_pct: Annotated[float, Field(ge=0, le=100)] = 0
+
+
+@router.post("/api/projects/{pid}/fizibilite")
+def fizibilite_hesapla(pid: str, body: FizibiliteIn):
+    _, r, els = _load(pid)
+    try:
+        result = fizibilite.compute(r, els, **body.model_dump())
+    except approval.QuantitiesMismatchError as ex:
+        raise HTTPException(409, str(ex)) from ex
+    except ValueError as ex:
+        raise HTTPException(422, str(ex)) from ex
+    return {"proje_id": pid, **result}
+
+
+class ScenarioIn(FizibiliteIn):
+    ad: Annotated[str, Field(min_length=1, max_length=80)]
+    proje_parmak_izi: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
+
+
+@router.get("/api/projects/{pid}/fizibilite/senaryolar")
+def fizibilite_senaryolari(pid: str):
+    d, r, els = _load(pid)
+    return finance_scenarios.list_saved(d, r, els)
+
+
+@router.post("/api/projects/{pid}/fizibilite/senaryolar")
+def fizibilite_kaydet(pid: str, body: ScenarioIn):
+    d, r, els = _load(pid)
+    try:
+        result = fizibilite.compute(r, els, **body.model_dump(exclude={"ad", "proje_parmak_izi"}))
+        if result["kaynak"]["proje_parmak_izi"] != body.proje_parmak_izi:
+            raise HTTPException(409, "Proje hesaplamadan sonra değişti. Kaydetmeden önce fizibiliteyi yeniden hesaplayın.")
+        saved = finance_scenarios.save(d, body.ad, result)
+    except approval.QuantitiesMismatchError as ex:
+        raise HTTPException(409, str(ex)) from ex
+    except ValueError as ex:
+        raise HTTPException(422, str(ex)) from ex
+    return {"senaryo": saved}
 
 
 # ------------------------------------------------------------------ cephe düzeltme (elle)

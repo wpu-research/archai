@@ -1,5 +1,7 @@
 """Mimar / mühendis onayı: damga, parmak izi, değişiklikte geçersizlik, dosya bütünlüğü."""
 
+import json
+
 import pytest
 from docx import Document
 from openpyxl import load_workbook
@@ -50,6 +52,42 @@ def test_change_invalidates_and_restamps_draft(proj):
     assert "TASLAK" in _footer(proj / "teklif.docx")      # yeniden üretilen belge onay damgası taşımaz
 
 
+@pytest.mark.parametrize("field", ["cost", "brief"])
+def test_changed_project_invalidates_even_when_documents_unchanged(proj, field):
+    A.approve(proj, SIGNER, project.redocument)
+    path = proj / "project.json"
+    result = json.loads(path.read_text())
+    if field == "cost":
+        result["cost"]["total"] += 1000
+    else:
+        result["brief"]["name"] = "Değişmiş proje"
+    path.write_text(json.dumps(result, ensure_ascii=False))
+    assert A.status(proj)["status"] == "gecersiz"
+
+
+@pytest.mark.parametrize("already_approved", [False, True])
+@pytest.mark.parametrize("legacy", [False, True])
+def test_approval_rejects_unverified_quantities_before_writing(proj, already_approved, legacy):
+    if already_approved:
+        A.approve(proj, SIGNER, project.redocument)
+    record = proj / A.FILE
+    before = record.read_bytes() if record.exists() else None
+    if legacy:
+        path = proj / "project.json"
+        result = json.loads(path.read_text())
+        result.pop("quantities_fp")
+        path.write_text(json.dumps(result))
+    else:
+        path = proj / "elements.json"
+        elements = json.loads(path.read_text())
+        elements.append({"type": "room", "name": "Extra Room", "level": "0",
+                         "points": [[0, 0], [3, 0], [3, 3], [0, 3]], "height": 2.8})
+        path.write_text(json.dumps(elements))
+    with pytest.raises(RuntimeError, match="refinalize"):
+        A.approve(proj, SIGNER, project.redocument)
+    assert (record.read_bytes() if record.exists() else None) == before
+
+
 def test_tampered_file_detected(proj):
     A.approve(proj, SIGNER, project.redocument)
     with open(proj / "kesif_ozeti.csv", "a", encoding="utf-8") as f:
@@ -57,6 +95,28 @@ def test_tampered_file_detected(proj):
     st = A.status(proj)
     assert st["status"] == "degistirilmis"
     assert [d["key"] for d in st["documents"] if not d["ok"]] == ["kesif_csv"]
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+def test_revoke_checks_quantities_before_changing_record(proj, legacy):
+    A.approve(proj, SIGNER, project.redocument)
+    record_before = (proj / A.FILE).read_bytes()
+    certificate_before = (proj / A.CERT).read_bytes()
+    path = proj / "project.json"
+    result = json.loads(path.read_text())
+    if legacy:
+        result.pop("quantities_fp")
+    else:
+        result["quantities_fp"] = "outdated"
+    path.write_text(json.dumps(result))
+    with pytest.raises(RuntimeError, match="refinalize"):
+        A.revoke(proj, project.redocument, "test")
+    assert (proj / A.FILE).read_bytes() == record_before
+    assert (proj / A.CERT).read_bytes() == certificate_before
+    project.refinalize(proj)
+    A.revoke(proj, project.redocument, "test")
+    assert A.status(proj)["status"] == "geri_alindi"
+    assert not (proj / A.CERT).exists()
 
 
 def test_revoke(proj):

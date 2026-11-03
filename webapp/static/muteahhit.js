@@ -145,7 +145,7 @@ export function createContractor(ctx) {
   // ---- 3. adım: mimar / mühendis onayı
   const OST = {taslak: ['TASLAK', 'warn'], onaylandi: ['ONAYLI', 'ok'], gecersiz: ['ONAY GEÇERSİZ', 'bad'],
                degistirilmis: ['BELGE DEĞİŞTİRİLMİŞ', 'bad'], geri_alindi: ['ONAY GERİ ALINDI', 'warn']};
-  const O = {d: null, err: '', busy: false};
+  const O = {d: null, err: '', busy: false, refinalizeBusy: false};
   async function loadOnay(out) {
     try { O.d = await api(`/api/projects/${getProject().id}/onay`); O.err = ''; } catch (e) { O.err = e.message || String(e); }
     drawOnay(out);
@@ -156,6 +156,7 @@ export function createContractor(ctx) {
     const [t, c] = OST[d.status] || [d.status, ''], sg = d.signer || {};
     const opt = (list, v) => list.map(x => `<option ${x === v ? 'selected' : ''}>${esc(x)}</option>`).join('');
     const docs = d.documents || [];
+    const showRefinalize = ['gecersiz', 'degistirilmis', 'geri_alindi', 'taslak'].includes(d.status);
     out.innerHTML = `<div class="mk">
       <div class="stamp ${c === 'ok' ? 'ok' : 'bad'}"><span class="flag ${c}">${esc(t)}</span>
         <p class="mono" style="margin:8px 0 0;font-size:12px">${esc(d.text)}</p>
@@ -163,7 +164,15 @@ export function createContractor(ctx) {
       ${docs.length ? `<table><tr><th>Belge</th><th>SHA-256</th><th>Bütünlük</th></tr>${docs.map(x => `<tr><td>${d.files[x.key] ? `<a href="${esc(d.files[x.key])}">${esc(x.file)}</a>` : esc(x.file)}</td>
         <td class="mono" style="font-size:10px">${esc(x.sha256.slice(0, 24))}…</td><td>${x.ok ? '<span class="flag ok">SAĞLAM</span>' : '<span class="flag bad">DEĞİŞMİŞ</span>'}</td></tr>`).join('')}</table>` : ''}
       ${d.files.onay_tutanagi_docx ? `<p><a class="ghost" href="${esc(d.files.onay_tutanagi_docx)}">↓ ONAY TUTANAĞI .DOCX</a></p>` : ''}
-      ${d.status === 'onaylandi' || d.status === 'degistirilmis' ? `<div class="mk-row"><input id="on-why" placeholder="Geri alma nedeni" maxlength="300" style="flex:1"><button class="ghost" id="on-rev" ${O.busy ? 'disabled' : ''}>ONAYI GERİ AL</button></div>` : `
+      ${showRefinalize ? `<div class="mk-row" style="margin-top:10px">
+        <button class="ghost" id="on-refinalize" ${O.busy || O.refinalizeBusy ? 'disabled' : ''} style="background:var(--warn);color:var(--bg)">
+          ⟳ METRAJ VE BELGELERİ YENİLE
+        </button>
+        <span class="note" style="font-size:11px;color:var(--mute);margin-left:8px">
+          Güncel fiyat kataloğu maliyeti değiştirebilir; çizim/belgeler yeniden üretilir; tekrar onay gerekebilir.
+        </span>
+      </div>` : ''}
+      ${d.status === 'onaylandi' || d.status === 'degistirilmis' ? `<div class="mk-row"><input id="on-why" placeholder="Geri alma nedeni" maxlength="300" style="flex:1"><button class="ghost" id="on-rev" ${O.busy || O.refinalizeBusy ? 'disabled' : ''}>ONAYI GERİ AL</button></div>` : `
       <p class="sec-t">${d.status === 'gecersiz' ? 'YENİDEN ONAYLA' : 'ONAYLA'}</p>
       <div class="grid2"><div><label for="on-name">Ad soyad</label><input id="on-name" maxlength="120" value="${esc(sg.name || '')}"></div>
         <div><label for="on-title">Unvan</label><select id="on-title">${opt(d.titles, sg.title || 'Mimar')}</select></div>
@@ -171,10 +180,11 @@ export function createContractor(ctx) {
         <div><label for="on-reg">Oda sicil no</label><input id="on-reg" maxlength="20" value="${esc(sg.reg_no || '')}"></div></div>
       <label for="on-note">Not (isteğe bağlı)</label><input id="on-note" maxlength="1000">
       <label class="check"><input type="checkbox" id="on-st"> ${esc(d.statement)}</label>
-      <button class="ghost" id="on-go" style="margin-top:10px" ${O.busy ? 'disabled' : ''}>✓ ONAYLA VE BELGELERİ DAMGALA</button>`}
+      <button class="ghost" id="on-go" style="margin-top:10px" ${O.busy || O.refinalizeBusy ? 'disabled' : ''}>✓ ONAYLA VE BELGELERİ DAMGALA</button>`}
       ${O.err ? `<p class="err">${esc(O.err)}</p>` : ''}
       <p class="note">Onay avan seviyede iç inceleme kaydıdır: e-imza, ruhsat projesi imzası veya yapı denetim onayı değildir. Proje (fiyat, poz, iç mekân…) değişince onay kendiliğinden düşer ve belgeler yeniden TASLAK damgası alır. Onaylanan dosyalar SHA-256 özetiyle izlenir.</p></div>`;
     const run = async (url, body) => {
+      if (O.busy || O.refinalizeBusy) return;
       O.busy = true; O.err = ''; drawOnay(out);
       try { const r = await api(url, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify(body)});
         if (r.project) setProject(r.project); O.d = r; } catch (e) { O.err = e.message || String(e); }
@@ -184,6 +194,29 @@ export function createContractor(ctx) {
       title: $('#on-title').value, chamber: $('#on-ch').value, reg_no: $('#on-reg').value.trim(), note: $('#on-note').value.trim(),
       statement: $('#on-st').checked});
     if ($('#on-rev')) $('#on-rev').onclick = () => run(`/api/projects/${getProject().id}/onay/revoke`, {reason: $('#on-why').value.trim()});
+    if ($('#on-refinalize')) {
+      $('#on-refinalize').onclick = async () => {
+        if (O.busy || O.refinalizeBusy) return;
+        const confirmed = confirm(
+          'Metraj ve belgeler yeniden üretilecek.\n\n' +
+          '• Güncel fiyat kataloğu maliyeti değiştirebilir\n' +
+          '• Çizimler ve belgeler (teklif, metraj, şartname, keşif, çizimler) yeniden üretilir\n' +
+          '• Onay durumu yeniden değerlendirilir; tekrar onay gerekebilir\n\n' +
+          'Devam etmek istiyor musunuz?'
+        );
+        if (!confirmed) return;
+        O.refinalizeBusy = true; O.err = ''; drawOnay(out);
+        try {
+          const r = await api(`/api/projects/${getProject().id}/refinalize`, {method: 'POST', headers: {'Content-Type': 'application/json'}, body: '{}'});
+          if (r.project) setProject(r.project);
+          O.d = r;
+          O.err = '';
+        } catch (e) {
+          O.err = e.message || String(e);
+        }
+        O.refinalizeBusy = false; drawOnay(out);
+      };
+    }
   }
 
   return {

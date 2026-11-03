@@ -38,6 +38,16 @@ def fingerprint(qres, cost, brief):
     return hashlib.sha256(blob.encode()).hexdigest()
 
 
+class QuantitiesMismatchError(RuntimeError):
+    """Belge/onay işlemi için metraj ve kayıtlı maliyet yeniden eşleştirilmelidir."""
+
+
+def quantities_fp(qres):
+    """Sadece metraj (miktar satırları) parmak izi — fiyat/brif değişse de geometri değişmediğini doğrular."""
+    blob = json.dumps({"lines": qres["lines"]}, sort_keys=True, ensure_ascii=False, default=str)
+    return hashlib.sha256(blob.encode()).hexdigest()
+
+
 def code(fp):
     return f"{fp[:4]}-{fp[4:8]}-{fp[8:12]}".upper()
 
@@ -106,14 +116,41 @@ def _doc_hashes(files):
 
 def approve(out, signer, regenerate):
     """Onayla: kayıt → belgeleri onay damgasıyla yeniden üret (`regenerate(out)` → project result) → dosya özetleri
-    → onay tutanağı. Dönen: güncel proje sonucu."""
+    → onay tutanağı. Dönen: güncel proje sonucu.
+
+    Onaydan önce, metraj (quantities) parmak izini project.json'dakilerle karşılaştır.
+    Geometri değişmişse (quantities_fp uyuşmuyorsa) onayı REDDER — hata onay kaydı
+    yazılmadan yakalanır. Normal onay kayıtlı fiyatı korur (katalog fiyatı değişimi
+    onayı bozmaz, sadece geometri değişikliği engellenir).
+    """
+    from . import quantities as Q
     out = Path(out)
     signer = validate_signer(signer)
     result = json.loads((out / "project.json").read_text())
+    elements = json.loads((out / "elements.json").read_text())
+    q = Q.compute(elements)
+
+    # Metraj parmak izi kontrolü: project.json'daki quantities_fp (maliyet hesaplandığı
+    # andaki geometri) ile güncel elemanlardan hesaplananı karşılaştır.
+    # Uyuşmuyorsa → elemanlar maliyetten sonra değişmiş → onayı engelle.
+    stored_qfp = result.get("quantities_fp")
+    current_qfp = quantities_fp(q)
+    if stored_qfp is None:
+        raise QuantitiesMismatchError(
+            "Eski projede metraj referansı yok. Onaylamadan önce `refinalize` ile "
+            "metraj, maliyet ve çizimleri yeniden üretin; güncel fiyatları kontrol edin."
+        )
+    if stored_qfp != current_qfp:
+        raise QuantitiesMismatchError(
+            "Proje elemanları (metraj) onaydan önce değişmiş. "
+            "Onaylamadan önce `readjust` (fiyat değişimi) ya da "
+            "`refinalize` (geometri/eleman değişimi) ile maliyeti yeniden hesaplayın."
+        )
+
     fp = current_fp(out, result)
     rec = {"status": "onaylandi", "signer": {k: signer[k] for k in ("name", "title", "chamber", "reg_no")},
            "note": signer["note"], "statement": STATEMENT, "date": datetime.now().isoformat(timespec="seconds"),
-           "fingerprint": fp, "history": (load(out) or {}).get("history", [])}
+           "fingerprint": fp, "quantities_fp": current_qfp, "history": (load(out) or {}).get("history", [])}
     (out / FILE).write_text(json.dumps(rec, ensure_ascii=False, indent=1))
     result = regenerate(out)
     if current_fp(out, result) != fp:      # belgeler yeniden üretilirken içerik değişmemeli
@@ -132,6 +169,16 @@ def revoke(out, regenerate, reason=""):
     d = load(out)
     if not d or d.get("status") != "onaylandi":
         raise ValueError("geri alınacak onay yok")
+    # redocument metrajı doğrulamadan kayıt değişirse işlem yarım kalır ve
+    # yeniden geri alma denemesi de reddedilir. Önce aynı önkoşulu kontrol et.
+    from . import quantities as Q
+    result = json.loads((out / "project.json").read_text())
+    q = Q.compute(json.loads((out / "elements.json").read_text()))
+    if result.get("quantities_fp") != quantities_fp(q):
+        raise QuantitiesMismatchError(
+            "Metraj referansı eksik veya değişmiş. Belgeleri yenileyerek onayı geri "
+            "almadan önce `refinalize` ile çıktıları yeniden üretin."
+        )
     d["history"].append({"event": "geri alındı", "date": datetime.now().isoformat(timespec="seconds"),
                          "by": d["signer"]["name"], "reason": str(reason)[:300]})
     d["status"] = "geri_alindi"
@@ -163,8 +210,23 @@ def status(out):
     if d.get("status") != "onaylandi":
         return {**base, "status": d.get("status", "taslak"), "text": stamp_text(None)}
     result = json.loads((out / "project.json").read_text())
+
+    # 1. Geometri (metraj) değişikliği: quantities_fp ile kontrol et.
+    stored_qfp = d.get("quantities_fp")
+    if stored_qfp is not None:
+        from . import quantities as Q
+        q = Q.compute(json.loads((out / "elements.json").read_text()))
+        current_qfp = quantities_fp(q)
+        if stored_qfp != current_qfp:
+            return {**base, "status": "gecersiz", "text": "ONAY GEÇERSİZ — proje metrajı onaydan sonra değişti; yeniden onay gerekir"}
+
+    # Kayıtlı maliyet veya brif değişirse, belgeler aynı kalsa da onay geçersizdir.
+    # Dış fiyat kataloğu burada okunmaz; katalog değişimi kayıtlı fiyatı etkilemez.
     if current_fp(out, result) != d.get("fingerprint"):
         return {**base, "status": "gecersiz", "text": "ONAY GEÇERSİZ — proje onaydan sonra değişti; yeniden onay gerekir"}
+
+    # 3. Tam parmak izi de aynı -> belge bütünlük kontrolü
+    onay = {**d["signer"], "date": d["date"], "code": code(d["fingerprint"])}
     docs, changed = [], False
     for k, v in (d.get("documents") or {}).items():
         p = out / v["file"] if (out / v["file"]).is_file() else None
@@ -174,7 +236,6 @@ def status(out):
         changed |= not ok
         docs.append({"key": k, "file": v["file"], "sha256": v["sha256"], "ok": ok})
     st = "degistirilmis" if changed else "onaylandi"
-    onay = {**d["signer"], "date": d["date"], "code": code(d["fingerprint"])}
     return {**base, "status": st, "code": onay["code"], "documents": docs,
             "text": ("BELGE DEĞİŞTİRİLMİŞ — onaydan sonra en az bir dosya elle değiştirildi" if changed
                      else stamp_text(onay))}
