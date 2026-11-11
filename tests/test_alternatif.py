@@ -344,3 +344,18 @@ def test_alternatif_invalid_inputs():
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
+
+
+def test_alternatif_does_not_carry_quantity_overrides():
+    """Elle girilmiş miktar kaynak geometriye aittir; birim fiyat taşınır, miktar taşınmaz."""
+    src = _new_quick("miktar kaynagi")
+    r = c.put(f"/api/projects/{src}/adjust", json={"overrides": {"ZEM-01": 999.0}, "qty_overrides": {"ZEM-01": 12345.0}})
+    assert r.status_code == 200, r.text
+    r = c.post(f"/api/projects/{src}/alternatif", json={"name": "5 kat", "floors": 5, "acknowledgement": True})
+    assert r.status_code == 200, r.text
+    body = r.json()
+    assert body["dropped_qty_overrides"] == ["ZEM-01"]
+    adj = body["alternative"]["brief"].get("adjust") or {}
+    assert "qty_overrides" not in adj and adj["overrides"] == {"ZEM-01": 999.0}
+    row = next(x for x in _read_project(body["alternative"]["id"])["cost"]["rows"] if x["code"] == "ZEM-01")
+    assert row["quantity"] != 12345.0 and row["unit_price"] == 999.0

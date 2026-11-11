@@ -109,7 +109,9 @@ export function createAraclar(ctx) {
           method: 'POST', headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({name, floors, unit_type, units_per_floor, acknowledgement})
         });
-        msg.textContent = `oluşturuldu: ${R.alternative.name} (${R.alternative.id})`;
+        const dq = R.dropped_qty_overrides || [];
+        msg.textContent = `oluşturuldu: ${R.alternative.name} (${R.alternative.id})` +
+          (dq.length ? ` — elle girilmiş miktarlar taşınmadı: ${dq.join(', ')}` : '');
         // Navigate to new project
         setTimeout(() => {
           window.location.href = `/#${encodeURIComponent(R.alternative.id)}`;

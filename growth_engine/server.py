@@ -129,7 +129,7 @@ def _summary(p: dict) -> dict:
 
 async def _create(brief: dict) -> dict:
     async with httpx.AsyncClient(timeout=300) as cl:
-        resp = await cl.post(f"{ARCHAI}/api/projects", json=brief)
+        resp = await cl.post(f"{ARCHAI}/api/projects", json=brief, headers=_core_auth())
     if resp.status_code == 422:
         # arsa imar/çekme nedeniyle yapılaşmaya uygun değil: hata değil, Manus'un atlayacağı bir sonuç
         try:
@@ -189,13 +189,18 @@ async def arsa_fizibilite(ad: str, cephe_m: float, derinlik_m: float, taks: floa
     return sonuc
 
 
+def _core_auth() -> dict:
+    """Core API her istekte anahtar ister (baslat.sh core'u ARCHAI_TOKEN ile başlatır)."""
+    return {"Authorization": f"Bearer {ARCHAI_TOKEN}"}
+
+
 async def _get(proje_id: str) -> dict:
     if not PID_RE.fullmatch(proje_id):
         raise ValueError("geçersiz proje_id")
     async with httpx.AsyncClient(timeout=30) as cl:
         resp = await cl.get(
             f"{ARCHAI}/api/projects/{proje_id}",
-            headers={"Authorization": f"Bearer {ARCHAI_TOKEN}"} if ARCHAI_TOKEN else {},
+            headers=_core_auth(),
         )
     if resp.status_code != 200:
         raise ValueError(f"ArchAI {resp.status_code}: {resp.text[:300]}")
@@ -221,7 +226,7 @@ async def _fizibilite_hesapla(
         satilabilir_alan_m2 if satilabilir_alan_m2 is not None
         else _satilabilir_m2(await _get(proje_id))
     )
-    headers = {"Authorization": f"Bearer {ARCHAI_TOKEN}"} if ARCHAI_TOKEN else {}
+    headers = _core_auth()
     async with httpx.AsyncClient(timeout=30) as cl:
         resp = await cl.post(
             f"{ARCHAI}/api/projects/{proje_id}/fizibilite",
@@ -460,7 +465,7 @@ async def files(request: Request):
             and hmac.compare_digest(request.query_params.get("s", ""), _sign(rel))):
         return Response(status_code=404)
     async with httpx.AsyncClient(timeout=60) as cl:
-        resp = await cl.get(f"{ARCHAI}/files/{rel}")
+        resp = await cl.get(f"{ARCHAI}/files/{rel}", headers=_core_auth())
     if resp.status_code != 200:
         return Response(status_code=404)
     headers = {k: v for k, v in resp.headers.items() if k.lower() in ("content-type", "content-disposition")}
@@ -473,7 +478,7 @@ async def facade(request: Request):
     if not (PID_RE.fullmatch(pid) and hmac.compare_digest(request.query_params.get("s", ""), _sign("g/" + pid))):
         return Response(status_code=404)
     async with httpx.AsyncClient(timeout=60) as cl:
-        resp = await cl.get(f"{ARCHAI}/files/{pid}/cizimler/05_on_gorunus.png")
+        resp = await cl.get(f"{ARCHAI}/files/{pid}/cizimler/05_on_gorunus.png", headers=_core_auth())
     if resp.status_code != 200:
         return Response(status_code=404)
     im = Image.open(io.BytesIO(resp.content)).convert("L")
@@ -527,7 +532,7 @@ def _vpid(request: Request) -> str | None:
 
 async def _proxy(path: str) -> Response:
     async with httpx.AsyncClient(timeout=60) as cl:
-        resp = await cl.get(f"{ARCHAI}/{path}")
+        resp = await cl.get(f"{ARCHAI}/{path}", headers=_core_auth())
     if resp.status_code != 200:
         return Response(status_code=404)
     headers = {k: v for k, v in resp.headers.items() if k.lower() in ("content-type", "cache-control")}
@@ -542,8 +547,8 @@ async def viewer(request: Request):
     if not request.url.path.endswith("/"):  # göreli statik yollar /v/<pid>/ altına düşsün
         return Response(status_code=307, headers={"location": f"/v/{pid}/?{request.url.query}"})
     async with httpx.AsyncClient(timeout=30) as cl:
-        ok = (await cl.get(f"{ARCHAI}/api/projects/{pid}")).status_code == 200
-        html = (await cl.get(f"{ARCHAI}/index.html")).text
+        ok = (await cl.get(f"{ARCHAI}/api/projects/{pid}", headers=_core_auth())).status_code == 200
+        html = (await cl.get(f"{ARCHAI}/index.html", headers=_core_auth())).text
     if not ok:
         return Response(status_code=404)
     head = VIEWER_HEAD.format(pid=pid)
@@ -604,7 +609,7 @@ async def viewer_api(request: Request):
     pid, path = _vpid(request), request.url.path
     if request.method == "PUT" and pid and path == f"/api/projects/{pid}/interior" and _yerel_istek(request):
         async with httpx.AsyncClient(timeout=30) as cl:
-            r = await cl.put(f"{ARCHAI}{path}", content=await request.body(), headers={"content-type": "application/json"})
+            r = await cl.put(f"{ARCHAI}{path}", content=await request.body(), headers={"content-type": "application/json", **_core_auth()})
         return Response(r.content, status_code=r.status_code, media_type="application/json")
     if request.method != "GET":
         return JSONResponse({"detail": "salt-okunur görünüm"}, status_code=403)

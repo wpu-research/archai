@@ -180,9 +180,19 @@ def create_alternative(pid: str, body: AlternatifIn):
     }
 
     # Ayarları kopyala (adjust, company, customer, vb.) — onay/senaryo hariç
+    # Elle girilmiş miktarlar (qty_overrides; statik ön boyutlandırma dahil) kaynak binanın geometrisine aittir:
+    # yeniden üretilen alternatife taşınmaz, yanıtta bildirilir. Birim fiyat, varyant ve katalog seçimi taşınır.
+    dropped_qty = []
     for k in ("adjust", *project.INFO_KEYS):
         if src_brief.get(k):
             new_brief[k] = src_brief[k]
+    if isinstance(new_brief.get("adjust"), dict) and new_brief["adjust"].get("qty_overrides"):
+        adj = dict(new_brief["adjust"])
+        dropped_qty = sorted(adj.pop("qty_overrides"))
+        if adj:
+            new_brief["adjust"] = adj
+        else:
+            del new_brief["adjust"]
 
     # Yeni proje üret
     render_3d = src_brief.get("render_3d", False)
@@ -198,7 +208,8 @@ def create_alternative(pid: str, body: AlternatifIn):
     except ValueError as ex:
         raise HTTPException(422, str(ex) or "geçersiz değer")
 
-    return {"ok": True, "alternative": result, "source": {"id": pid, "name": src_result.get("name")}}
+    return {"ok": True, "alternative": result, "source": {"id": pid, "name": src_result.get("name")},
+            "dropped_qty_overrides": dropped_qty}
 
 
 @router.get("/api/projects/{pid}/capraz-dogrulama")
