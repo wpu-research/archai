@@ -26,9 +26,21 @@ EARTH_R = 6371008.8
 
 # ------------------------------------------------------------------ girdi
 
+GEO_MAX_SPAN = 1.0    # derece: bir parsel 1°'yi (≈111 km) aşmaz; 1 m'den küçük metrik parsel de olmaz
+
+
+def is_geographic(pts):
+    """Koordinatlar boylam/enlem (derece) mi? Değer aralığı tek başına yetmez: yerel metre koordinatlı küçük bir
+    parsel de (0,0)-(30,40) |x|≤180, |y|≤90 içine düşer. Derece sayılması için sınır kutusu da 1°'den dar olmalı."""
+    if not pts or not all(abs(x) <= 180 and abs(y) <= 90 for x, y in pts):
+        return False
+    xs, ys = [x for x, _ in pts], [y for _, y in pts]
+    return bool(max(max(xs) - min(xs), max(ys) - min(ys)) < GEO_MAX_SPAN)
+
+
 def to_metric(pts):
     """Boylam/enlem (derece) listesini yerel metreye çevirir; zaten metre ise aynen döner."""
-    if not all(abs(x) <= 180 and abs(y) <= 90 for x, y in pts):
+    if not is_geographic(pts):
         return [tuple(p) for p in pts]
     lat0 = sum(y for _, y in pts) / len(pts)
     kx = math.radians(1) * EARTH_R * math.cos(math.radians(lat0))
@@ -57,8 +69,7 @@ def polygon_from_dxf(path):
         source = "points"
     if len(pts) < 3:
         raise ValueError("DXF'te parsel çokgeni bulunamadı (kapalı polyline veya en az 3 nokta gerekir)")
-    geo = all(abs(x) <= 180 and abs(y) <= 90 for x, y in pts)
-    return to_metric(pts), {"geographic": geo, "source": source}
+    return to_metric(pts), {"geographic": is_geographic(pts), "source": source}
 
 
 def polygon_from_geojson(text):
@@ -90,7 +101,7 @@ def polygon_from_geojson(text):
         pts = pts[:-1]
     if len(pts) < 3:
         raise ValueError("parsel çokgeni en az 3 köşe içermeli")
-    return to_metric(pts), {"geographic": all(abs(x) <= 180 and abs(y) <= 90 for x, y in pts), "source": "geojson"}
+    return to_metric(pts), {"geographic": is_geographic(pts), "source": "geojson"}
 
 
 def polygon_from_kml(text):
@@ -109,7 +120,7 @@ def polygon_from_kml(text):
         pts = pts[:-1]
     if len(pts) < 3:
         raise ValueError("parsel çokgeni en az 3 köşe içermeli")
-    return to_metric(pts), {"geographic": all(abs(x) <= 180 and abs(y) <= 90 for x, y in pts), "source": "kml"}
+    return to_metric(pts), {"geographic": is_geographic(pts), "source": "kml"}
 
 
 def polygon_from_file(path):

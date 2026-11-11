@@ -151,13 +151,28 @@ def approve(out, signer, regenerate):
     rec = {"status": "onaylandi", "signer": {k: signer[k] for k in ("name", "title", "chamber", "reg_no")},
            "note": signer["note"], "statement": STATEMENT, "date": datetime.now().isoformat(timespec="seconds"),
            "fingerprint": fp, "quantities_fp": current_qfp, "history": (load(out) or {}).get("history", [])}
+    # Kayıt, belgeler damgalanabilsin diye yeniden üretimden ÖNCE yazılır. Üretim yarıda kalırsa belge özeti
+    # olmayan bir "onaylandi" kaydı kalmasın: önceki kayıt ve belgeler bayt bayt geri konur (yeniden üretmek
+    # önceki onayın SHA-256 özetlerini tutturmaz).
+    prev = (out / FILE).read_bytes() if (out / FILE).is_file() else None
+    keep = [out / "project.json"] + [Path(result["files"][k]) for k in DOC_KEYS if (result.get("files") or {}).get(k)]
+    snapshot = {p: p.read_bytes() for p in keep if p.is_file()}
     (out / FILE).write_text(json.dumps(rec, ensure_ascii=False, indent=1))
-    result = regenerate(out)
-    if current_fp(out, result) != fp:      # belgeler yeniden üretilirken içerik değişmemeli
-        raise RuntimeError("onay sırasında proje değişti")
-    rec["documents"] = _doc_hashes(result["files"])
-    rec["history"].append({"event": "onay", "date": rec["date"], "by": rec["signer"]["name"], "code": code(fp)})
-    (out / FILE).write_text(json.dumps(rec, ensure_ascii=False, indent=1))
+    try:
+        result = regenerate(out)
+        if current_fp(out, result) != fp:      # belgeler yeniden üretilirken içerik değişmemeli
+            raise RuntimeError("onay sırasında proje değişti")
+        rec["documents"] = _doc_hashes(result["files"])
+        rec["history"].append({"event": "onay", "date": rec["date"], "by": rec["signer"]["name"], "code": code(fp)})
+        (out / FILE).write_text(json.dumps(rec, ensure_ascii=False, indent=1))
+    except BaseException:
+        if prev is None:
+            (out / FILE).unlink(missing_ok=True)
+        else:
+            (out / FILE).write_bytes(prev)
+        for p, data in snapshot.items():
+            p.write_bytes(data)
+        raise
     write_certificate(out / CERT, result["name"], rec)
     result["files"]["onay_tutanagi_docx"] = str(out / CERT)
     (out / "project.json").write_text(json.dumps(result, ensure_ascii=False, indent=1, default=str))

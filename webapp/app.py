@@ -80,6 +80,9 @@ def _host_ok(host):
     """DNS rebinding koruması: yalnız loopback adları, IP adresleri ve ARCHAI_ALLOWED_HOSTS."""
     h = _host_name(host)
     extra = {x.strip().lower() for x in os.environ.get("ARCHAI_ALLOWED_HOSTS", "").split(",") if x.strip()}
+    rail = os.environ.get("RAILWAY_PUBLIC_DOMAIN", "").strip().lower()   # Railway'in kendi atadığı alan adı
+    if rail:
+        extra.add(rail)
     return bool(h) and (h in LOOPBACK_NAMES or h in extra or _is_ip(h))
 
 

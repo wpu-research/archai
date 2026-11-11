@@ -495,3 +495,24 @@ def test_legacy_project_migration(tmp_path):
     assert str(old.resolve()) not in (new / "project.json").read_text()
     assert pj["name"] == "Eski"
     assert mig.main(["--out", str(out), "--apply"]) == 0                   # yeniden çalıştırma zararsız
+
+
+def test_railway_public_domain_is_allowed(monkeypatch):
+    assert c.get("/api/projects", headers={"host": "archai.up.railway.app"}).status_code == 400
+    monkeypatch.setenv("RAILWAY_PUBLIC_DOMAIN", "archai.up.railway.app")
+    assert c.get("/api/projects", headers={"host": "archai.up.railway.app"}).status_code == 200
+    assert c.get("/api/projects", headers={"host": "baska.up.railway.app"}).status_code == 400
+
+
+def test_video_base_url_uses_listening_port_when_host_has_no_port(monkeypatch):
+    from starlette.requests import Request
+    from webapp.video_routes import _base_url
+    monkeypatch.delenv("ARCHAI_VIDEO_BASE", raising=False)
+
+    def req(host, server):
+        return Request({"type": "http", "method": "GET", "path": "/", "scheme": "https", "query_string": b"",
+                        "headers": [(b"host", host.encode())], "server": server})
+    assert _base_url(req("archai.up.railway.app", ("0.0.0.0", 8080))) == "http://127.0.0.1:8080"
+    assert _base_url(req("127.0.0.1:8000", ("127.0.0.1", 9999))) == "http://127.0.0.1:8000"
+    monkeypatch.setenv("PORT", "7070")
+    assert _base_url(req("archai.up.railway.app", None)) == "http://127.0.0.1:7070"

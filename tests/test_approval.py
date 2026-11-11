@@ -134,3 +134,24 @@ def test_revoke(proj):
 def test_signer_validation(bad, msg):
     with pytest.raises(ValueError, match=msg):
         A.validate_signer({**SIGNER, **bad})
+
+
+@pytest.mark.parametrize("already_approved", [False, True])
+def test_failed_regeneration_restores_previous_record(proj, already_approved):
+    """Belgeler yeniden üretilirken hata olursa belge özeti olmayan bir 'onaylandi' kaydı kalmaz."""
+    if already_approved:
+        A.approve(proj, SIGNER, project.redocument)
+    before = (proj / A.FILE).read_bytes() if (proj / A.FILE).is_file() else None
+
+    def broken(out):
+        project.redocument(out)                  # belgeler yeni damgayla yazıldı, sonra hata
+        raise OSError("disk dolu")
+
+    with pytest.raises(OSError):
+        A.approve(proj, {**SIGNER, "name": "Başka Biri"}, broken)
+    after = (proj / A.FILE).read_bytes() if (proj / A.FILE).is_file() else None
+    assert after == before
+    st = A.status(proj)
+    assert st["status"] == ("onaylandi" if already_approved else "taslak")
+    assert not already_approved or all(d["ok"] for d in st["documents"])
+    assert "Başka Biri" not in _footer(proj / "teklif.docx")

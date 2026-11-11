@@ -112,3 +112,26 @@ def test_geojson_ve_kml_parsel(tmp_path):
     import pytest as _p
     with _p.raises(ValueError):
         parcel.polygon_from_geojson('{"type": "Point", "coordinates": [1, 2]}')
+
+
+def test_yerel_metre_koordinatli_kucuk_parsel_derece_sayilmaz():
+    """(0,0)-(30,40) m: değerler ±180/±90 içinde ama parsel 1°'den geniş → metre, aynen döner."""
+    pts = [(0, 0), (30, 0), (30, 40), (0, 40)]
+    assert not parcel.is_geographic(pts)
+    assert parcel.to_metric(pts) == [(0, 0), (30, 0), (30, 40), (0, 40)]
+    assert Polygon(parcel.to_metric(pts)).area == pytest.approx(1200)
+
+
+def test_derece_koordinatli_parsel_metreye_cevrilir():
+    pts = [(29.1900, 40.9000), (29.1904, 40.9000), (29.1904, 40.9003), (29.1900, 40.9003)]
+    assert parcel.is_geographic(pts)
+    assert 500 < Polygon(parcel.to_metric(pts)).area < 2000
+
+
+def test_yerel_metre_dxf_parseli(tmp_path):
+    doc = ezdxf.new()
+    doc.modelspace().add_lwpolyline([(0, 0), (30, 0), (30, 40), (0, 40)], close=True)
+    f = tmp_path / "parsel.dxf"
+    doc.saveas(f)
+    pts, info = parcel.polygon_from_dxf(f)
+    assert not info["geographic"] and Polygon(pts).area == pytest.approx(1200)

@@ -162,6 +162,7 @@ topraklama/paratoner, yangın, asansör) · **Teklif dışı hizmetler** (zemin 
 | `ARCHAI_TOKEN` | Erişim anahtarı. Ayarlıysa **her istek** (arayüz ve statik dosyalar dahil) anahtar ister: `Authorization: Bearer …`, `X-ArchAI-Token: …`, `?token=…` ya da `archai_token` çerezi. `?token=` ile gelinince HttpOnly + SameSite=Strict çerez yazılır, sonraki istekler onu kullanır. **Ayarlı değilse yalnız bu makineden (127.0.0.1 / ::1) erişilir**, uzak istemciler 403 alır. |
 | `ARCHAI_OUT` | Çıktı kökü (varsayılan `out/`): projeler `ARCHAI_OUT/projects/`, ayarlar `ARCHAI_OUT/settings.json`. Testler geçici dizin kullanır. |
 | `ARCHAI_ALLOWED_HOSTS` | Virgüllü ek `Host` adları (ör. `ofis-pc.local,archai.lan`). Loopback adları ve IP adresleri her zaman kabul edilir; diğer adlar 400 alır (DNS rebinding koruması). |
+| `RAILWAY_PUBLIC_DOMAIN` | Railway'in kendi atadığı alan adı; ayarlıysa `Host` olarak otomatik kabul edilir. Railway'de `ARCHAI_TOKEN` zorunludur (yoksa her istek 403 alır); özel alan adı için `ARCHAI_ALLOWED_HOSTS` kullanın. |
 | `ARCHAI_BLENDER` | Blender yürütülebilir dosyası (Cycles render kuyruğu). |
 | `ARCHAI_RENDER_TIMEOUT` | Tek render işinin süre sınırı, sn (varsayılan 1800); aşılırsa süreç öldürülür, iş `error` olur. |
 

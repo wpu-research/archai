@@ -55,7 +55,15 @@ def _base_url(request: Request):
     if m and 0 < int(m.group(1)) < 65536:
         port = int(m.group(1))
     if port is None:
-        port = request.url.port or (443 if request.url.scheme == "https" else 80)
+        # Ters vekil arkasında Host portsuz gelir (Railway): sunucunun gerçekten dinlediği port kullanılır.
+        srv = request.scope.get("server")
+        env = os.environ.get("PORT", "")
+        if srv and srv[1]:
+            port = int(srv[1])
+        elif env.isdigit() and 0 < int(env) < 65536:
+            port = int(env)
+        else:
+            port = request.url.port or (443 if request.url.scheme == "https" else 80)
     return f"http://127.0.0.1:{port}"
 
 
