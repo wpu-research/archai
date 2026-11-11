@@ -8,13 +8,15 @@
 import copy
 import json
 import math
+import re
 import shutil
 from typing import Annotated, Literal
 
 from fastapi import APIRouter, HTTPException
-from pydantic import BaseModel, ConfigDict, Field
+from fastapi.responses import JSONResponse
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 
-from archai import approval, capraz, compare, finance_scenarios, fizibilite, kat_irtifaki, odeme_plani, project, sponsor, statik
+from archai import approval, capraz, compare, finance_scenarios, fizibilite, kat_irtifaki, odeme_plani, offer_packages, project, sponsor, statik
 from archai.notice import AVAN_SHORT
 
 router = APIRouter()
@@ -75,6 +77,128 @@ def karsilastir(pid: str, other: str):
     a = json.loads((m._pdir(pid, "project.json") / "project.json").read_text())
     b = json.loads((m._pdir(other, "project.json") / "project.json").read_text())
     return {**compare.diff(a, b), "a": {"id": pid, "ad": a.get("name")}, "b": {"id": other, "ad": b.get("name")}}
+
+
+# ------------------------------------------------------------------ kontrollü proje alternatifi
+_ALT_FIELDS = ("name", "floors", "unit_type", "units_per_floor")
+
+
+class AlternatifIn(BaseModel):
+    model_config = ConfigDict(strict=True, extra="forbid")
+    name: Annotated[str, Field(min_length=1, max_length=100)]
+    floors: Annotated[int, Field(ge=1, le=30)] | None = None
+    unit_type: Annotated[str, Field(max_length=20)] | None = None
+    units_per_floor: Literal["auto"] | Annotated[int, Field(ge=1, le=20)] | None = None
+    acknowledgement: Annotated[bool, Field(default=False)] = False
+
+
+def _is_compatible_source(brief):
+    """Kaynak proje uygun mu? Sadece arazi ve hızlı mod desteklenir."""
+    if brief.get("tablo"):
+        return False, "avan tablosu projelerinden alternatif oluşturulamaz"
+    if brief.get("dxf"):
+        return False, "DXF/resim planından üretilen projelerden alternatif oluşturulamaz"
+    if brief.get("image"):
+        return False, "resim planından üretilen projelerden alternatif oluşturulamaz"
+    if (brief.get("program") or {}).get("scenario") in ("villa", "cabin", "apartment"):
+        return False, "demo senaryo projelerinden alternatif oluşturulamaz"
+    return True, ""
+
+
+@router.post("/api/projects/{pid}/alternatif")
+def create_alternative(pid: str, body: AlternatifIn):
+    """Kaynak projeden, kayıtlı brifi baz alarak bağımsız bir alternatif proje oluşturur.
+
+    - Kaynak proje değişmez (onay/senaryo kopyalanmaz)
+    - Manuel geometri düzenlemeleri (cephe düzeltmesi vb.) KOPYALANMAZ; kaydedilen girdilerden yeniden üretilir
+    - Sadece 'arazi' ve 'hızlı mod' kaynak projeleri desteklenir
+    - Alternatif brief'a `lineage` (parent_id, source_fingerprint) eklenir
+    - Onay, fizibilite senaryoları, tasarım setleri kopyalanmaz
+    - Karşılaştırma için mevcut /karsilastir endpoint'i kullanılabilir
+    """
+    if not body.acknowledgement:
+        raise HTTPException(422, "manuel geometri düzenlemelerinin (cephe düzeltmesi vb.) KOPYALANMADIĞINI ve "
+                                 "alternatif projenin KAYITLI GİRDİLERDEN YENİDEN ÜRETİLECEĞİNİ onaylamalısınız")
+
+    m = _app()
+    src_dir = m._pdir(pid, "project.json")
+    src_result = json.loads((src_dir / "project.json").read_text())
+    src_brief = src_result.get("brief") or {}
+
+    # Demo bilgisi brifte değil, üretim metadata'sında saklanır.
+    if (src_result.get("program") or {}).get("scenario") in ("villa", "cabin", "apartment"):
+        raise HTTPException(422, "demo senaryo projelerinden alternatif oluşturulamaz")
+    # Kaynak uygunluk kontrolü
+    ok, msg = _is_compatible_source(src_brief)
+    if not ok:
+        raise HTTPException(422, msg)
+
+    # Kaydedilmiş girdilerden yeni brief oluştur (manuel düzenlemeler atlanır)
+    if src_brief.get("quick"):
+        # Hızlı mod: quick alanlarını kopyala, opsiyonel override ile
+        quick = dict(src_brief["quick"])
+        if body.floors is not None:
+            quick["floors"] = body.floors
+        if body.unit_type is not None:
+            quick["unit_type"] = body.unit_type
+        if body.units_per_floor is not None:
+            quick["units_per_floor"] = body.units_per_floor
+        new_brief = {
+            "name": body.name,
+            "quick": quick,
+        }
+    else:
+        # Arazi modu: parcel + zoning + program
+        parcel = src_brief.get("parcel")
+        zoning = src_brief.get("zoning")
+        program = dict(src_brief.get("program") or {})
+        if body.floors is not None:
+            if zoning:
+                zoning = dict(zoning)
+                zoning["max_floors"] = body.floors
+        if body.unit_type is not None:
+            program["unit_type"] = body.unit_type
+        if body.units_per_floor is not None:
+            program["units_per_floor"] = body.units_per_floor
+        new_brief = {
+            "name": body.name,
+            "parcel": parcel,
+            "zoning": zoning,
+            "program": program,
+        }
+
+    # Lineage: parent_id + source_fingerprint (metraj parmak izi)
+    from archai import approval as A
+    elements = json.loads((src_dir / "elements.json").read_text())
+    from archai import quantities as Q
+    q = Q.compute(elements)
+    source_fp = A.quantities_fp(q)
+
+    lineage = {
+        "parent_id": pid,
+        "source_fingerprint": source_fp,
+    }
+
+    # Ayarları kopyala (adjust, company, customer, vb.) — onay/senaryo hariç
+    for k in ("adjust", *project.INFO_KEYS):
+        if src_brief.get(k):
+            new_brief[k] = src_brief[k]
+
+    # Yeni proje üret
+    render_3d = src_brief.get("render_3d", False)
+    try:
+        b = m.Brief.model_validate(new_brief)
+        brief_dump = m._brief_dump(b)
+        brief_dump["lineage"] = lineage
+        result = m.create_from_brief(brief_dump, render_3d)
+    except ValidationError as ex:
+        raise HTTPException(422, "geçersiz değer: " + m._errors_detail(ex.errors()))
+    except HTTPException:
+        raise
+    except ValueError as ex:
+        raise HTTPException(422, str(ex) or "geçersiz değer")
+
+    return {"ok": True, "alternative": result, "source": {"id": pid, "name": src_result.get("name")}}
 
 
 @router.get("/api/projects/{pid}/capraz-dogrulama")
@@ -138,6 +262,54 @@ def fizibilite_kaydet(pid: str, body: ScenarioIn):
     except ValueError as ex:
         raise HTTPException(422, str(ex)) from ex
     return {"senaryo": saved}
+
+
+@router.get("/api/projects/{pid}/fizibilite/senaryolar/{scenario_id}/export")
+def fizibilite_senaryo_export(pid: str, scenario_id: str):
+    """Kaydedilen hesabı, güncellik bilgisini koruyarak JSON dosyası olarak indirir."""
+    if not re.fullmatch(r"[0-9a-f]{32}", scenario_id):
+        raise HTTPException(404, "senaryo bulunamadı")
+    d, r, els = _load(pid)
+    rows = finance_scenarios.list_saved(d, r, els)["senaryolar"]
+    row = next((item for item in rows if item["id"] == scenario_id), None)
+    if row is None:
+        raise HTTPException(404, "senaryo bulunamadı")
+    return JSONResponse(row, headers={"Content-Disposition": f'attachment; filename="fizibilite-{scenario_id}.json"'})
+
+
+@router.delete("/api/projects/{pid}/fizibilite/senaryolar/{scenario_id}")
+def fizibilite_senaryo_sil(pid: str, scenario_id: str):
+    if not re.fullmatch(r"[0-9a-f]{32}", scenario_id):
+        raise HTTPException(404, "senaryo bulunamadı")
+    d, _, _ = _load(pid)
+    if not finance_scenarios.delete(d, scenario_id):
+        raise HTTPException(404, "senaryo bulunamadı")
+    return {"ok": True, "id": scenario_id}
+
+
+# ------------------------------------------------------------------ sürümlü teklif paketi
+def _offer_urls(pid, package):
+    return {**package, "documents": {
+        key: {**doc, "url": f"/files/{pid}/teklif_paketleri/v{package['version']:04d}/{doc['file']}"}
+        for key, doc in package["documents"].items()}}
+
+
+@router.get("/api/projects/{pid}/teklif-paketleri")
+def teklif_paketleri(pid: str):
+    d = _app()._pdir(pid, "project.json")
+    return {"paketler": [_offer_urls(pid, p) for p in offer_packages.list_saved(d)]}
+
+
+@router.post("/api/projects/{pid}/teklif-paketleri")
+def teklif_paketi_olustur(pid: str):
+    d, record, elements = _load(pid)
+    try:
+        package = offer_packages.create(d, record, elements)
+    except approval.QuantitiesMismatchError as ex:
+        raise HTTPException(409, str(ex)) from ex
+    except ValueError as ex:
+        raise HTTPException(422, str(ex)) from ex
+    return {"paket": _offer_urls(pid, package)}
 
 
 # ------------------------------------------------------------------ cephe düzeltme (elle)

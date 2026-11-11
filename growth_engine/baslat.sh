@@ -6,6 +6,18 @@ cd "$(dirname "$0")"
 LOG=./logs; mkdir -p "$LOG"
 CF=${CLOUDFLARED:-$HOME/.local/bin/cloudflared}
 
+# Core ve MCP aynı API anahtarını kullanmalı; .env'yi shell olarak çalıştırma.
+if [ -z "${ARCHAI_TOKEN:-}" ] && [ -f .env ]; then
+  ARCHAI_TOKEN=$(python3 -I -c 'from pathlib import Path
+for line in Path(".env").read_text().splitlines():
+    line = line.split("#", 1)[0].strip()
+    if line.startswith("ARCHAI_TOKEN="):
+        print(line.split("=", 1)[1].strip())
+        break')
+fi
+[ -n "${ARCHAI_TOKEN:-}" ] || { printf '%s\n' 'ARCHAI_TOKEN eksik (.env veya ortam değişkeni)'; exit 1; }
+export ARCHAI_TOKEN
+
 if ! curl -s -m 2 http://127.0.0.1:8000/api/settings >/dev/null; then
   (cd .. && nohup uv run uvicorn webapp.app:app --host 127.0.0.1 --port 8000 >"$OLDPWD/$LOG/archai.log" 2>&1 &)
   echo "ArchAI başlatılıyor…"; sleep 6

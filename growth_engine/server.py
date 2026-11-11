@@ -40,8 +40,11 @@ _load_env()
 TOKEN = os.environ.get("ARCHAI_MCP_TOKEN", "")
 ARCHAI = (os.environ.get("ARCHAI_URL") or "http://127.0.0.1:8000").rstrip("/")
 PUBLIC = (os.environ.get("ARCHAI_PUBLIC_URL") or "http://127.0.0.1:8765").rstrip("/")
+ARCHAI_TOKEN = os.environ.get("ARCHAI_TOKEN", "")
 if len(TOKEN) < 24:
     raise SystemExit("ARCHAI_MCP_TOKEN en az 24 karakter olmalı (.env)")
+if not ARCHAI_TOKEN:
+    raise SystemExit("ARCHAI_TOKEN (core API erişim anahtarı) tanımlı değil (.env)")
 
 PID_RE = re.compile(r"\d{8}-\d{6}-[a-z0-9-]+")
 FILE_RE = re.compile(r"(cizimler/)?[A-Za-z0-9_.-]+\.(png|pdf|docx|xlsx|dxf)")
@@ -190,10 +193,58 @@ async def _get(proje_id: str) -> dict:
     if not PID_RE.fullmatch(proje_id):
         raise ValueError("geçersiz proje_id")
     async with httpx.AsyncClient(timeout=30) as cl:
-        resp = await cl.get(f"{ARCHAI}/api/projects/{proje_id}")
+        resp = await cl.get(
+            f"{ARCHAI}/api/projects/{proje_id}",
+            headers={"Authorization": f"Bearer {ARCHAI_TOKEN}"} if ARCHAI_TOKEN else {},
+        )
     if resp.status_code != 200:
         raise ValueError(f"ArchAI {resp.status_code}: {resp.text[:300]}")
     return resp.json()
+
+
+async def _fizibilite_hesapla(
+    proje_id: str,
+    arsa_bedeli_tl: float,
+    satis_m2_fiyati_tl: float,
+    ek_gider_pct: float,
+    satilabilir_alan_m2: float | None = None,
+) -> dict:
+    """Core fizibilite API'sini çağırır. Stale quantities reddedilir, hata net şekilde iletilir."""
+    if not PID_RE.fullmatch(proje_id):
+        raise ValueError("geçersiz proje_id")
+    body = {
+        "arsa_bedeli_tl": arsa_bedeli_tl,
+        "satis_m2_fiyati_tl": satis_m2_fiyati_tl,
+        "ek_gider_pct": ek_gider_pct,
+    }
+    body["satilabilir_alan_m2"] = (
+        satilabilir_alan_m2 if satilabilir_alan_m2 is not None
+        else _satilabilir_m2(await _get(proje_id))
+    )
+    headers = {"Authorization": f"Bearer {ARCHAI_TOKEN}"} if ARCHAI_TOKEN else {}
+    async with httpx.AsyncClient(timeout=30) as cl:
+        resp = await cl.post(
+            f"{ARCHAI}/api/projects/{proje_id}/fizibilite",
+            json=body,
+            headers=headers,
+        )
+    if resp.status_code == 401:
+        raise ValueError("Core API yetkisiz: ARCHAI_TOKEN geçersiz veya eksik")
+    if resp.status_code == 409:
+        raise ValueError(f"Metraj referansı değişmiş: {resp.json().get('detail', 'ONAY sekmesinden yenileyin')}")
+    if resp.status_code == 422:
+        raise ValueError(f"Geçersiz girdi: {resp.json().get('detail', resp.text[:300])}")
+    if resp.status_code != 200:
+        raise ValueError(f"Core API {resp.status_code}: {resp.text[:500]}")
+    result = resp.json()
+    # source metadata ekle
+    result["_kaynak"] = {
+        "endpoint": "/api/projects/{pid}/fizibilite",
+        "satilabilir_alan_kaynak": "explicit" if satilabilir_alan_m2 is not None else "inferred_from_project",
+        "core_fingerprint": result.get("kaynak", {}).get("proje_parmak_izi"),
+        "metraj_fingerprint": result.get("kaynak", {}).get("metraj_parmak_izi"),
+    }
+    return result
 
 
 @mcp.tool()
@@ -278,57 +329,119 @@ def _pct(a: float, b: float) -> float:
 
 
 @mcp.tool()
-async def karlilik(proje_id: str, arsa_fiyati_tl: float, satis_m2_fiyati_tl: float,
-                   ek_gider_pct: float = 10) -> dict:
+async def karlilik(
+    proje_id: str,
+    arsa_fiyati_tl: float,
+    satis_m2_fiyati_tl: float,
+    ek_gider_pct: float = 10,
+    satilabilir_alan_m2: float | None = None,
+) -> dict:
     """Arsa satın alınarak yapılırsa tahmini kâr: satış geliri − (arsa + inşaat + ek giderler).
 
     ek_gider_pct: inşaat maliyetinin yüzdesi olarak ruhsat, proje, pazarlama, finansman (varsayılan %10).
+    satilabilir_alan_m2: opsiyonel, açıkça verirse proje varsayımı (odalar net alanı oranı) yerine geçer.
     Birden çok arsayı `kar_tl` ya da `getiri_pct` ile sırala.
     """
-    p = await _get(proje_id)
-    gelir, insaat, ek = _ekonomi(p, satis_m2_fiyati_tl, ek_gider_pct)
-    yatirim = arsa_fiyati_tl + insaat + ek
-    kar = gelir - yatirim
-    sonuc = {"proje_id": proje_id, "satilabilir_brut_m2": round(_satilabilir_m2(p), 1),
-            "satis_geliri_tl": round(gelir), "arsa_tl": round(arsa_fiyati_tl), "insaat_tl": round(insaat),
-            "ek_gider_tl": round(ek), "toplam_yatirim_tl": round(yatirim), "kar_tl": round(kar),
-            "kar_marji_pct": _pct(kar, gelir), "getiri_pct": _pct(kar, yatirim),
-            "basabas_satis_m2_tl": round(yatirim / _satilabilir_m2(p)) if _satilabilir_m2(p) else None,
-            "not": AVAN + " Satış fiyatı ilan ortalamasıdır; vergi ve satış süresi dahil değildir."}
+    fiz = await _fizibilite_hesapla(
+        proje_id=proje_id,
+        arsa_bedeli_tl=arsa_fiyati_tl,
+        satis_m2_fiyati_tl=satis_m2_fiyati_tl,
+        ek_gider_pct=ek_gider_pct,
+        satilabilir_alan_m2=satilabilir_alan_m2,
+    )
+    sonuc = {
+        "proje_id": proje_id,
+        "satilabilir_brut_m2": fiz["varsayimlar"]["satilabilir_alan_m2"],
+        "satis_geliri_tl": fiz["sonuc"]["satis_geliri_tl"],
+        "arsa_tl": fiz["varsayimlar"]["arsa_bedeli_tl"],
+        "insaat_tl": fiz["sonuc"]["insaat_bedeli_tl"],
+        "ek_gider_tl": fiz["sonuc"]["ek_gider_tl"],
+        "toplam_yatirim_tl": fiz["sonuc"]["toplam_gider_tl"],
+        "kar_tl": fiz["sonuc"]["tahmini_kar_tl"],
+        "kar_marji_pct": fiz["sonuc"]["kar_marji_pct"],
+        "getiri_pct": fiz["sonuc"]["maliyet_getirisi_pct"],
+        "basabas_satis_m2_tl": fiz["sonuc"]["basabas_m2_fiyati_tl"],
+        "not": AVAN + " Satış fiyatı ilan ortalamasıdır; vergi ve satış süresi dahil değildir.",
+        "uyarilar": fiz.get("uyarilar", []),
+        "_kaynak": fiz["_kaynak"],
+    }
     _kaydet(proje_id, "karlilik", sonuc)
     return sonuc
 
 
 @mcp.tool()
-async def kat_karsiligi(proje_id: str, satis_m2_fiyati_tl: float, arsa_sahibi_payi_pct: float = 45,
-                        hedef_marj_pct: float = 20, ek_gider_pct: float = 10) -> dict:
+async def kat_karsiligi(
+    proje_id: str,
+    satis_m2_fiyati_tl: float,
+    arsa_sahibi_payi_pct: float = 45,
+    hedef_marj_pct: float = 20,
+    ek_gider_pct: float = 10,
+    satilabilir_alan_m2: float | None = None,
+) -> dict:
     """Kat karşılığı anlaşma: arsa sahibine daire verilir, müteahhit kalan daireleri satar (arsa parası yok).
 
     Verilen payla daire paylaşımını ve müteahhidin kârını hesaplar; ayrıca müteahhidin hedef marjını
     koruyarak arsa sahibine verilebilecek en yüksek payı (`onerilen_*`) döner. Daireler eşit büyüklükte kabul edilir.
+    satilabilir_alan_m2: opsiyonel, açıkça verirse proje varsayımı (odalar net alanı oranı) yerine geçer.
     """
+    if isinstance(arsa_sahibi_payi_pct, bool) or not 0 <= arsa_sahibi_payi_pct <= 100:
+        raise ValueError("arsa_sahibi_payi_pct 0–100 arasında sonlu bir sayı olmalı")
+    if isinstance(hedef_marj_pct, bool) or not 0 <= hedef_marj_pct < 100:
+        raise ValueError("hedef_marj_pct 0 dahil, 100 hariç aralığında sonlu bir sayı olmalı")
+    # Core fizibilite API'sini çağır (arsa bedeli 0 çünkü kat karşılığında arsa parası yok)
+    fiz = await _fizibilite_hesapla(
+        proje_id=proje_id,
+        arsa_bedeli_tl=0,
+        satis_m2_fiyati_tl=satis_m2_fiyati_tl,
+        ek_gider_pct=ek_gider_pct,
+        satilabilir_alan_m2=satilabilir_alan_m2,
+    )
+
     p = await _get(proje_id)
     n = len(_daireler(p))
     if not n:
         raise ValueError("projede daire yok")
-    gelir, insaat, ek = _ekonomi(p, satis_m2_fiyati_tl, ek_gider_pct)
-    maliyet = insaat + ek
+
+    gelir = fiz["sonuc"]["satis_geliri_tl"]
+    maliyet = fiz["sonuc"]["insaat_bedeli_tl"] + fiz["sonuc"]["ek_gider_tl"]
+
+    # Sınır kontrolü: gelir 0 veya negatifse bölme hatası önle
+    if gelir <= 0:
+        raise ValueError("Satış geliri sıfır veya negatif; kat karşılığı hesaplanamaz (satis_m2_fiyati_tl > 0 ve satilabilir_alan_m2 > 0 olmalı)")
 
     def durum(sahip: int) -> dict:
         mgelir = gelir * (n - sahip) / n
-        return {"arsa_sahibi_daire": sahip, "muteahhit_daire": n - sahip,
-                "arsa_sahibi_payi_pct": _pct(sahip, n), "muteahhit_satis_geliri_tl": round(mgelir),
-                "muteahhit_kar_tl": round(mgelir - maliyet), "muteahhit_marj_pct": _pct(mgelir - maliyet, mgelir)}
+        return {
+            "arsa_sahibi_daire": sahip,
+            "muteahhit_daire": n - sahip,
+            "arsa_sahibi_payi_pct": _pct(sahip, n),
+            "muteahhit_satis_geliri_tl": round(mgelir),
+            "muteahhit_kar_tl": round(mgelir - maliyet),
+            "muteahhit_marj_pct": _pct(mgelir - maliyet, mgelir),
+        }
 
     istenen = durum(min(n, int(n * arsa_sahibi_payi_pct / 100 + 0.5)))
+
     # (1-p)·gelir·(1-h) >= maliyet  →  p <= 1 - maliyet / ((1-h)·gelir)
-    ust = 1 - maliyet / ((1 - hedef_marj_pct / 100) * gelir) if gelir else 0
-    onerilen = durum(max(0, min(n, int(n * ust)))) if ust > 0 else None
-    sonuc = {"proje_id": proje_id, "daire_sayisi": n, "daire_basi_deger_tl": round(gelir / n),
-             "insaat_ve_ek_gider_tl": round(maliyet), "istenen_pay": istenen,
-             "onerilen": onerilen, "hedef_marj_pct": hedef_marj_pct,
-             "uyari": None if onerilen else "bu satış fiyatında hedef marjla kat karşılığı yapılamaz",
-             "not": AVAN}
+    payda = (1 - hedef_marj_pct / 100) * gelir
+    if payda <= 0:
+        raise ValueError("Hedef marj için geçersiz parametreler: (1 - hedef_marj_pct/100) * gelir <= 0")
+    ust = 1 - maliyet / payda
+    onerilen = durum(max(0, min(n, int(n * ust)))) if ust >= 0 else None
+
+    sonuc = {
+        "proje_id": proje_id,
+        "daire_sayisi": n,
+        "daire_basi_deger_tl": round(gelir / n),
+        "insaat_ve_ek_gider_tl": round(maliyet),
+        "istenen_pay": istenen,
+        "onerilen": onerilen,
+        "hedef_marj_pct": hedef_marj_pct,
+        "uyari": None if onerilen else "bu satış fiyatında hedef marjla kat karşılığı yapılamaz",
+        "not": AVAN,
+        "uyarilar": fiz.get("uyarilar", []),
+        "_kaynak": fiz["_kaynak"],
+    }
     _kaydet(proje_id, "kat_karsiligi", sonuc)
     return sonuc
 

@@ -244,10 +244,10 @@ def status(out):
     onay = {**d["signer"], "date": d["date"], "code": code(d["fingerprint"])}
     docs, changed = [], False
     for k, v in (d.get("documents") or {}).items():
-        p = out / v["file"] if (out / v["file"]).is_file() else None
-        if p is None:
-            p = next(iter(out.rglob(v["file"])), None)
-        ok = p is not None and _sha(p) == v["sha256"]
+        # Arşivlenmiş teklif paketindeki aynı adlı belge canlı dosyanın yerini tutamaz.
+        # Belgeler kökte, çizim PDF'i ise cizimler/ altındadır.
+        p = out / "cizimler" / v["file"] if k == "cizim_pdf" else out / v["file"]
+        ok = p.is_file() and _sha(p) == v["sha256"]
         changed |= not ok
         docs.append({"key": k, "file": v["file"], "sha256": v["sha256"], "ok": ok})
     st = "degistirilmis" if changed else "onaylandi"

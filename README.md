@@ -27,6 +27,7 @@ uv run pytest -q
 - `metraj_maliyet.xlsx` — formüllü maliyet (Excel'de birim fiyat değişince toplamlar güncellenir), metraj, mahal listesi
 - `teknik_sartname.docx` — kalem kalem malzeme / uygulama / ölçü-ödeme
 - `teklif.docx` — müşteriye teklif mektubu (kapsam, bedel, m² fiyatı, ödeme planı, süre, hariçler)
+- `teklif_paketleri/v0001/` vb. — istek üzerine oluşturulan değiştirilmeyen teklif/belge kopyaları ve SHA-256 manifesti. `POST /api/projects/{id}/teklif-paketleri` yeni sürüm oluşturur; `GET` sürümleri ve indirme bağlantılarını listeler. Metraj referansı eskiyse paket oluşturulmaz; onay durumu kayıt anındaki durumdur, paketin kendisi yeni onay değildir.
 - `3d/` — Blender önizleme, colormap (AI video kontrol görüntüsü), `model.glb`
 
 ## 3D: gezinti, gerçekçi render, iç mekân düzenleyici

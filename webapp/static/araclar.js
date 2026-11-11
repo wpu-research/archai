@@ -62,7 +62,67 @@ export function createAraclar(ctx) {
     let list = [];
     try { list = (await api('/api/projects')).filter(p => p.id !== P.id); } catch (e) { fail(out, e); return; }
     out.innerHTML = `<div class="mk-row"><label class="mono" style="margin:0">Bu proje ↔ <select id="cm-sel" style="min-width:260px"><option value="">— karşılaştırılacak proje —</option>
-      ${list.map(p => `<option value="${esc(p.id)}" ${S.cmp === p.id ? 'selected' : ''}>${esc(p.name)} · ${esc(tl(p.total))}</option>`).join('')}</select></label></div><div id="cm-out"></div>`;
+      ${list.map(p => `<option value="${esc(p.id)}" ${S.cmp === p.id ? 'selected' : ''}>${esc(p.name)} · ${esc(tl(p.total))}</option>`).join('')}</select></label>
+      <button class="ghost" id="cm-alt" title="Bu projeden bağımsız bir alternatif oluştur (kat/daire tipi değişikliği ile)">⧉ ALTERNATİF OLUŞTUR</button></div>
+      <div id="cm-alt-form" style="display:none;margin-top:12px"></div><div id="cm-out"></div>`;
+
+    // Alternatif oluşturma formu
+    $('#cm-alt').onclick = () => {
+      const form = $('#cm-alt-form');
+      const isHidden = form.style.display === 'none';
+      form.style.display = isHidden ? 'block' : 'none';
+      if (isHidden) {
+        form.innerHTML = `<div class="warnbox">⚠ <b>ÖNEMLİ:</b> Alternatif proje <b>kaydedilen girdilerden (briften) yeniden üretilir</b>.<br>
+          Manuel geometri düzenlemeleri (cephe düzeltmesi, iç mekân değişiklikleri vb.) <b>KOPYALANMAZ</b>.<br>
+          Onay kayıtları, fizibilite senaryoları, tasarım setleri <b>kopyalanmaz</b>.</div>
+          <div class="mk-row"><label class="mono" style="margin:0">Alternatif adı <input id="alt-name" type="text" placeholder="Örn: 4 Katlı Alternatif" style="min-width:220px"></label></div>
+          <div class="mk-row"><label class="mono" style="margin:0">Kat sayısı <input id="alt-floors" type="number" min="1" max="30" style="width:80px" placeholder="boş = kaynak aynı"></label>
+            <label class="mono" style="margin:0">Daire tipi <select id="alt-ut" style="width:120px"><option value="">kaynak aynı</option><option>1+1</option><option>2+1</option><option>3+1</option><option>4+1</option></select></label>
+            <label class="mono" style="margin:0">Kat başına daire <select id="alt-upf" style="width:120px"><option value="">kaynak aynı</option><option value="auto">Otomatik</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select></label></div>
+          <label class="check" style="margin:10px 0"><input type="checkbox" id="alt-ack"> Manuel geometri düzenlemelerinin kopyalanmadığını, kayıtlı girdilerden yeniden üretileceğini onaylıyorum</label>
+          <div class="mk-row"><button class="primary" id="alt-go" style="width:auto">⧉ ALTERNATİFİ OLUŞTUR</button><span class="mono" id="alt-msg"></span></div>`;
+        $('#alt-go').onclick = createAlternative;
+      }
+    };
+
+    let creatingAlternative = false;
+    async function createAlternative() {
+      if (creatingAlternative) return;
+      const name = $('#alt-name').value.trim();
+      const floors = $('#alt-floors').value ? Number($('#alt-floors').value) : null;
+      const unit_type = $('#alt-ut').value || null;
+      const selectedUnits = $('#alt-upf').value;
+      const units_per_floor = selectedUnits === 'auto' ? 'auto' : selectedUnits ? Number(selectedUnits) : null;
+      const acknowledgement = $('#alt-ack').checked;
+      const msg = $('#alt-msg');
+      if (!name) { msg.textContent = 'alternatif adı gerekli'; return; }
+      if (!acknowledgement) { msg.textContent = 'onay kutusunu işaretleyin'; return; }
+      if (floors !== null && (!Number.isInteger(floors) || floors < 1 || floors > 30)) {
+        msg.textContent = 'Kat sayısı 1–30 arasında tam sayı olmalı'; return;
+      }
+      creatingAlternative = true;
+      const controls = [...$('#cm-alt-form').querySelectorAll('input, select, button'), $('#cm-alt')];
+      controls.forEach(control => { control.disabled = true; });
+      msg.textContent = 'oluşturuluyor…';
+      try {
+        const R = await api(`/api/projects/${P.id}/alternatif`, {
+          method: 'POST', headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({name, floors, unit_type, units_per_floor, acknowledgement})
+        });
+        msg.textContent = `oluşturuldu: ${R.alternative.name} (${R.alternative.id})`;
+        // Navigate to new project
+        setTimeout(() => {
+          window.location.href = `/#${encodeURIComponent(R.alternative.id)}`;
+          // Aynı sayfada yalnız hash değişirse index.html openP'yi tekrar çalıştırmaz.
+          window.location.reload();
+        }, 1200);
+      } catch (e) {
+        msg.textContent = e.message || 'hata';
+        creatingAlternative = false;
+        controls.forEach(control => { control.disabled = false; });
+      }
+    }
+
     const draw = async id => {
       const box = $('#cm-out'); if (!id) { box.innerHTML = ''; return; }
       S.cmp = id; wait(box);

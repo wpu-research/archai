@@ -30,6 +30,16 @@ def save(directory, name, result):
     return row
 
 
+def delete(directory, scenario_id):
+    """Kaydedilmiş bir anlık görüntüyü atomik olarak siler; diğerlerini değiştirmez."""
+    path = Path(directory) / DB_NAME
+    if not path.exists():
+        return False
+    with closing(sqlite3.connect(path, timeout=10)) as db:
+        with db:
+            return db.execute("DELETE FROM scenarios WHERE id = ?", (scenario_id,)).rowcount == 1
+
+
 def list_saved(directory, record, elements):
     path = Path(directory) / DB_NAME
     q = quantities.compute(elements)

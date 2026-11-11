@@ -89,8 +89,40 @@ def test_stale_quantities_cannot_be_saved(client, record):
     assert client.get("/api/projects/test/fizibilite/senaryolar").json()["senaryolar"] == []
 
 
+def test_export_and_delete_scenario(client, record):
+    url = "/api/projects/test/fizibilite/senaryolar"
+    calculation = client.post("/api/projects/test/fizibilite", json=INPUT).json()
+    saved = client.post(url, json={**INPUT, "ad": "Temel",
+                                   "proje_parmak_izi": calculation["kaynak"]["proje_parmak_izi"]}).json()["senaryo"]
+    item = f"{url}/{saved['id']}"
+    exported = client.get(item + "/export")
+    assert exported.status_code == 200
+    assert exported.headers["content-disposition"] == f'attachment; filename="fizibilite-{saved["id"]}.json"'
+    assert exported.json()["hesap"] == saved["hesap"]
+    assert exported.json()["guncel"] is True
+
+    record["cost"]["total"] = 2000
+    stale_export = client.get(item + "/export")
+    assert stale_export.json()["hesap"] == saved["hesap"]
+    assert stale_export.json()["guncel"] is False
+    assert client.delete(item).json() == {"ok": True, "id": saved["id"]}
+    assert client.get(item + "/export").status_code == 404
+    assert client.delete(item).status_code == 404
+    assert client.get(url).json()["senaryolar"] == []
+
+
+def test_export_and_delete_missing_scenario_do_not_create_database(client, tmp_path):
+    url = "/api/projects/test/fizibilite/senaryolar/" + "a" * 32
+    assert client.get(url + "/export").status_code == 404
+    assert client.delete(url).status_code == 404
+    assert not (tmp_path / scenarios.DB_NAME).exists()
+    assert client.get(url + "bad/export").status_code == 404
+
+
 def test_scenarios_authentication(client, monkeypatch):
     monkeypatch.setenv("ARCHAI_TOKEN", "scenario-test-token")
     url = "/api/projects/test/fizibilite/senaryolar"
     assert client.get(url).status_code == 401
     assert client.post(url, json=INPUT).status_code == 401
+    assert client.get(url + "/" + "a" * 32 + "/export").status_code == 401
+    assert client.delete(url + "/" + "a" * 32).status_code == 401

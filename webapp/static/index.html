@@ -948,7 +948,37 @@ function render(){
              ['ŞARTNAME','Teknik şartname','.docx · malzeme, uygulama, ölçü',P.files.sartname_docx],['ÇİZİM','Tüm paftalar','.pdf · A3',P.files.cizim_pdf],
              ['KEŞİF','Keşif özeti','.xlsx · poz numaralı',P.files.kesif_xlsx],['KEŞİF','Keşif özeti (AMP/Oska)','.csv · ; ayraçlı',P.files.kesif_csv],['ONAY','Onay tutanağı','.docx · belge özetleri',P.files.onay_tutanagi_docx]].filter(d=>d[3]);
     out.innerHTML=`<div class="docs">${D.map(d=>`<a class="doc" href="${esc(d[3])}" ${String(d[3]||'').endsWith('.pdf')?'target="_blank"':''}><small>${d[0]} ↓</small><b>${d[1]}</b><span>${d[2]}</span></a>`).join('')}</div>
-      <p class="note">Maliyet sekmesindeki her değişiklik bu belgeleri yeniden üretir.</p>`;
+      <p class="note">Maliyet sekmesindeki her değişiklik bu belgeleri yeniden üretir.</p>
+      <p class="sec-t">SÜRÜMLÜ TEKLİF PAKETLERİ</p>
+      <p class="note">Belgelerin ve maliyetin o andaki kopyası saklanır. Paket oluşturmak yeni bir mimar/mühendis onayı değildir.</p>
+      <button class="ghost" id="offer-create" type="button">YENİ PAKET SÜRÜMÜ OLUŞTUR</button>
+      <p id="offer-status" class="note" role="status"></p><div id="offer-list"></div>`;
+    const packagePid=P.id, packagePanel=out.querySelector('#offer-list');
+    const packageStatus=out.querySelector('#offer-status'), createPackage=out.querySelector('#offer-create');
+    const packageAlive=()=>P?.id===packagePid&&tab==='belge'&&out.contains(packagePanel);
+    async function loadPackages(){
+      try{
+        const data=await api(`/api/projects/${encodeURIComponent(packagePid)}/teklif-paketleri`);
+        if(!packageAlive())return;
+        packagePanel.innerHTML=data.paketler.length?data.paketler.map(p=>`<div class="warnbox" style="margin-top:10px">
+          <b>Sürüm ${esc(p.version)} · ${esc(p.created_at)}</b> · ${esc(p.approval_status)} · ${esc(p.cost_total_tl)} ₺
+          <span class="mono"> SHA-256: ${esc(p.project_fingerprint.slice(0,12))}</span><div class="mk-row">
+          ${Object.entries(p.documents).map(([key,doc])=>`<a class="ghost" href="${esc(doc.url)}">↓ ${esc(key.replaceAll('_',' '))}</a>`).join('')}
+          </div></div>`).join(''):'<p class="note">Henüz teklif paketi yok.</p>';
+      }catch(e){if(packageAlive())packageStatus.textContent=e.message||String(e);}
+    }
+    createPackage.onclick=async()=>{
+      if(createPackage.disabled)return;
+      createPackage.disabled=true;packageStatus.textContent='Paket oluşturuluyor…';
+      try{
+        const data=await api(`/api/projects/${encodeURIComponent(packagePid)}/teklif-paketleri`,{method:'POST'});
+        if(!packageAlive())return;
+        packageStatus.textContent=`Sürüm ${data.paket.version} oluşturuldu.`;
+        await loadPackages();
+      }catch(e){if(packageAlive())packageStatus.textContent=e.message||String(e);}
+      finally{createPackage.disabled=false;}
+    };
+    loadPackages();
   }else if(tab==='tasarim'){
     DA.mount(out);
   }else if(tab==='poz'){

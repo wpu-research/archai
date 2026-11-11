@@ -48,7 +48,10 @@ export function createFizibilite({api, esc, tl, n2, getProject}) {
             <div class="grid2"><div><label for="fi-a">Senaryo A</label><select id="fi-a">${options}</select></div>
             <div><label for="fi-b">Senaryo B</label><select id="fi-b">${options}</select></div></div>
             <div id="fi-comparison" style="overflow-x:auto;max-width:100%"></div>
-            <button class="ghost" id="fi-use" type="button">A SENARYOSUNU FORMA AKTAR</button>`;
+            <div class="mk-row"><button class="ghost" id="fi-use" type="button">A SENARYOSUNU FORMA AKTAR</button>
+            <button class="ghost" id="fi-export" type="button">A SENARYOSUNU JSON İNDİR</button>
+            <button class="ghost" id="fi-delete" type="button">A SENARYOSUNU SİL</button></div>
+            <p id="fi-action-status" class="note" role="status"></p>`;
           const a = savedView.querySelector('#fi-a'), b = savedView.querySelector('#fi-b');
           b.value = String(Math.min(1, rows.length - 1));
           const compare = () => {
@@ -74,6 +77,31 @@ export function createFizibilite({api, esc, tl, n2, getProject}) {
             if (busy || saving) return;
             for (const [key, value] of Object.entries(rows[Number(a.value)].hesap.varsayimlar)) form.elements.namedItem(key).value = value;
             invalidate(); status.textContent = 'Varsayımlar aktarıldı. Güncel maliyetle yeniden hesaplayın.';
+          };
+          const actionStatus = savedView.querySelector('#fi-action-status');
+          savedView.querySelector('#fi-export').onclick = async () => {
+            const row = rows[Number(a.value)];
+            try {
+              const snapshot = await api(`/api/projects/${encodeURIComponent(pid)}/fizibilite/senaryolar/${row.id}/export`);
+              if (!alive() || sequence !== loadSequence) return;
+              const url = URL.createObjectURL(new Blob([JSON.stringify(snapshot, null, 2)], {type: 'application/json'}));
+              const link = document.createElement('a');
+              link.href = url; link.download = `fizibilite-${row.id}.json`; link.click();
+              setTimeout(() => URL.revokeObjectURL(url), 1000);
+              actionStatus.textContent = 'Senaryo indirildi.';
+            } catch (e) { if (alive() && sequence === loadSequence) actionStatus.textContent = e.message || String(e); }
+          };
+          savedView.querySelector('#fi-delete').onclick = async () => {
+            const row = rows[Number(a.value)];
+            if (!confirm(`“${row.ad}” senaryosunu kalıcı olarak silmek istiyor musunuz?`)) return;
+            const button = savedView.querySelector('#fi-delete');
+            button.disabled = true;
+            try {
+              await api(`/api/projects/${encodeURIComponent(pid)}/fizibilite/senaryolar/${row.id}`, {method: 'DELETE'});
+              if (alive() && sequence === loadSequence) { await loadSaved(); status.textContent = 'Senaryo silindi.'; }
+            } catch (e) {
+              if (alive() && sequence === loadSequence) { actionStatus.textContent = e.message || String(e); button.disabled = false; }
+            }
           };
           compare();
         } catch (e) {
